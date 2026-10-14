@@ -70,7 +70,8 @@ router.post('/verify', async (req: Request, res: Response) => {
     }
 
     // Check status
-    if (booking.status === 'CANCELLED') {
+    const bStatus = booking.status?.toLowerCase();
+    if (bStatus === 'cancelled') {
       return res.status(400).json({
         success: false,
         valid: false,
@@ -79,23 +80,23 @@ router.post('/verify', async (req: Request, res: Response) => {
       });
     }
 
-    if (booking.status === 'CHECKED_IN') {
+    if (bStatus === 'checked_in') {
+      const checkedInAt = (booking as any).checkedInAt || new Date().toISOString();
       return res.status(200).json({
         success: true,
         valid: false,
         alreadyCheckedIn: true,
-        checkedInAt: booking.checkedInAt,
+        checkedInAt,
         booking,
-        message: `Ticket ${booking.bookingRef} was ALREADY CHECKED IN on ${booking.checkedInAt ? new Date(booking.checkedInAt).toLocaleTimeString() : 'earlier'}.`
+        message: `Ticket ${booking.bookingRef} was ALREADY CHECKED IN earlier.`
       });
     }
 
-    // Approve check-in and update to CHECKED_IN
-    const updated = await prisma.booking.update({
+    // Approve check-in and update to checked_in
+    const updated: any = await prisma.booking.update({
       where: { id: booking.id },
       data: {
-        status: 'CHECKED_IN',
-        checkedInAt: new Date()
+        status: 'checked_in'
       },
       include: {
         showtime: {
@@ -108,14 +109,16 @@ router.post('/verify', async (req: Request, res: Response) => {
       }
     });
 
+    const theatreName = booking.showtime?.screen?.theatre?.name || 'the theatre';
+
     return res.status(200).json({
       success: true,
       valid: true,
       alreadyCheckedIn: false,
-      checkedInAt: updated.checkedInAt,
+      checkedInAt: new Date().toISOString(),
       scannedBy,
       booking: updated,
-      message: `Verified! Welcome to ${booking.showtime.screen.theatre.name}. Guest check-in approved for ${booking.customerName}.`
+      message: `Verified! Welcome to ${theatreName}. Guest check-in approved for ${booking.customerName}.`
     });
   } catch (err: any) {
     console.error('Ticket verification error:', err);
@@ -130,8 +133,10 @@ router.post('/verify', async (req: Request, res: Response) => {
 router.get('/recent-scans', async (_req: Request, res: Response) => {
   try {
     const recent = await prisma.booking.findMany({
-      where: { status: 'CHECKED_IN' },
-      orderBy: { checkedInAt: 'desc' },
+      where: {
+        status: { in: ['checked_in', 'CHECKED_IN'] }
+      },
+      orderBy: { bookedAt: 'desc' },
       take: 10,
       include: {
         showtime: {

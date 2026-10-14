@@ -19,19 +19,33 @@ import {
   Sparkles,
   Play,
   X,
-  ThumbsUp
+  ThumbsUp,
+  AlertCircle
 } from 'lucide-react';
 import { MOVIES, SHOWTIMES_SCHEDULE, getCinemasForCity } from '../data/mockData';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import type { Cinema } from '../types';
+import type { Cinema, Review } from '../types';
 import {
   getMovieReviewsApi,
   submitMovieReviewApi,
   getFavoritesApi,
   toggleFavoriteApi
 } from '../services/api';
+
+const RATING_DESCRIPTIONS: Record<number, string> = {
+  1: 'Disappointing (1/10)',
+  2: 'Poor (2/10)',
+  3: 'Weak (3/10)',
+  4: 'Below Average (4/10)',
+  5: 'Average (5/10)',
+  6: 'Decent (6/10)',
+  7: 'Good (7/10)',
+  8: 'Great (8/10)',
+  9: 'Excellent (9/10)',
+  10: 'Masterpiece (10/10)'
+};
 
 export const MovieDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -79,12 +93,49 @@ export const MovieDetailsPage: React.FC = () => {
   }, [cityCinemas]);
 
   // Reviews state
-  const [reviews, setReviews] = useState<Array<{ id: string; userName: string; rating: number; comment: string; createdAt: string }>>([]);
-  const [reviewRating, setReviewRating] = useState(9);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewRating, setReviewRating] = useState<number>(9);
+  const [reviewHoverRating, setReviewHoverRating] = useState<number | null>(null);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewName, setReviewName] = useState(user?.name || 'Cinema Enthusiast');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewFeedback, setReviewFeedback] = useState<string | null>(null);
+  const [reviewFeedbackType, setReviewFeedbackType] = useState<'success' | 'error' | null>(null);
+
+  // Dynamic movie rating & vote count updated live upon submission
+  const [dynamicRating, setDynamicRating] = useState<number | null>(null);
+  const [dynamicVotesCount, setDynamicVotesCount] = useState<string | null>(null);
+
+  // Compute live average rating from reviews array or dynamic rating
+  const averageRating = useMemo(() => {
+    if (dynamicRating !== null) return dynamicRating;
+    if (reviews.length > 0) {
+      const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+      return Math.round((sum / reviews.length) * 10) / 10;
+    }
+    return movie?.rating ?? 8.5;
+  }, [dynamicRating, reviews, movie]);
+
+  // Display votes count string
+  const displayVotesCount = useMemo(() => {
+    if (dynamicVotesCount) return dynamicVotesCount;
+    if (reviews.length > 0) return `${reviews.length} reviews`;
+    return movie?.votesCount || '0 reviews';
+  }, [dynamicVotesCount, reviews.length, movie]);
+
+  // Positive recommendation rate (% of reviews >= 7)
+  const recommendationRate = useMemo(() => {
+    if (reviews.length === 0) return 92;
+    const positive = reviews.filter(r => r.rating >= 7).length;
+    return Math.round((positive / reviews.length) * 100);
+  }, [reviews]);
+
+  // Auto-fill reviewer name if user signs in
+  useEffect(() => {
+    if (user?.name) {
+      setReviewName(user.name);
+    }
+  }, [user?.name]);
 
   // Watchlist state
   const [isFavorite, setIsFavorite] = useState(false);
@@ -120,6 +171,12 @@ export const MovieDetailsPage: React.FC = () => {
       .then(res => {
         if (res.success && res.reviews) {
           setReviews(res.reviews);
+          if (res.movieRating !== undefined) {
+            setDynamicRating(res.movieRating);
+          }
+          if (res.votesCount) {
+            setDynamicVotesCount(res.votesCount);
+          }
         }
       })
       .catch(() => {
@@ -127,6 +184,7 @@ export const MovieDetailsPage: React.FC = () => {
         setReviews([
           {
             id: 'rev-default-1',
+            movieId: id,
             userName: 'Rahul S.',
             rating: 9.5,
             comment: 'Stunning visual masterpiece! The sound engineering in IMAX was breathtaking.',
@@ -134,6 +192,7 @@ export const MovieDetailsPage: React.FC = () => {
           },
           {
             id: 'rev-default-2',
+            movieId: id,
             userName: 'Priya M.',
             rating: 9.0,
             comment: 'Top-tier performances and stellar direction. Must watch in cinemas!',
@@ -168,13 +227,27 @@ export const MovieDetailsPage: React.FC = () => {
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !reviewComment.trim()) return;
+    if (!id) return;
+
+    if (!reviewComment.trim()) {
+      setReviewFeedback('Please write a comment sharing your thoughts on the movie.');
+      setReviewFeedbackType('error');
+      return;
+    }
+
+    if (reviewRating < 1 || reviewRating > 10) {
+      setReviewFeedback('Rating must be between 1 and 10 stars.');
+      setReviewFeedbackType('error');
+      return;
+    }
 
     setIsSubmittingReview(true);
     setReviewFeedback(null);
+    setReviewFeedbackType(null);
+
     try {
       const res = await submitMovieReviewApi(id, {
-        userName: reviewName.trim() || 'Anonymous Reviewer',
+        userName: reviewName.trim() || user?.name || 'Verified Moviegoer',
         rating: reviewRating,
         comment: reviewComment.trim(),
         userEmail: user?.email
@@ -182,11 +255,22 @@ export const MovieDetailsPage: React.FC = () => {
 
       if (res.success && res.review) {
         setReviews(prev => [res.review, ...prev]);
+        if (res.movieRating !== undefined) {
+          setDynamicRating(res.movieRating);
+        }
+        if (res.votesCount) {
+          setDynamicVotesCount(res.votesCount);
+        }
         setReviewComment('');
-        setReviewFeedback('Thank you! Your verified review has been published.');
+        setReviewFeedback('Thank you! Your verified rating and review have been published.');
+        setReviewFeedbackType('success');
+      } else {
+        setReviewFeedback(res.message || 'Failed to submit review.');
+        setReviewFeedbackType('error');
       }
     } catch (err: unknown) {
       setReviewFeedback((err as Error).message || 'Failed to submit review.');
+      setReviewFeedbackType('error');
     } finally {
       setIsSubmittingReview(false);
     }
@@ -209,7 +293,9 @@ export const MovieDetailsPage: React.FC = () => {
   }
 
   const handleProceedToSeats = () => {
-    const showtimeId = `show-${movie.id.substring(0, 8)}-${selectedCinema.id.substring(0, 8)}-1`;
+    const movieSlug = movie.id.includes('kalki') ? 'kalki' : movie.id.substring(0, 8);
+    const cinemaSlug = selectedCinema.id.includes('pvr') ? 'pvr' : selectedCinema.id.replace('cin-', '').substring(0, 8);
+    const showtimeId = `show-${movieSlug}--${cinemaSlug}--1`;
     setActiveMovie(movie);
     setActiveShowtime({
       cinema: selectedCinema,
@@ -344,8 +430,8 @@ export const MovieDetailsPage: React.FC = () => {
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm text-slate-300 pt-1">
               <div className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3.5 py-1.5 rounded-xl border border-white/10 shadow-sm">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                <span>{movie.rating.toFixed(1)}</span>
-                <span className="text-xs text-slate-400 font-normal">({movie.votesCount} reviews)</span>
+                <span>{averageRating.toFixed(1)}</span>
+                <span className="text-xs text-slate-400 font-normal">({displayVotesCount})</span>
               </div>
               <div className="flex items-center gap-1.5 bg-[#1C1F2B] px-3.5 py-1.5 rounded-xl border border-white/10 text-slate-200">
                 <Clock className="w-4 h-4 text-blue-400" />
@@ -714,23 +800,97 @@ export const MovieDetailsPage: React.FC = () => {
                 <span>{t.movie.reviewsTitle} ({reviews.length})</span>
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                Verified cinema audience feedback and critical scores
+                Verified cinema audience feedback, genuine critical scores, and community impressions
               </p>
+            </div>
+          </div>
+
+          {/* Reviews Rating Overview Banner */}
+          <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[#14161F] via-[#161925] to-[#1A1D2B] mb-8 shadow-xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              {/* Average Score */}
+              <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-6">
+                <div className="w-16 h-16 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex flex-col items-center justify-center shadow-lg shadow-amber-400/10 shrink-0">
+                  <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
+                  <span className="font-black text-amber-400 text-base leading-none mt-1 font-mono">
+                    {averageRating.toFixed(1)}
+                  </span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white text-base">Audience Score</span>
+                    <span className="text-xs text-amber-400 font-bold px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
+                      / 10
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Based on {reviews.length} audience reviews
+                  </p>
+                </div>
+              </div>
+
+              {/* Recommendation Rate */}
+              <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-6">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex flex-col items-center justify-center shadow-lg shadow-emerald-500/10 text-emerald-400 shrink-0">
+                  <ThumbsUp className="w-6 h-6" />
+                  <span className="font-black text-emerald-400 text-base leading-none mt-1 font-mono">
+                    {recommendationRate}%
+                  </span>
+                </div>
+                <div>
+                  <span className="font-bold text-white text-base">Recommended</span>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {recommendationRate}% of viewers rated this film 7 or higher
+                  </p>
+                </div>
+              </div>
+
+              {/* Live Realtime Sync */}
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex flex-col items-center justify-center shadow-lg shadow-blue-500/10 text-blue-400 shrink-0">
+                  <CheckCircle2 className="w-6 h-6" />
+                  <span className="font-black text-blue-400 text-[10px] leading-none mt-1 uppercase tracking-wider font-mono">
+                    LIVE
+                  </span>
+                </div>
+                <div>
+                  <span className="font-bold text-white text-base">Instant Feedback</span>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Your rating immediately updates the live movie score
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left 5 Cols: Submit Review Form */}
-            <div className="lg:col-span-5 p-6 rounded-2xl border border-white/10 bg-[#14161F] space-y-4 shadow-xl">
-              <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-400" />
-                <span>Write a Movie Review</span>
-              </h4>
+            <div className="lg:col-span-5 p-6 rounded-2xl border border-white/10 bg-[#14161F] space-y-5 shadow-xl">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-400" />
+                  <span>Write a Movie Review</span>
+                </h4>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Scale: 1 – 10
+                </span>
+              </div>
 
               {reviewFeedback && (
-                <div className="p-3 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-300 text-xs">
-                  {reviewFeedback}
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs transition-all ${
+                    reviewFeedbackType === 'success'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  }`}
+                >
+                  {reviewFeedbackType === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  <span>{reviewFeedback}</span>
                 </div>
               )}
 
@@ -745,85 +905,153 @@ export const MovieDetailsPage: React.FC = () => {
                     value={reviewName}
                     onChange={(e) => setReviewName(e.target.value)}
                     placeholder="Enter your name"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1F2B] border border-white/10 text-slate-200 text-xs outline-none focus:border-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1F2B] border border-white/10 text-slate-200 text-xs outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>
 
+                {/* Interactive 1 to 10 Star Rating Selector */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Rating (1 to 10 Stars)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min="1"
-                      max="10"
-                      step="0.5"
-                      value={reviewRating}
-                      onChange={(e) => setReviewRating(parseFloat(e.target.value))}
-                      className="flex-1 accent-blue-500 cursor-pointer"
-                    />
-                    <span className="font-black text-amber-400 font-mono text-sm w-12 text-right">
-                      ★ {reviewRating.toFixed(1)}
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Rating (1 to 10 Stars)
+                    </label>
+                    <span className="font-bold text-amber-400 text-xs px-2.5 py-0.5 rounded-lg bg-amber-400/10 border border-amber-400/20 font-mono">
+                      ★ {(reviewHoverRating ?? reviewRating).toFixed(1)} / 10
+                    </span>
+                  </div>
+
+                  {/* 10 Interactive Star Buttons */}
+                  <div className="grid grid-cols-10 gap-1 p-2 rounded-xl bg-[#1C1F2B] border border-white/10">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((starVal) => {
+                      const activeScore = reviewHoverRating ?? reviewRating;
+                      const isHighlighted = starVal <= activeScore;
+                      return (
+                        <button
+                          key={starVal}
+                          type="button"
+                          onClick={() => setReviewRating(starVal)}
+                          onMouseEnter={() => setReviewHoverRating(starVal)}
+                          onMouseLeave={() => setReviewHoverRating(null)}
+                          className={`py-2 px-0.5 flex flex-col items-center justify-center rounded-lg transition-all duration-150 cursor-pointer ${
+                            isHighlighted
+                              ? 'bg-amber-400/20 text-amber-400 scale-105 shadow-sm shadow-amber-400/10'
+                              : 'text-slate-600 hover:text-slate-300 hover:bg-white/5'
+                          }`}
+                          title={`${starVal}/10: ${RATING_DESCRIPTIONS[starVal]}`}
+                        >
+                          <Star
+                            className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform ${
+                              isHighlighted
+                                ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]'
+                                : 'text-slate-600'
+                            }`}
+                          />
+                          <span className="text-[10px] font-mono font-bold mt-1">
+                            {starVal}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Rating Description Label */}
+                  <div className="text-[11px] text-slate-400 mt-1.5 flex items-center justify-between px-1">
+                    <span className="text-amber-300/90 font-medium">
+                      {RATING_DESCRIPTIONS[Math.round(reviewHoverRating ?? reviewRating)]}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Tap any star to rate
                     </span>
                   </div>
                 </div>
 
+                {/* Review Text */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Review Comment
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Written Review / Feedback
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      {reviewComment.trim().length} chars
+                    </span>
+                  </div>
                   <textarea
                     required
-                    rows={3}
+                    rows={4}
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
-                    placeholder="Share your thoughts on the cinematography, sound, and story..."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1F2B] border border-white/10 text-slate-200 text-xs outline-none focus:border-blue-500 resize-none"
+                    placeholder="Share your thoughts on the story, acting, direction, cinematography, and overall cinema experience..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1F2B] border border-white/10 text-slate-200 text-xs outline-none focus:border-blue-500 resize-none transition-colors"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isSubmittingReview}
-                  className="w-full py-2.5 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-blue-600/25"
+                  disabled={isSubmittingReview || !reviewComment.trim()}
+                  className="w-full py-2.5 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md shadow-blue-600/25 active:scale-[0.99]"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{isSubmittingReview ? 'Submitting...' : 'Post Review'}</span>
+                  <span>{isSubmittingReview ? 'Publishing Review...' : 'Submit Verified Review'}</span>
                 </button>
               </form>
             </div>
 
             {/* Right 7 Cols: Reviews List */}
             <div className="lg:col-span-7 space-y-4">
-              {reviews.map(r => (
-                <div
-                  key={r.id}
-                  className="p-5 rounded-2xl border border-white/10 bg-[#14161F] space-y-2.5 hover:border-white/20 transition-colors shadow-lg"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                        {r.userName.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="font-bold text-sm text-white">{r.userName}</span>
-                    </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Audience Feedback ({reviews.length})
+                </span>
+                <span className="text-xs text-amber-400 font-semibold flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-amber-400" />
+                  Average: {averageRating.toFixed(1)} / 10
+                </span>
+              </div>
 
-                    <div className="flex items-center gap-1 text-amber-400 font-bold text-xs bg-[#1C1F2B] px-2.5 py-1 rounded-lg border border-white/10">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span>{r.rating.toFixed(1)} / 10</span>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-zinc-300 leading-relaxed">
-                    "{r.comment}"
+              {reviews.length === 0 ? (
+                <div className="p-8 rounded-2xl border border-white/10 bg-[#14161F] text-center space-y-2">
+                  <MessageSquare className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="text-sm font-semibold text-white">No reviews yet</p>
+                  <p className="text-xs text-slate-400">
+                    Be the first verified moviegoer to leave a review and rating for {movie.title}!
                   </p>
-
-                  <span className="text-[10px] text-slate-400 block pt-1">
-                    Posted {r.createdAt}
-                  </span>
                 </div>
-              ))}
+              ) : (
+                reviews.map(r => (
+                  <div
+                    key={r.id}
+                    className="p-5 rounded-2xl border border-white/10 bg-[#14161F] space-y-3 hover:border-white/20 transition-all shadow-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                          {r.userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm text-white">{r.userName}</span>
+                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded font-medium">
+                              Verified
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block">
+                            {r.createdAt}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs bg-[#1C1F2B] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm font-mono">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>{r.rating.toFixed(1)} / 10</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-zinc-300 leading-relaxed italic bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                      "{r.comment}"
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
 
           </div>

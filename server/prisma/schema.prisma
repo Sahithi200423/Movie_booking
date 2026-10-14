@@ -1,145 +1,141 @@
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("SUPABASE_DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/pgclient"
 }
 
 /// User accounts (Customer, Admin, Staff)
 model User {
-  id           String            @id @default(uuid())
+  id           String    @id @default(uuid())
   name         String
-  email        String            @unique
-  phone        String?           @unique
-  passwordHash String?
-  role         String            @default("USER") // USER, ADMIN, THEATRE_STAFF
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  email        String    @unique
+  phone        String?   @unique
+  passwordHash String?   @map("password_hash")
+  role         String    @default("user")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   bookings     Booking[]
-  reservations SeatReservation[]
 
   @@map("users")
 }
 
 /// Movie catalogue metadata
 model Movie {
-  id            String     @id @default(uuid())
-  title         String
-  synopsis      String
-  duration      Int        // Duration in minutes
-  language      String     // e.g. "Telugu, Hindi, Tamil"
-  genre         String     // e.g. "Action, Sci-Fi"
-  certification String     @default("UA") // U, UA, A, R
-  rating        Float      @default(8.5)
-  posterUrl     String
-  bannerUrl     String?
-  releaseDate   DateTime?
-  status        String     @default("now_showing") // now_showing, coming_soon
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id               String      @id
+  title            String
+  tagline          String?
+  synopsis         String
+  posterUrl        String      @map("poster_url")
+  backdropUrl      String      @map("backdrop_url")
+  originalLanguage String      @default("English") @map("original_language")
+  durationMinutes  Int         @map("duration_minutes")
+  rating           Decimal     @default(8.5)
+  votesCount       String      @default("120 reviews") @map("votes_count")
+  ageRating        String      @default("UA") @map("age_rating")
+  releaseDate      String      @default("2024-01-01") @map("release_date")
+  status           String      @default("now_showing")
+  director         String      @default("Director")
+  formats          String[]    @default(["2D"])
+  featured         Boolean     @default(false)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  genre            String[]    @default([])
+  languages        String[]    @default([])
 
-  showtimes     Showtime[]
+  showtimes        Showtime[]
+  reviews          Review[]
+  cast             MovieCast[]
 
   @@map("movies")
 }
 
-/// Multiplex venue / Theatre
+/// Multiplex venue / Theatre (Maps to Supabase cinemas table)
 model Theatre {
-  id           String     @id @default(uuid())
-  name         String     // e.g., "PVR ICON: Phoenix Palladium, Lower Parel"
-  chain        String     // "PVR", "INOX", "Cinépolis"
-  city         String     // "Mumbai", "Delhi-NCR", etc.
-  address      String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id         String     @id
+  name       String
+  city       String
+  address    String
+  facilities String[]   @default([])
+  distance   String     @default("0 km")
+  timezone   String     @default("Asia/Kolkata")
 
-  screens      Screen[]
+  screens    Screen[]
+  showtimes  Showtime[]
 
-  @@map("theatres")
+  @@map("cinemas")
 }
 
 /// Auditorium screen within a theatre
 model Screen {
-  id           String     @id @default(uuid())
-  theatreId    String
-  name         String     // e.g., "Screen 1 - IMAX Laser 3D", "Screen 2 - Dolby Atmos 7.1"
-  screenNumber Int
-  format       String     @default("2D") // "IMAX 3D", "Dolby Atmos 7.1", "4DX", "2D"
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id         String     @id
+  theatreId  String?    @map("cinema_id")
+  name       String
+  screenType String     @default("Standard") @map("screen_type")
 
-  theatre      Theatre    @relation(fields: [theatreId], references: [id], onDelete: Cascade)
-  seats        Seat[]
-  showtimes    Showtime[]
+  theatre    Theatre?   @relation(fields: [theatreId], references: [id], onDelete: Cascade)
+  seats      Seat[]
+  showtimes  Showtime[]
 
   @@map("screens")
 }
 
 /// Physical seat in an auditorium screen
 model Seat {
-  id           String            @id @default(uuid())
-  screenId     String
-  row          String            // "A", "B", ... "H"
-  number       Int               // 1 to 16
-  seatNumber   String            // "A1", "A2", etc.
-  tier         String            @default("EXECUTIVE") // "RECLINER", "PRIME", "EXECUTIVE"
-  basePrice    Float             @default(220.0)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id           String            @id
+  screenId     String?           @map("screen_id")
+  row          String            @map("row_label")
+  number       Int               @map("seat_number")
+  seatNumber   String?           @map("seat_number_name")
+  tier         String            @default("STANDARD")
+  basePrice    Decimal           @map("base_price")
 
-  screen       Screen            @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  screen       Screen?           @relation(fields: [screenId], references: [id], onDelete: Cascade)
   reservations SeatReservation[]
 
-  @@unique([screenId, row, number])
   @@map("seats")
 }
 
 /// Screening instance of a movie in a screen
 model Showtime {
-  id           String            @id @default(uuid())
-  movieId      String
-  screenId     String
-  startTime    DateTime
-  endTime      DateTime
-  date         String            // "2026-10-04"
-  time         String            // "07:30 PM"
-  language     String            @default("Hindi")
-  format       String            @default("2D")
-  cancellable  Boolean           @default(true)
-  subtitles    Boolean           @default(true)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id              String            @id
+  cinemaId        String?           @map("cinema_id")
+  screenId        String?           @map("screen_id")
+  movieId         String?           @map("movie_id")
+  date            String
+  time            String
+  format          String
+  hallName        String            @map("hall_name")
+  language        String            @default("English")
+  priceMultiplier Decimal           @default(1.00) @map("price_multiplier")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  hall            String?
 
-  movie        Movie             @relation(fields: [movieId], references: [id], onDelete: Cascade)
-  screen       Screen            @relation(fields: [screenId], references: [id], onDelete: Cascade)
-  reservations SeatReservation[]
-  bookings     Booking[]
+  cinema          Theatre?          @relation(fields: [cinemaId], references: [id], onDelete: Cascade)
+  screen          Screen?           @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  movie           Movie?            @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  reservations    SeatReservation[]
+  bookings        Booking[]
 
   @@map("showtimes")
 }
 
 /// Real-time seat concurrency lock & booking state
 model SeatReservation {
-  id                  String     @id @default(uuid())
-  showtimeId          String
-  seatId              String
-  status              String     @default("AVAILABLE") // "AVAILABLE", "HELD", "BOOKED"
-  heldBy              String?    // Session ID or User ID who holds the seat
-  heldExpiresAt       DateTime?  // 10-minute hold timestamp
-  lockedBySessionId   String?    // backwards compatible alias
-  lockedByUserId      String?    // backwards compatible alias
-  lockedUntil         DateTime?  // backwards compatible alias
-  bookingId           String?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  id            String    @id @default(uuid())
+  showtimeId    String    @map("showtime_id")
+  seatId        String    @map("seat_id")
+  status        String    @default("AVAILABLE")
+  heldBy        String?   @map("held_by")
+  heldExpiresAt DateTime? @map("held_expires_at")
+  bookingId     String?   @map("booking_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
-  showtime            Showtime   @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
-  seat                Seat       @relation(fields: [seatId], references: [id], onDelete: Cascade)
-  user                User?      @relation(fields: [lockedByUserId], references: [id], onDelete: SetNull)
-  booking             Booking?   @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  showtime      Showtime  @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
+  seat          Seat      @relation(fields: [seatId], references: [id], onDelete: Cascade)
 
   @@unique([showtimeId, seatId])
   @@map("seat_reservations")
@@ -147,61 +143,133 @@ model SeatReservation {
 
 /// Customer ticket booking record
 model Booking {
-  id             String            @id @default(uuid())
-  bookingRef     String            @unique // E.g., "BMS-849204-KL"
-  userId         String?
-  showtimeId     String
-  customerName   String
-  customerEmail  String
-  customerPhone  String
-  seatsCount     Int
-  seatIds        String            // Comma-separated: "A1, A2"
-  seatDetails    String?           // JSON string of seats with tiers and individual prices
-  baseAmount     Float
-  convenienceFee Float
-  gstAmount      Float
-  donationAmount Float             @default(0.0)
-  discountAmount Float             @default(0.0)
-  totalAmount    Float
-  status         String            @default("PENDING") // "PENDING", "CONFIRMED", "CHECKED_IN", "CANCELLED", "EXPIRED"
-  refundStatus   String?           @default("NOT_REQUESTED") // "NOT_REQUESTED", "REFUND_PENDING", "REFUND_PROCESSING", "REFUNDED", "REFUND_FAILED"
-  refundAmount   Float?            @default(0.0)
-  cancellationFee Float?           @default(0.0)
-  refundId       String?
-  cancelledAt    DateTime?
-  qrCodeData     String            // Encrypted / signed payload for M-Ticket
-  checkedInAt    DateTime?
-  paymentMethod  String            @default("UPI")
-  paymentId      String?           @unique
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id              String            @id @default(uuid())
+  userId          String?           @map("user_id")
+  showtimeId      String            @map("showtime_id")
+  customerName    String            @map("customer_name")
+  customerEmail   String            @map("customer_email")
+  customerPhone   String            @map("customer_phone")
+  subtotal        Decimal
+  convenienceFee  Decimal           @map("convenience_fee")
+  tax             Decimal
+  totalAmount     Decimal           @map("total_amount")
+  paymentMethod   String            @default("Demo Card") @map("payment_method")
+  status          String            @default("confirmed")
+  refundStatus    String            @default("NOT_REQUESTED") @map("refund_status")
+  bookedAt        DateTime          @default(now()) @map("booked_at")
+  cancelledAt     DateTime?         @map("cancelled_at")
+  refundAmount    Decimal           @default(0.00) @map("refund_amount")
+  cancellationFee Decimal           @default(0.00) @map("cancellation_fee")
+  refundId        String?           @map("refund_id")
+  bookingRef      String?           @map("booking_ref")
 
-  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  showtime       Showtime          @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
-  payment        Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  reservations   SeatReservation[]
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  showtime        Showtime          @relation(fields: [showtimeId], references: [id], onDelete: Restrict)
+  payment         Payment?
+  seats           BookingSeat[]
+  addons          BookingAddon[]
+  auditLogs       CancellationAuditLog[]
 
   @@map("bookings")
 }
 
-/// Financial transaction record with Razorpay / Stripe
-model Payment {
-  id            String    @id @default(uuid())
-  bookingId     String?   @unique
-  provider      String    @default("RAZORPAY") // "RAZORPAY" or "STRIPE"
-  orderId       String    @unique // Gateway order_id or payment_intent_id
-  paymentId     String?   // Gateway payment_id
-  signature     String?   // HMAC SHA256 signature
-  amount        Float
-  currency      String    @default("INR")
-  status        String    @default("PENDING") // "PENDING", "SUCCESS", "FAILED", "REFUNDED", "REFUND_PENDING", "REFUND_FAILED"
-  refundId      String?   // Gateway refund ID (e.g., rfd_...)
-  refundAmount  Float?
-  metadata      String?   // JSON string of webhook payload / gateway response
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+/// Reserved seats for a booking
+model BookingSeat {
+  id         Int      @id @default(autoincrement())
+  bookingId  String   @map("booking_id")
+  showtimeId String   @map("showtime_id")
+  seatId     String   @map("seat_id")
+  seatRow    String   @map("seat_row")
+  seatNumber Int      @map("seat_number")
+  tier       String
+  price      Decimal
 
-  booking       Booking?
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([showtimeId, seatId], name: "unique_seat_per_show")
+  @@map("booking_seats")
+}
+
+/// Food and snack addons for a booking
+model BookingAddon {
+  id        Int     @id @default(autoincrement())
+  bookingId String  @map("booking_id")
+  addonId   String  @map("addon_id")
+  name      String
+  price     Decimal
+  quantity  Int
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_addons")
+}
+
+/// Financial transaction record with Razorpay / Gateway
+model Payment {
+  id           String    @id @default(uuid())
+  bookingId    String?   @unique @map("booking_id")
+  provider     String    @default("RAZORPAY")
+  orderId      String    @unique @map("order_id")
+  paymentId    String?   @map("payment_id")
+  signature    String?
+  amount       Decimal
+  currency     String    @default("INR")
+  status       String    @default("PENDING")
+  refundId     String?   @map("refund_id")
+  refundAmount Decimal?  @map("refund_amount")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  booking      Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@map("payments")
+}
+
+/// Audience movie reviews & ratings
+model Review {
+  id        String   @id @default(uuid())
+  movieId   String   @map("movie_id")
+  userName  String   @map("user_name")
+  userEmail String?  @map("user_email")
+  rating    Decimal
+  comment   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  movie     Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+/// Movie cast members
+model MovieCast {
+  id      Int    @id @default(autoincrement())
+  movieId String @map("movie_id")
+  name    String
+  role    String
+  avatar  String
+
+  movie   Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@map("movie_cast")
+}
+
+/// Cancellation and refund audit logs
+model CancellationAuditLog {
+  id              String    @id @default(uuid())
+  bookingId       String?   @map("booking_id")
+  bookingRef      String    @map("booking_ref")
+  action          String
+  actorEmail      String    @map("actor_email")
+  previousStatus  String    @map("previous_status")
+  newStatus       String    @map("new_status")
+  refundStatus    String    @map("refund_status")
+  refundAmount    Decimal   @default(0.00) @map("refund_amount")
+  cancellationFee Decimal   @default(0.00) @map("cancellation_fee")
+  refundId        String?   @map("refund_id")
+  failureReason   String?   @map("failure_reason")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  booking         Booking?  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("cancellation_audit_logs")
 }

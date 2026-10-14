@@ -133,10 +133,13 @@ CREATE TABLE IF NOT EXISTS bookings (
     tax NUMERIC(10, 2) NOT NULL,
     total_amount NUMERIC(10, 2) NOT NULL,
     payment_method VARCHAR(50) DEFAULT 'Demo Card',
-    status VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled', 'refunded')),
+    status VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'expired')),
+    refund_status VARCHAR(30) DEFAULT 'NOT_REQUESTED' CHECK (refund_status IN ('NOT_REQUESTED', 'REFUND_PENDING', 'REFUND_PROCESSING', 'REFUNDED', 'REFUND_FAILED')),
     booked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     cancelled_at TIMESTAMP WITH TIME ZONE,
-    refund_amount NUMERIC(10, 2) DEFAULT 0.00
+    refund_amount NUMERIC(10, 2) DEFAULT 0.00,
+    cancellation_fee NUMERIC(10, 2) DEFAULT 0.00,
+    refund_id VARCHAR(100)
 );
 
 -- 14. BOOKING SEATS (PREVENTS DOUBLE-BOOKING CONFLICTS)
@@ -163,9 +166,28 @@ CREATE TABLE IF NOT EXISTS booking_addons (
     quantity INTEGER NOT NULL
 );
 
--- 16. INDEXES FOR PERFORMANCE
+-- 16. CANCELLATION & REFUND AUDIT LOGS
+CREATE TABLE IF NOT EXISTS cancellation_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    booking_id VARCHAR(50) REFERENCES bookings(id) ON DELETE CASCADE,
+    booking_ref VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    actor_email VARCHAR(255) NOT NULL,
+    previous_status VARCHAR(20) NOT NULL,
+    new_status VARCHAR(20) NOT NULL,
+    refund_status VARCHAR(30) NOT NULL,
+    refund_amount NUMERIC(10, 2) DEFAULT 0.00,
+    cancellation_fee NUMERIC(10, 2) DEFAULT 0.00,
+    refund_id VARCHAR(100),
+    failure_reason TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 17. INDEXES FOR PERFORMANCE
 CREATE INDEX IF NOT EXISTS idx_movies_status ON movies(status);
 CREATE INDEX IF NOT EXISTS idx_showtimes_movie_cinema ON showtimes(movie_id, cinema_id);
 CREATE INDEX IF NOT EXISTS idx_booking_seats_show ON booking_seats(showtime_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+CREATE INDEX IF NOT EXISTS idx_cancellation_audit_booking ON cancellation_audit_logs(booking_id);

@@ -18,16 +18,14 @@ import {
   ExternalLink,
   AlertCircle,
   RotateCcw,
-  ShieldAlert,
-  DollarSign,
-  Receipt,
-  Loader2
+  Loader2,
+  History
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
-import { cancelBookingApi, fetchMyBookingsApi, getCancelQuoteApi, type CancelQuoteResponse } from '../services/api';
-import type { BookingRecord } from '../types';
+import { cancelBookingApi, fetchMyBookingsApi, getCancelQuoteApi, getBookingAuditTrailApi, type CancelQuoteResponse } from '../services/api';
+import type { BookingRecord, CancellationAuditLog } from '../types';
 
 export const MyTicketsPage: React.FC = () => {
   const { myBookings, cancelBooking, syncBookings } = useBooking();
@@ -43,6 +41,8 @@ export const MyTicketsPage: React.FC = () => {
   const [cancelStatus, setCancelStatus] = useState<{ loading: boolean; error?: string; success?: string }>({
     loading: false
   });
+  const [auditLogs, setAuditLogs] = useState<CancellationAuditLog[]>([]);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
 
   // Sync bookings from backend whenever component mounts or user email changes
   useEffect(() => {
@@ -158,6 +158,24 @@ export const MyTicketsPage: React.FC = () => {
     return displayedBookings[0] || myBookings[0] || null;
   }, [selectedTicketId, displayedBookings, myBookings]);
 
+  // Fetch cancellation audit trail whenever a cancelled booking is selected
+  useEffect(() => {
+    const targetRef = selectedBooking?.bookingId || selectedBooking?.id;
+    if (selectedBooking && selectedBooking.status === 'cancelled' && targetRef) {
+      setIsLoadingAudit(true);
+      getBookingAuditTrailApi(targetRef)
+        .then(res => {
+          if (res.success && Array.isArray(res.logs)) {
+            setAuditLogs(res.logs);
+          }
+        })
+        .catch(() => setAuditLogs([]))
+        .finally(() => setIsLoadingAudit(false));
+    } else {
+      setAuditLogs([]);
+    }
+  }, [selectedBooking?.bookingId, selectedBooking?.id, selectedBooking?.status]);
+
   // Open cancellation modal with live refund quote
   const handleOpenCancelModal = async (bookingId: string) => {
     setCancellationTarget(bookingId);
@@ -204,45 +222,54 @@ export const MyTicketsPage: React.FC = () => {
     }
   };
 
-  // Cancellation action with gateway refund tracking
+  // Cancellation action with gateway refund tracking & error handling
   const handleConfirmCancel = async () => {
     if (!cancellationTarget) return;
     setCancelStatus({ loading: true, error: undefined });
     try {
       const res = await cancelBookingApi(cancellationTarget, user?.email);
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to cancel booking.');
+      }
+
       const refundInfo = res.refund || {
-        refundStatus: 'REFUNDED',
+        refundStatus: 'REFUNDED' as const,
         refundAmount: cancelQuote?.refundAmount ?? Math.round((cancelQuote?.originalAmount || 0) * 0.9 * 100) / 100,
         cancellationFee: cancelQuote?.cancellationFee ?? Math.round((cancelQuote?.originalAmount || 0) * 0.1 * 100) / 100,
         refundId: undefined
       };
+
       cancelBooking(cancellationTarget, refundInfo);
+
       const refundDisplay = formatPrice(refundInfo.refundAmount || cancelQuote?.refundAmount || 0);
+      const isFailed = refundInfo.refundStatus === 'REFUND_FAILED';
       const refIdNote = refundInfo.refundId ? ` (Ref: ${refundInfo.refundId})` : '';
+
       setCancelStatus({
         loading: false,
-        success: `Booking #${cancellationTarget} cancelled. Refund of ${refundDisplay} initiated${refIdNote}!`
+        success: isFailed
+          ? `Booking #${cancellationTarget} cancelled. Gateway refund failed (${refundInfo.refundError || 'Gateway error'}). Support desk notified for manual processing.`
+          : `Booking #${cancellationTarget} successfully cancelled. A 90% refund of ${refundDisplay} has been initiated${refIdNote}!`
       });
+
+      // Refresh audit logs for the cancelled ticket
+      getBookingAuditTrailApi(cancellationTarget)
+        .then(auditRes => {
+          if (auditRes.success && Array.isArray(auditRes.logs)) {
+            setAuditLogs(auditRes.logs);
+          }
+        })
+        .catch(() => {});
+
       setTimeout(() => {
         setCancellationTarget(null);
         setCancelStatus({ loading: false });
-      }, 2000);
+      }, 2500);
     } catch (err: any) {
-      const fallbackFee = cancelQuote?.cancellationFee || 0;
-      const fallbackRefund = cancelQuote?.refundAmount || 0;
-      cancelBooking(cancellationTarget, {
-        refundStatus: 'REFUNDED',
-        refundAmount: fallbackRefund,
-        cancellationFee: fallbackFee
-      });
       setCancelStatus({
         loading: false,
-        success: `Booking #${cancellationTarget} cancelled. 90% refund processed!`
+        error: err.message || 'Cancellation failed. You may not have permission or this booking is already cancelled or expired.'
       });
-      setTimeout(() => {
-        setCancellationTarget(null);
-        setCancelStatus({ loading: false });
-      }, 2000);
     }
   };
 
@@ -423,6 +450,11 @@ export const MyTicketsPage: React.FC = () => {
                                 <CheckCircle2 className="w-2.5 h-2.5" /> Admitted
                               </span>
                             )}
+                            {b.status === 'expired' && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/30">
+                                Expired
+                              </span>
+                            )}
                             {b.status === 'cancelled' && (
                               <>
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
@@ -435,7 +467,12 @@ export const MyTicketsPage: React.FC = () => {
                                 )}
                                 {(b.refundStatus === 'REFUND_PENDING' || b.refundStatus === 'REFUND_PROCESSING') && (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                                    <Clock className="w-2.5 h-2.5" /> Refund Pending
+                                    <Clock className="w-2.5 h-2.5" /> {b.refundStatus === 'REFUND_PROCESSING' ? 'Processing Refund' : 'Refund Pending'}
+                                  </span>
+                                )}
+                                {b.refundStatus === 'REFUND_FAILED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                                    <AlertCircle className="w-2.5 h-2.5" /> Refund Failed
                                   </span>
                                 )}
                               </>
@@ -641,18 +678,41 @@ export const MyTicketsPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Refund Status Card if Cancelled */}
+                {/* Refund Status & Audit Log Card if Cancelled */}
                 {selectedBooking.status === 'cancelled' && (
-                  <div className="my-3 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-2">
+                  <div className="my-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-3">
                     <div className="flex items-center justify-between font-bold text-rose-600 dark:text-rose-400">
                       <span className="flex items-center gap-1.5">
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Booking Cancelled</span>
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Ticket Cancelled</span>
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold">
-                        {selectedBooking.refundStatus === 'REFUNDED' ? 'Refund Processed' : 'Refund Pending'}
-                      </span>
+                      {selectedBooking.refundStatus === 'REFUNDED' && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Refund Credited
+                        </span>
+                      )}
+                      {selectedBooking.refundStatus === 'REFUND_PENDING' && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Refund Queued
+                        </span>
+                      )}
+                      {selectedBooking.refundStatus === 'REFUND_PROCESSING' && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-semibold flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Processing Gateway
+                        </span>
+                      )}
+                      {selectedBooking.refundStatus === 'REFUND_FAILED' && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-rose-600 text-white font-bold flex items-center gap-1 shadow-sm">
+                          <AlertCircle className="w-3 h-3" /> Refund Failed
+                        </span>
+                      )}
+                      {(!selectedBooking.refundStatus || selectedBooking.refundStatus === 'NOT_REQUESTED') && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-slate-500/20 text-slate-400 font-semibold">
+                          Not Requested
+                        </span>
+                      )}
                     </div>
+
                     <div className="flex justify-between text-slate-600 dark:text-slate-300 text-[11px] pt-1.5 border-t border-rose-500/10">
                       <span>Refunded Amount (90%):</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">
@@ -663,11 +723,56 @@ export const MyTicketsPage: React.FC = () => {
                       <span>Cancellation Fee (10%):</span>
                       <span>{formatPrice(selectedBooking.cancellationFee ?? selectedBooking.totalAmount * 0.1)}</span>
                     </div>
+
                     {selectedBooking.refundId && (
-                      <div className="text-[10px] text-slate-400 font-mono truncate pt-0.5">
-                        Refund ID: {selectedBooking.refundId}
+                      <div className="text-[10px] text-slate-400 font-mono truncate pt-0.5 flex items-center justify-between">
+                        <span>Gateway Refund ID:</span>
+                        <span className="font-bold text-slate-300">{selectedBooking.refundId}</span>
                       </div>
                     )}
+
+                    {selectedBooking.refundError && (
+                      <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-[11px] leading-relaxed">
+                        <span className="font-bold block mb-0.5">Gateway Refund Notice:</span>
+                        {selectedBooking.refundError}
+                      </div>
+                    )}
+
+                    {/* Audit Trail Timeline */}
+                    <div className="pt-2 border-t border-rose-500/15">
+                      <div className="flex items-center gap-1.5 font-bold text-[11px] text-slate-700 dark:text-slate-300 mb-2">
+                        <History className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Cancellation Audit History</span>
+                        {isLoadingAudit && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+                      </div>
+
+                      {auditLogs.length > 0 ? (
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                          {auditLogs.map((log) => (
+                            <div
+                              key={log.id}
+                              className="p-2 rounded-lg bg-black/20 border border-white/5 text-[10px] flex items-start justify-between gap-2"
+                            >
+                              <div>
+                                <span className="font-semibold text-slate-200 block">
+                                  {log.action.replace(/_/g, ' ')}
+                                </span>
+                                <span className="text-slate-400 text-[9px]">
+                                  By: {log.actorEmail} • {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-slate-300 shrink-0">
+                                {log.refundStatus}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 italic">
+                          Cancellation logged on {selectedBooking.cancelledAt ? new Date(selectedBooking.cancelledAt).toLocaleString() : 'system records'}.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -684,7 +789,7 @@ export const MyTicketsPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Interactive Action Toolbar (Phase 10 & Phase 18) */}
+                {/* Interactive Action Toolbar with prominent Cancel Ticket button */}
                 <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/10 space-y-2.5">
                   <div className="grid grid-cols-2 gap-2">
                     {/* 1. Download PDF Pass */}
@@ -727,6 +832,24 @@ export const MyTicketsPage: React.FC = () => {
                       <Share2 className="w-3 h-3 text-emerald-500" /> Share on WhatsApp
                     </a>
                   </div>
+
+                  {/* 5. Prominent Cancel Ticket Button in Right Detail Panel */}
+                  {selectedBooking.status === 'confirmed' && !selectedBooking.checkedIn && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCancelModal(selectedBooking.bookingId)}
+                      className="w-full mt-2 py-3 px-4 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-rose-500/20"
+                    >
+                      <XCircle className="w-4 h-4 text-rose-500" />
+                      <span>Cancel Ticket & Request 90% Refund</span>
+                    </button>
+                  )}
+                  {selectedBooking.status === 'cancelled' && (
+                    <div className="w-full mt-2 py-2.5 px-3 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-500 text-xs font-semibold flex items-center justify-center gap-2">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>Ticket Cancelled • Seats Restored to Inventory</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}

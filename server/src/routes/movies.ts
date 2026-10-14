@@ -46,9 +46,17 @@ router.get('/meta/genres', (_req: Request, res: Response) => {
 // GET /api/movies/:id/reviews
 router.get('/:id/reviews', (req: Request, res: Response) => {
   const reviews = db.getReviews(req.params.id);
+  const movie = db.getMovieById(req.params.id);
+  const avg = reviews.length > 0
+    ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+    : (movie?.rating ?? 8.5);
+
   return res.json({
     success: true,
     total: reviews.length,
+    movieRating: movie?.rating ?? avg,
+    averageRating: avg,
+    votesCount: movie?.votesCount,
     reviews
   });
 });
@@ -63,20 +71,24 @@ router.post('/:id/reviews', (req: Request, res: Response) => {
 
     const numRating = Number(rating);
     if (isNaN(numRating) || numRating < 1 || numRating > 10) {
-      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 10.' });
+      return res.status(400).json({ success: false, message: 'Rating must be a valid number between 1 and 10.' });
     }
 
     const review = db.addReview(req.params.id, {
-      userName: userName || 'Verified Moviegoer',
+      userName: userName && typeof userName === 'string' && userName.trim() ? userName.trim() : 'Verified Moviegoer',
       rating: numRating,
-      comment,
+      comment: comment.trim(),
       userEmail
     });
+
+    const updatedMovie = db.getMovieById(req.params.id);
 
     return res.status(201).json({
       success: true,
       message: 'Thank you! Your review has been published.',
-      review
+      review,
+      movieRating: updatedMovie?.rating,
+      votesCount: updatedMovie?.votesCount
     });
   } catch (err: unknown) {
     const error = err as { statusCode?: number; message?: string };

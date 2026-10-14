@@ -808,7 +808,7 @@ export const SEAT_TIER_LABELS = {
 };
 
 // Generates an authentic 8-row by 16-column seating layout with central aisle
-export const generateSeatLayout = (seedKey: string) => {
+export const generateSeatLayout = (_seedKey?: string) => {
   // A, B = ROYAL RECLINER
   // C, D, E, F = CLUB / PRIME
   // G, H = EXECUTIVE
@@ -829,17 +829,13 @@ export const generateSeatLayout = (seedKey: string) => {
     const rowSeats = [];
     for (let i = 1; i <= totalSeatsPerRow; i++) {
       const seatId = `${rowLetter}${i}`;
-      const hash = (seatId.charCodeAt(0) * 17 + i * 23 + seedKey.length * 7) % 10;
-      // Deterministically reserve ~20% of seats for realistic occupancy
-      const isReserved = hash === 3 || hash === 7 || (rowLetter === 'D' && (i === 7 || i === 8));
-
       rowSeats.push({
         id: seatId,
         row: rowLetter,
         number: i,
         tier,
         price: SEAT_PRICING[tier],
-        status: isReserved ? ('reserved' as const) : ('available' as const)
+        status: 'available' as const
       });
     }
     return {

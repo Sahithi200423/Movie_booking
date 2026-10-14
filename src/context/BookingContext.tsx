@@ -25,6 +25,7 @@ interface BookingContextType {
   setActiveMovie: (movie: Movie) => void;
   setActiveShowtime: (data: { cinema: Cinema; date: string; time: string; format: string; hall: string; language?: string; showtimeId?: string }) => void;
   toggleSeat: (seat: Seat) => void;
+  setSeats: (seats: Seat[]) => void;
   updateAddonQuantity: (addonId: string, quantity: number) => void;
   setDeliveryPreference: (pref: 'seat' | 'counter') => void;
   resetActiveBooking: () => void;
@@ -34,10 +35,11 @@ interface BookingContextType {
   cancelBooking: (
     bookingId: string,
     refundDetails?: {
-      refundStatus?: any;
+      refundStatus?: 'NOT_REQUESTED' | 'REFUND_PENDING' | 'REFUND_PROCESSING' | 'REFUNDED' | 'REFUND_FAILED';
       refundAmount?: number;
       cancellationFee?: number;
       refundId?: string;
+      refundError?: string;
     }
   ) => void;
 }
@@ -201,6 +203,13 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const setSeats = (seats: Seat[]) => {
+    setActiveBooking(prev => ({
+      ...prev,
+      seats
+    }));
+  };
+
   const updateAddonQuantity = (addonId: string, quantity: number) => {
     setActiveBooking(prev => {
       const newAddons = { ...prev.addons };
@@ -257,10 +266,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const cancelBooking = (
     bookingId: string,
     refundDetails?: {
-      refundStatus?: any;
+      refundStatus?: 'NOT_REQUESTED' | 'REFUND_PENDING' | 'REFUND_PROCESSING' | 'REFUNDED' | 'REFUND_FAILED';
       refundAmount?: number;
       cancellationFee?: number;
       refundId?: string;
+      refundError?: string;
     }
   ) => {
     const target = bookingId.toUpperCase();
@@ -270,6 +280,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ? {
               ...b,
               status: 'cancelled',
+              cancelledAt: new Date().toISOString(),
               refundStatus: refundDetails?.refundStatus || 'REFUNDED',
               refundAmount:
                 refundDetails?.refundAmount !== undefined
@@ -279,7 +290,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 refundDetails?.cancellationFee !== undefined
                   ? refundDetails.cancellationFee
                   : Math.round(b.totalAmount * 0.1 * 100) / 100,
-              refundId: refundDetails?.refundId
+              refundId: refundDetails?.refundId,
+              refundError: refundDetails?.refundError
             }
           : b
       )
@@ -296,6 +308,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveMovie,
         setActiveShowtime,
         toggleSeat,
+        setSeats,
         updateAddonQuantity,
         setDeliveryPreference,
         resetActiveBooking,

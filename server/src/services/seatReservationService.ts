@@ -22,14 +22,15 @@ export class SeatReservationService {
     sessionId: string;
     userId?: string;
     durationMinutes?: number;
+    preloadedShowtime?: any;
   }): Promise<any> {
-    const { showtimeId, seatNumbers, sessionId, userId, durationMinutes = 10 } = params;
+    const { showtimeId, seatNumbers, sessionId, userId, durationMinutes = 10, preloadedShowtime } = params;
 
     if (!showtimeId || !Array.isArray(seatNumbers) || seatNumbers.length === 0) {
       throw { statusCode: 400, message: 'Invalid showtimeId or seatNumbers array' };
     }
 
-    const showtime = await ensurePrismaShowtime(showtimeId);
+    const showtime = preloadedShowtime || (await ensurePrismaShowtime(showtimeId));
 
     // Strict: never fall back to another showtime (that previously caused cross-show double booking)
     if (!showtime) {
@@ -40,19 +41,45 @@ export class SeatReservationService {
     const heldExpiresAt = new Date(now.getTime() + durationMinutes * 60 * 1000);
 
     // Map seatNumbers to Seat entities in screen
-    const screenSeats = showtime.screen.seats;
-    const targetSeats = screenSeats.filter(s =>
-      seatNumbers.includes(s.seatNumber) || seatNumbers.includes(s.id)
+    const screenSeats: any[] = showtime.screen?.seats || [];
+    const targetSeats = screenSeats.filter((s: any) =>
+      seatNumbers.includes(s.seatNumber || '') || seatNumbers.includes(s.id)
     );
 
     if (targetSeats.length !== new Set(seatNumbers).size) {
-      const found = new Set(targetSeats.map(s => s.seatNumber));
-      const missing = seatNumbers.filter(n => !found.has(n) && !targetSeats.some(s => s.id === n));
+      const found = new Set(targetSeats.map((s: any) => s.seatNumber || s.id));
+      const missing = seatNumbers.filter(n => !found.has(n) && !targetSeats.some((s: any) => s.id === n));
       throw { statusCode: 404, message: `Seat(s) ${missing.join(', ')} do not exist in this screen layout.` };
     }
 
-    // Check existing reservations for conflicts
-    const targetSeatIds = targetSeats.map(s => s.id);
+    // Check existing reservations and confirmed bookings for conflicts
+    const targetSeatIds = targetSeats.map((s: any) => s.id);
+    const targetSeatLabels = targetSeats.map((s: any) => s.seatNumber || `${s.row}${s.number}`);
+
+    // Check confirmed bookings first
+    const confirmedBookedSeats = await prisma.bookingSeat.findMany({
+      where: {
+        showtimeId: showtime.id,
+        OR: [
+          { seatId: { in: targetSeatIds } },
+          { seatId: { in: targetSeatLabels } }
+        ],
+        booking: {
+          status: { in: ['confirmed', 'CONFIRMED'] }
+        }
+      }
+    });
+
+    if (confirmedBookedSeats.length > 0) {
+      const bs = confirmedBookedSeats[0];
+      const seatLabel = bs.seatId || `${bs.seatRow}${bs.seatNumber}`;
+      throw {
+        statusCode: 409,
+        message: `Seat ${seatLabel} has already been reserved and paid for.`,
+        conflictingSeat: seatLabel
+      };
+    }
+
     const existingReservations = await prisma.seatReservation.findMany({
       where: {
         showtimeId: showtime.id,
@@ -61,8 +88,8 @@ export class SeatReservationService {
     });
 
     for (const res of existingReservations) {
-      const seat = targetSeats.find(s => s.id === res.seatId);
-      const seatLabel = seat ? seat.seatNumber : res.seatId;
+      const seat = targetSeats.find((s: any) => s.id === res.seatId);
+      const seatLabel = seat ? (seat.seatNumber || seat.id) : res.seatId;
 
       if (res.status === 'BOOKED') {
         throw {
@@ -72,11 +99,11 @@ export class SeatReservationService {
         };
       }
 
-      const activeExpiry = res.heldExpiresAt || res.lockedUntil;
+      const activeExpiry = res.heldExpiresAt;
       const isStillHeld = (res.status === 'HELD' || res.status === 'LOCKED') && activeExpiry && activeExpiry > now;
 
       if (isStillHeld) {
-        const holderSession = res.heldBy || res.lockedBySessionId;
+        const holderSession = res.heldBy;
         if (holderSession !== sessionId) {
           throw {
             statusCode: 409,
@@ -99,20 +126,14 @@ export class SeatReservationService {
         update: {
           status: 'HELD',
           heldBy: sessionId,
-          heldExpiresAt,
-          lockedBySessionId: sessionId,
-          lockedByUserId: userId || null,
-          lockedUntil: heldExpiresAt
+          heldExpiresAt
         },
         create: {
           showtimeId: showtime.id,
           seatId: seat.id,
           status: 'HELD',
           heldBy: sessionId,
-          heldExpiresAt,
-          lockedBySessionId: sessionId,
-          lockedByUserId: userId || null,
-          lockedUntil: heldExpiresAt
+          heldExpiresAt
         }
       });
     }
@@ -121,7 +142,7 @@ export class SeatReservationService {
     if (ioInstance) {
       ioInstance.to(`showtime:${showtime.id}`).emit('seats:locked', {
         showtimeId: showtime.id,
-        seatNumbers: targetSeats.map(s => s.seatNumber),
+        seatNumbers: targetSeats.map((s: any) => s.seatNumber),
         sessionId,
         expiresAt: heldExpiresAt.getTime(),
         lockedUntil: heldExpiresAt.toISOString(),
@@ -137,8 +158,8 @@ export class SeatReservationService {
     return {
       success: true,
       showtimeId: showtime.id,
-      lockedSeats: targetSeats.map(s => s.seatNumber),
-      heldSeats: targetSeats.map(s => s.seatNumber),
+      lockedSeats: targetSeats.map((s: any) => s.seatNumber),
+      heldSeats: targetSeats.map((s: any) => s.seatNumber),
       expiresAt: heldExpiresAt.getTime(),
       lockedUntil: heldExpiresAt.toISOString(),
       heldExpiresAt: heldExpiresAt.toISOString(),
@@ -165,16 +186,13 @@ export class SeatReservationService {
 
     let whereClause: any = {
       showtimeId: targetShowtimeId,
-      OR: [
-        { heldBy: sessionId },
-        { lockedBySessionId: sessionId }
-      ],
+      heldBy: sessionId,
       status: { in: ['HELD', 'LOCKED'] }
     };
 
-    if (seatNumbers && seatNumbers.length > 0 && showtime) {
+    if (seatNumbers && seatNumbers.length > 0 && showtime?.screen) {
       const seats = showtime.screen.seats.filter(s =>
-        seatNumbers.includes(s.seatNumber) || seatNumbers.includes(s.id)
+        seatNumbers.includes(s.seatNumber || '') || seatNumbers.includes(s.id)
       );
       if (seats.length > 0) {
         whereClause.seatId = { in: seats.map(s => s.id) };
@@ -224,12 +242,29 @@ export class SeatReservationService {
   async getLiveSeats(showtimeId: string, sessionId?: string) {
     const showtime = await ensurePrismaShowtime(showtimeId);
 
-    if (!showtime) {
+    if (!showtime || !showtime.screen) {
       return null;
     }
 
     const now = new Date();
 
+    // 1. Confirmed bookings for this exact showtime
+    const confirmedBookedSeats = await prisma.bookingSeat.findMany({
+      where: {
+        showtimeId: showtime.id,
+        booking: {
+          status: { in: ['confirmed', 'CONFIRMED'] }
+        }
+      }
+    });
+
+    const bookedSeatSet = new Set<string>();
+    for (const bs of confirmedBookedSeats) {
+      if (bs.seatId) bookedSeatSet.add(bs.seatId);
+      if (bs.seatRow && bs.seatNumber) bookedSeatSet.add(`${bs.seatRow}${bs.seatNumber}`);
+    }
+
+    // 2. Active temporary holds and booked reservations
     const reservations = await prisma.seatReservation.findMany({
       where: { showtimeId: showtime.id }
     });
@@ -242,13 +277,16 @@ export class SeatReservationService {
       let holdExpiresAt: number | undefined = undefined;
       let heldByMe = false;
 
-      if (res) {
+      const seatLabel = `${seat.row}${seat.number}`;
+      if (bookedSeatSet.has(seat.id) || bookedSeatSet.has(seatLabel) || bookedSeatSet.has(seat.seatNumber || '')) {
+        status = 'reserved';
+      } else if (res) {
         if (res.status === 'BOOKED') {
           status = 'reserved';
         } else if (res.status === 'HELD' || res.status === 'LOCKED') {
-          const expiry = res.heldExpiresAt || res.lockedUntil;
+          const expiry = res.heldExpiresAt;
           if (expiry && expiry > now) {
-            const holder = res.heldBy || res.lockedBySessionId;
+            const holder = res.heldBy;
             if (sessionId && holder === sessionId) {
               heldByMe = true;
               status = 'available'; // Current user holds it, so they see it selectable/selected
@@ -262,12 +300,12 @@ export class SeatReservationService {
       }
 
       return {
-        id: seat.seatNumber,
+        id: seat.seatNumber || seat.id,
         dbId: seat.id,
         row: seat.row,
         number: seat.number,
         tier: seat.tier,
-        price: seat.basePrice,
+        price: Number(seat.basePrice),
         status,
         heldByMe,
         holdExpiresAt
@@ -284,10 +322,7 @@ export class SeatReservationService {
       const expired = await prisma.seatReservation.deleteMany({
         where: {
           status: { in: ['HELD', 'LOCKED'] },
-          OR: [
-            { heldExpiresAt: { lte: now } },
-            { lockedUntil: { lte: now } }
-          ]
+          heldExpiresAt: { lte: now }
         }
       });
 

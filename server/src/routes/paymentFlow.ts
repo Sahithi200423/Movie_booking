@@ -37,6 +37,26 @@ const razorpay = new Razorpay({
   key_secret: RAZORPAY_KEY_SECRET
 });
 
+export interface PendingOrderDetails {
+  bookingRef: string;
+  userId: string | null;
+  showtimeId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  subtotal: number;
+  convenienceFee: number;
+  tax: number;
+  totalAmount: number;
+  paymentMethod: string;
+  matchedSeats: any[];
+  addons: any[];
+  deliveryPreference?: string;
+  createdAt: number;
+}
+
+export const pendingOrderStore = new Map<string, PendingOrderDetails>();
+
 /**
  * Helper to compute Razorpay HMAC SHA256 signature
  */
@@ -58,15 +78,17 @@ router.post('/create-order', async (req: Request, res: Response) => {
       seatIds,
       seatNumbers,
       amount,
-      customerName = 'Valued Guest',
-      customerEmail = 'guest@cinebook.in',
-      customerPhone = '+91 98765 43210',
       addons = [],
       donationAmount = 2.0,
       discountAmount = 0.0,
       provider = 'RAZORPAY',
       sessionId
     } = req.body;
+
+    const customerName = req.body.customerName || req.body.customerDetails?.name || req.body.name || 'Valued Guest';
+    const customerEmail = req.body.customerEmail || req.body.customerDetails?.email || req.body.email || 'guest@cinebook.in';
+    const customerPhone = req.body.customerPhone || req.body.customerDetails?.phone || req.body.phone || '+91 98765 43210';
+
 
     const targetSeats = selectedSeats || seatIds || seatNumbers || [];
 
@@ -80,13 +102,14 @@ router.post('/create-order', async (req: Request, res: Response) => {
     // Strict showtime lookup with automatic Prisma resolution
     const showtime = await ensurePrismaShowtime(showtimeId);
 
-    if (!showtime) {
+    if (!showtime || !showtime.screen || !showtime.movie) {
       return res.status(404).json({ success: false, message: `Showtime ${showtimeId} not found.` });
     }
 
     // Match seats - every requested seat must exist
-    const matchedSeats = showtime.screen.seats.filter(s =>
-      targetSeats.includes(s.seatNumber) || targetSeats.includes(s.id)
+    const screenSeats = showtime.screen.seats || [];
+    const matchedSeats = screenSeats.filter(s =>
+      targetSeats.includes(s.seatNumber || '') || targetSeats.includes(s.id)
     );
     if (matchedSeats.length !== new Set(targetSeats).size) {
       return res.status(404).json({ success: false, message: 'One or more selected seats do not exist for this showtime.' });
@@ -99,9 +122,10 @@ router.post('/create-order', async (req: Request, res: Response) => {
     try {
       await seatReservationService.lockSeats({
         showtimeId: showtime.id,
-        seatNumbers: matchedSeats.map(s => s.seatNumber),
+        seatNumbers: matchedSeats.map(s => s.seatNumber || s.id),
         sessionId,
-        durationMinutes: 10
+        durationMinutes: 10,
+        preloadedShowtime: showtime
       });
     } catch (lockErr: any) {
       return res.status(lockErr.statusCode || 409).json({ success: false, message: lockErr.message, conflictingSeat: lockErr.conflictingSeat });
@@ -130,57 +154,56 @@ router.post('/create-order', async (req: Request, res: Response) => {
 
     let orderId: string;
 
-    // Create server-side order with Razorpay
-    try {
-      const rzpOrder = await razorpay.orders.create({
-        amount: totalInPaise,
-        currency: 'INR',
-        receipt: bookingRef,
-        notes: {
-          showtimeId: showtime.id,
-          movie: showtime.movie.title,
-          seats: targetSeats.join(',')
-        }
-      });
-      orderId = rzpOrder.id;
-    } catch (rzpErr: any) {
-      // In local development or sandbox environments where dummy credentials are used,
-      // fall back gracefully to a realistic order ID format so checkout flows uninterrupted
-      console.warn('Razorpay SDK order creation notice (using local sandbox order ID):', rzpErr.message || rzpErr);
+    const isSandbox = RAZORPAY_KEY_ID.includes('sample') || RAZORPAY_KEY_SECRET === 'sampleSecretKey';
+
+    if (isSandbox) {
       orderId = `order_${crypto.randomBytes(8).toString('hex')}`;
+    } else {
+      // Create server-side order with Razorpay
+      try {
+        const rzpOrder = await razorpay.orders.create({
+          amount: totalInPaise,
+          currency: 'INR',
+          receipt: bookingRef,
+          notes: {
+            showtimeId: showtime.id,
+            movie: showtime.movie.title,
+            seats: targetSeats.join(',')
+          }
+        });
+        orderId = rzpOrder.id;
+      } catch (rzpErr: any) {
+        console.warn('Razorpay SDK order creation notice (using fallback order ID):', rzpErr.message || rzpErr);
+        orderId = `order_${crypto.randomBytes(8).toString('hex')}`;
+      }
     }
 
-    // Create pending Booking in Prisma
-    const baseAmount = ticketsBase;
-    const convenienceFee = baseConvenience;
+    // Save pending checkout session in store without touching the PostgreSQL bookings table
+    // This strictly adheres to the database constraint (status must be 'confirmed', 'cancelled', 'refunded')
+    const pendingData: PendingOrderDetails = {
+      bookingRef,
+      userId,
+      showtimeId: showtime.id,
+      customerName: String(customerName).trim(),
+      customerEmail: String(customerEmail).trim().toLowerCase(),
+      customerPhone: String(customerPhone).trim(),
+      subtotal: ticketsBase,
+      convenienceFee: baseConvenience,
+      tax: gstOnFee,
+      totalAmount: finalAmount,
+      paymentMethod: 'Razorpay Sandbox (UPI/Card/NetBanking)',
+      matchedSeats,
+      addons: Array.isArray(addons) ? addons : [],
+      deliveryPreference: (req.body as any).deliveryPreference || 'seat',
+      createdAt: Date.now()
+    };
 
-    const booking = await prisma.booking.create({
-      data: {
-        bookingRef,
-        userId,
-        showtimeId: showtime.id,
-        customerName: String(customerName).trim(),
-        customerEmail: String(customerEmail).trim().toLowerCase(),
-        customerPhone: String(customerPhone).trim(),
-        seatsCount,
-        seatIds: matchedSeats.map(s => s.seatNumber).join(', '),
-        seatDetails: JSON.stringify(matchedSeats.map(s => ({ id: s.seatNumber, tier: s.tier, price: s.basePrice }))),
-        baseAmount,
-        convenienceFee,
-        gstAmount: gstOnFee,
-        donationAmount: Number(donationAmount) || 0,
-        discountAmount: Number(discountAmount) || 0,
-        totalAmount: finalAmount,
-        status: 'PENDING',
-        qrCodeData: JSON.stringify({ ref: bookingRef, status: 'PENDING' }),
-        paymentMethod: 'Razorpay Sandbox (UPI/Card/NetBanking)'
-      }
-    });
+    pendingOrderStore.set(orderId, pendingData);
+    pendingOrderStore.set(bookingRef, pendingData);
 
-    // Create Payment record
+    // Create Payment record (bookingId will be linked upon successful payment verification)
     const payment = await prisma.payment.create({
       data: {
-        bookingId: booking.id,
         provider: provider.toUpperCase(),
         orderId,
         amount: finalAmount,
@@ -189,15 +212,8 @@ router.post('/create-order', async (req: Request, res: Response) => {
       }
     });
 
-    // Link booking to payment
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { paymentId: payment.id }
-    });
-
     // Sandbox only: when running with placeholder keys the server simulates the gateway and
     // hands back a correctly-signed test payment. With real keys this is never returned.
-    const isSandbox = RAZORPAY_KEY_ID.includes('sample') || RAZORPAY_KEY_SECRET === 'sampleSecretKey';
     const mockPaymentId = isSandbox ? `pay_${crypto.randomBytes(8).toString('hex')}` : undefined;
     const mockSignature = isSandbox && mockPaymentId ? generateRazorpaySignature(orderId, mockPaymentId) : undefined;
 
@@ -210,8 +226,8 @@ router.post('/create-order', async (req: Request, res: Response) => {
       currency: 'INR',
       key: RAZORPAY_KEY_ID,
       key_id: RAZORPAY_KEY_ID,
-      bookingId: booking.id,
-      bookingRef: booking.bookingRef,
+      bookingId: bookingRef,
+      bookingRef,
       mockPaymentId,
       mockSignature,
       customer: {
@@ -263,6 +279,7 @@ router.post('/verify', async (req: Request, res: Response) => {
       include: {
         booking: {
           include: {
+            seats: true,
             showtime: {
               include: {
                 movie: true,
@@ -280,6 +297,7 @@ router.post('/verify', async (req: Request, res: Response) => {
         include: {
           booking: {
             include: {
+              seats: true,
               showtime: {
                 include: {
                   movie: true,
@@ -300,43 +318,43 @@ router.post('/verify', async (req: Request, res: Response) => {
       targetSignature.length === expected.length &&
       crypto.timingSafeEqual(Buffer.from(targetSignature), Buffer.from(expected));
 
-    // If signature is INVALID: mark payment FAILED, booking FAILED, release held seats
+    // If signature is INVALID: mark payment FAILED and release held seats
     if (!isAuthentic) {
-      if (payment?.booking && payment.booking.status === 'PENDING') {
+      if (payment) {
         await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', paymentId: null, signature: null } }).catch(() => null);
-        await prisma.booking.update({ where: { id: payment.booking.id }, data: { status: 'FAILED' } }).catch(() => null);
-
-        const seatNames = payment.booking.seatIds.split(',').map(s => s.trim());
-        const showtime = payment.booking.showtime;
-
-        const screenSeats = await prisma.seat.findMany({
-          where: {
-            screenId: showtime.screenId,
-            seatNumber: { in: seatNames }
-          }
-        });
-
-        await prisma.seatReservation.deleteMany({
-          where: {
-            showtimeId: showtime.id,
-            seatId: { in: screenSeats.map(s => s.id) },
-            status: { in: ['HELD', 'LOCKED'] }
-          }
-        });
-
-        // Broadcast release to all clients
-        const io = getSocketIO();
-        if (io) {
-          io.to(`showtime:${showtime.id}`).emit('seats:unlocked', {
-            showtimeId: showtime.id,
-            seatNumbers: seatNames,
-            reason: 'payment_failed'
-          });
-          io.to(`showtime:${showtime.id}`).emit('seats:updated', {
-            showtimeId: showtime.id,
-            timestamp: Date.now()
-          });
+        if (payment.booking) {
+          await prisma.booking.update({ where: { id: payment.booking.id }, data: { status: 'cancelled' } }).catch(() => null);
         }
+      }
+
+      const pendingOrder = pendingOrderStore.get(targetOrderId) || (bookingId ? pendingOrderStore.get(bookingId) : undefined);
+      if (pendingOrder) {
+        const showtime = await ensurePrismaShowtime(pendingOrder.showtimeId);
+        if (showtime) {
+          const seatNames = pendingOrder.matchedSeats.map(s => s.seatNumber || `${s.row}${s.number}`);
+          await prisma.seatReservation.deleteMany({
+            where: {
+              showtimeId: showtime.id,
+              seatId: { in: pendingOrder.matchedSeats.map(s => s.id) },
+              status: { in: ['HELD', 'LOCKED'] }
+            }
+          }).catch(() => null);
+
+          const io = getSocketIO();
+          if (io) {
+            io.to(`showtime:${showtime.id}`).emit('seats:unlocked', {
+              showtimeId: showtime.id,
+              seatNumbers: seatNames,
+              reason: 'payment_failed'
+            });
+            io.to(`showtime:${showtime.id}`).emit('seats:updated', {
+              showtimeId: showtime.id,
+              timestamp: Date.now()
+            });
+          }
+        }
+        pendingOrderStore.delete(targetOrderId);
+        if (pendingOrder.bookingRef) pendingOrderStore.delete(pendingOrder.bookingRef);
       }
 
       return res.status(400).json({
@@ -345,101 +363,160 @@ router.post('/verify', async (req: Request, res: Response) => {
       });
     }
 
-    if (!payment || !payment.booking) {
-      return res.status(404).json({ success: false, message: 'Booking or payment record not found.' });
+    // Idempotency: check if already confirmed
+    const existingConfirmedBooking = await prisma.booking.findFirst({
+      where: {
+        OR: [
+          { id: targetOrderId },
+          { bookingRef: targetOrderId },
+          ...(bookingId ? [{ id: bookingId }, { bookingRef: bookingId }] : [])
+        ]
+      },
+      include: {
+        seats: true,
+        showtime: { include: { movie: true, screen: { include: { theatre: true } } } },
+        payment: true
+      }
+    });
+
+    if (existingConfirmedBooking && (existingConfirmedBooking.status?.toLowerCase() === 'confirmed' || existingConfirmedBooking.status?.toLowerCase() === 'checked_in')) {
+      return res.status(200).json({
+        success: true,
+        message: 'Booking already confirmed.',
+        bookingId: existingConfirmedBooking.id,
+        bookingRef: existingConfirmedBooking.bookingRef,
+        booking: existingConfirmedBooking
+      });
     }
 
-    // Idempotency: already confirmed -> return as-is
-    if (payment.booking.status === 'CONFIRMED' || payment.booking.status === 'CHECKED_IN') {
-      return res.status(200).json({ success: true, message: 'Booking already confirmed.', bookingId: payment.booking.id, bookingRef: payment.booking.bookingRef, booking: payment.booking });
-    }
-    if (payment.booking.status !== 'PENDING') {
-      return res.status(409).json({ success: false, message: `Booking is ${payment.booking.status} and cannot be confirmed.` });
+    const pending = pendingOrderStore.get(targetOrderId) || (bookingId ? pendingOrderStore.get(bookingId) : undefined);
+    if (!pending && (!payment || !payment.booking)) {
+      return res.status(404).json({ success: false, message: 'Active booking session not found or has expired. Please retry checkout.' });
     }
 
+    const targetShowtimeId = pending ? pending.showtimeId : payment!.booking!.showtimeId;
+    const showtime = await ensurePrismaShowtime(targetShowtimeId);
+    if (!showtime) {
+      return res.status(404).json({ success: false, message: 'Showtime not found.' });
+    }
 
-    const booking = payment.booking;
-    const showtime = booking.showtime;
-    const movie = showtime.movie;
-    const theatre = showtime.screen.theatre;
+    const movie = showtime.movie || { title: 'Movie' };
+    const theatre = showtime.screen?.theatre || { name: 'Cinema' };
+    const screenName = showtime.screen?.name || 'Screen 1';
+
+    const finalBookingRef = pending ? pending.bookingRef : (payment!.booking!.bookingRef || payment!.booking!.id);
+    const finalBookingId = finalBookingRef;
+    const matchedSeats = pending ? pending.matchedSeats : (payment!.booking!.seats || []);
+    const seatNames = matchedSeats.map((s: any) => s.seatNumber || s.number || `${s.row || s.seatRow}${s.number || s.seatNumber}`);
+    const bookingSeatsStr = seatNames.join(',');
 
     // 2. Generate encrypted / signed M-Ticket QR payload
     const mTicketSignature = crypto
       .createHmac('sha256', RAZORPAY_KEY_SECRET)
-      .update(`${booking.bookingRef}|${booking.id}|${showtime.id}|${booking.seatIds}`)
+      .update(`${finalBookingRef}|${finalBookingId}|${showtime.id}|${bookingSeatsStr}`)
       .digest('hex');
 
     const qrPayload = JSON.stringify({
-      ref: booking.bookingRef,
-      id: booking.id,
+      ref: finalBookingRef,
+      id: finalBookingId,
       movie: movie.title,
       theatre: theatre.name,
-      screen: showtime.screen.name,
+      screen: screenName,
       date: showtime.date,
       time: showtime.time,
-      seats: booking.seatIds,
-      amount: booking.totalAmount,
-      customer: booking.customerName,
+      seats: bookingSeatsStr,
+      amount: pending ? pending.totalAmount : payment!.booking!.totalAmount,
+      customer: pending ? pending.customerName : payment!.booking!.customerName,
       sig: mTicketSignature.substring(0, 16)
     });
 
-    // 3-5. Atomically: claim seats as BOOKED (conditional write), mark payment SUCCESS, booking CONFIRMED
-    const seatNames = booking.seatIds.split(',').map(s => s.trim());
-    const screenSeats = await prisma.seat.findMany({
-      where: {
-        screenId: showtime.screenId,
-        seatNumber: { in: seatNames }
-      }
-    });
-
     let updatedPayment: any;
-    let updatedBooking: any;
+    let confirmedBooking: any;
+
     try {
-      [updatedPayment, updatedBooking] = await prisma.$transaction(async tx => {
-        for (const seat of screenSeats) {
-          const claimed = await tx.seatReservation.updateMany({
-            where: {
-              showtimeId: showtime.id,
-              seatId: seat.id,
-              OR: [{ status: { not: 'BOOKED' } }, { bookingId: booking.id }]
-            },
-            data: { status: 'BOOKED', bookingId: booking.id, heldExpiresAt: null, lockedUntil: null }
+      [updatedPayment, confirmedBooking] = await prisma.$transaction(async tx => {
+        // 3. Atomically claim seats as BOOKED in seatReservation
+        for (const seat of matchedSeats) {
+          await tx.seatReservation.upsert({
+            where: { showtimeId_seatId: { showtimeId: showtime.id, seatId: seat.id } },
+            update: { status: 'BOOKED', bookingId: finalBookingRef, heldExpiresAt: null },
+            create: { showtimeId: showtime.id, seatId: seat.id, status: 'BOOKED', bookingId: finalBookingRef }
           });
-          if (claimed.count === 0) {
-            const existing = await tx.seatReservation.findUnique({
-              where: { showtimeId_seatId: { showtimeId: showtime.id, seatId: seat.id } }
-            });
-            if (existing) {
-              throw { statusCode: 409, message: `Seat ${seat.seatNumber} was booked by another customer. Payment will be refunded.` };
-            }
-            await tx.seatReservation.create({
-              data: { showtimeId: showtime.id, seatId: seat.id, status: 'BOOKED', bookingId: booking.id }
-            });
-          }
         }
 
+
+        // 4. Create confirmed booking row in PostgreSQL
+        let b: any;
+        if (payment?.booking) {
+          b = await tx.booking.update({
+            where: { id: payment.booking.id },
+            data: { status: 'confirmed' },
+            include: {
+              showtime: { include: { movie: true, screen: { include: { theatre: true } } } },
+              payment: true
+            }
+          });
+        } else if (pending) {
+          b = await tx.booking.create({
+            data: {
+              id: finalBookingRef,
+              bookingRef: finalBookingRef,
+              userId: pending.userId,
+              showtimeId: showtime.id,
+              customerName: pending.customerName,
+              customerEmail: pending.customerEmail,
+              customerPhone: pending.customerPhone,
+              subtotal: pending.subtotal,
+              convenienceFee: pending.convenienceFee,
+              tax: pending.tax,
+              totalAmount: pending.totalAmount,
+              status: 'confirmed',
+              paymentMethod: pending.paymentMethod,
+              seats: {
+                create: matchedSeats.map((s: any) => ({
+                  showtimeId: showtime.id,
+                  seatId: s.id,
+                  seatRow: s.row,
+                  seatNumber: s.number,
+                  tier: s.tier,
+                  price: s.basePrice
+                }))
+              }
+            },
+            include: {
+              showtime: { include: { movie: true, screen: { include: { theatre: true } } } },
+              seats: true
+            }
+          });
+        }
+
+        // 5. Update payment record to SUCCESS and link bookingId
         const p = await tx.payment.update({
-          where: { id: payment!.id },
-          data: { paymentId: targetPaymentId, signature: targetSignature, status: 'SUCCESS' }
-        });
-        const b = await tx.booking.update({
-          where: { id: booking.id },
-          data: { status: 'CONFIRMED', qrCodeData: qrPayload },
-          include: {
-            showtime: { include: { movie: true, screen: { include: { theatre: true } } } },
-            payment: true
+          where: { orderId: targetOrderId },
+          data: {
+            bookingId: b.id,
+            paymentId: targetPaymentId,
+            signature: targetSignature,
+            status: 'SUCCESS'
           }
         });
+
         return [p, b];
+      }, {
+        maxWait: 15000,
+        timeout: 30000
       });
     } catch (txErr: any) {
       if (txErr?.statusCode === 409 || txErr?.code === 'P2002') {
-        await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED' } }).catch(() => null);
-        await prisma.booking.update({ where: { id: booking.id }, data: { status: 'FAILED' } }).catch(() => null);
+        await prisma.payment.update({ where: { orderId: targetOrderId }, data: { status: 'FAILED' } }).catch(() => null);
         return res.status(409).json({ success: false, message: txErr.message || 'Seat already booked by another customer.' });
       }
       throw txErr;
     }
+
+    // Clean up pending session
+    pendingOrderStore.delete(targetOrderId);
+    pendingOrderStore.delete(bookingRef);
 
     // 6. Broadcast real-time WebSocket update to all connected clients
     const io = getSocketIO();
@@ -447,7 +524,7 @@ router.post('/verify', async (req: Request, res: Response) => {
       io.to(`showtime:${showtime.id}`).emit('seats:booked', {
         showtimeId: showtime.id,
         seatNumbers: seatNames,
-        bookingRef: booking.bookingRef
+        bookingRef
       });
       io.to(`showtime:${showtime.id}`).emit('seats:updated', {
         showtimeId: showtime.id,
@@ -458,10 +535,14 @@ router.post('/verify', async (req: Request, res: Response) => {
     return res.status(200).json({
       success: true,
       message: 'Payment verified and booking confirmed successfully.',
-      bookingId: booking.id,
-      bookingRef: booking.bookingRef,
+      bookingId: confirmedBooking.id,
+      bookingRef: confirmedBooking.bookingRef,
       payment: updatedPayment,
-      booking: updatedBooking
+      booking: {
+        ...confirmedBooking,
+        qrCodeData: qrPayload,
+        qrToken: qrPayload
+      }
     });
   } catch (err: any) {
     console.error('Error verifying payment:', err);
@@ -506,7 +587,7 @@ router.post('/verify-webhook', async (req: Request, res: Response) => {
         if (payment.booking) {
           await prisma.booking.update({
             where: { id: payment.booking.id },
-            data: { status: 'CONFIRMED' }
+            data: { status: 'confirmed' }
           });
         }
       }

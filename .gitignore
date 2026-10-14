@@ -20,6 +20,10 @@ dist-ssr
 *.sqlite
 *.sqlite3
 *.db
+*.backup
+*.json.backup
+*.tmp*
+cinebook_local_db.json*
 server/node_modules
 server/dist
 
@@ -33,4 +37,20 @@ server/dist
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch test scripts and inspection dumps
+test_*.mjs
+test_*.js
+server/test_*.js
+server/inspect_*.js
+server/apply_*.js
+server/migrate_*.js
+server/check_*.js
+server/populate_*.js
+server/verify_*.js
+server/export_sqlite_to_json.py
+server/inspect_sqlite.py
+server/*.json.backup
+server/sqlite_export.json
+server/supabase_showtimes_pre_correction.json
 

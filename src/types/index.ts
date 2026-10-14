@@ -57,11 +57,13 @@ export interface Showtime {
 
 export interface Seat {
   id: string;
+  dbId?: string;
   row: string;
   number: number;
   tier: SeatTier;
   price: number;
   status: 'available' | 'reserved' | 'held' | 'selected';
+  heldByMe?: boolean;
   holdExpiresAt?: number;
 }
 
@@ -125,16 +127,34 @@ export interface BookingRecord {
   customerPhone?: string;
   paymentMethod: string;
   bookedAt: string;
-  status: 'confirmed' | 'cancelled' | 'pending';
+  status: 'confirmed' | 'cancelled' | 'pending' | 'expired';
   cancelledAt?: string;
   refundAmount?: number;
   cancellationFee?: number;
   refundStatus?: 'NOT_REQUESTED' | 'REFUND_PENDING' | 'REFUND_PROCESSING' | 'REFUNDED' | 'REFUND_FAILED';
   refundId?: string;
+  refundError?: string;
   qrToken?: string;
   checkedIn?: boolean;
   checkedInAt?: string;
   checkedInBy?: string;
+}
+
+export interface CancellationAuditLog {
+  id: string;
+  bookingId: string;
+  bookingRef: string;
+  action: string;
+  actorEmail: string;
+  previousStatus: string;
+  newStatus: string;
+  refundStatus: string;
+  refundAmount: number;
+  cancellationFee: number;
+  refundId?: string;
+  failureReason?: string;
+  notes?: string;
+  createdAt: string;
 }
 
 export interface User {

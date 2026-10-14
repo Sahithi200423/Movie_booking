@@ -1,0 +1,39 @@
+services:
+  # Backend Express Web Service
+  - type: web
+    name: cinebook-backend
+    env: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        value: rzp_test_sampleKey
+      - key: RAZORPAY_KEY_SECRET
+        value: sampleSecretKey
+
+  # Frontend Vite Static Site
+  - type: static_site
+    name: cinebook-frontend
+    rootDir: .
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: cinebook-backend
+          property: host

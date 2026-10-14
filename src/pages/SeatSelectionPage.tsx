@@ -10,7 +10,9 @@ import {
   MapPin,
   Timer,
   Lock,
-  X
+  X,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -33,10 +35,11 @@ const PARTY_OPTIONS = [
 
 export const SeatSelectionPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeBooking, toggleSeat, sessionId } = useBooking();
+  const { activeBooking, toggleSeat, setSeats, sessionId } = useBooking();
   const { t, formatPrice, formatTime, isRTL } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [backendSeats, setBackendSeats] = useState<Record<string, Seat>>({});
+  const [isLoadingSeats, setIsLoadingSeats] = useState(true);
   const [isHolding, setIsHolding] = useState(false);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
@@ -54,8 +57,11 @@ export const SeatSelectionPage: React.FC = () => {
   const showtimeId = useMemo(() => {
     if (activeBooking.showtimeId) return activeBooking.showtimeId;
     if (activeBooking.movie && activeBooking.cinema) {
-      return `show-${activeBooking.movie.id.substring(0, 8)}-${activeBooking.cinema.id.substring(0, 8)}-1`;
+      const movieSlug = activeBooking.movie.id.includes('kalki') ? 'kalki' : activeBooking.movie.id.substring(0, 8);
+      const cinemaSlug = activeBooking.cinema.id.includes('pvr') ? 'pvr' : activeBooking.cinema.id.replace('cin-', '').substring(0, 8);
+      return `show-${movieSlug}--${cinemaSlug}--1`;
     }
+
     return 'show-1';
   }, [activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id]);
 
@@ -71,9 +77,27 @@ export const SeatSelectionPage: React.FC = () => {
             map[s.id] = s;
           });
           setBackendSeats(map);
+
+          // Reconcile user's previously selected seats against live database status
+          const currentlySelected = activeBooking.seats;
+          if (currentlySelected.length > 0) {
+            const invalidSeats = currentlySelected.filter(s => {
+              const live = map[s.id];
+              return live && (live.status === 'reserved' || (live.status === 'held' && !live.heldByMe));
+            });
+            if (invalidSeats.length > 0) {
+              const validSeats = currentlySelected.filter(s => !invalidSeats.some(inv => inv.id === s.id));
+              setSeats(validSeats);
+              setErrorMessage(`Seat(s) ${invalidSeats.map(s => s.id).join(', ')} are no longer available and were removed from your selection.`);
+            }
+          }
         }
       } catch (err) {
         console.warn('Backend seats fetch fallback:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingSeats(false);
+        }
       }
     }
 
@@ -82,7 +106,10 @@ export const SeatSelectionPage: React.FC = () => {
     // Setup Socket.io real-time connection
     let socket: any = null;
     try {
-      socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
+      const socketTarget = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.startsWith('http')
+        ? new URL(import.meta.env.VITE_API_URL).origin
+        : undefined;
+      socket = io(socketTarget, { path: '/socket.io', transports: ['websocket', 'polling'] });
       socket.emit('join:showtime', showtimeId);
 
       const handleLiveSeatSync = () => {
@@ -179,7 +206,43 @@ export const SeatSelectionPage: React.FC = () => {
   const selectedSeats = activeBooking.seats;
   const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
 
+  // Accurate seat availability counts for live dashboard
+  const dashboardCounts = useMemo(() => {
+    const allSeats: Seat[] = [];
+    seatLayout.forEach(row => {
+      row.seats.forEach(s => allSeats.push(s));
+    });
+
+    const total = allSeats.length;
+    const selected = selectedSeats.length;
+    const selectedSeatIds = new Set(selectedSeats.map(s => s.id));
+
+    let booked = 0;
+    let held = 0;
+
+    allSeats.forEach(s => {
+      if (s.status === 'reserved') {
+        booked++;
+      } else if (s.status === 'held' && !selectedSeatIds.has(s.id)) {
+        // Temporarily held by another customer
+        held++;
+      }
+    });
+
+    // Available seats = Total - Booked - Held (by others) - Selected (by me)
+    const available = Math.max(0, total - booked - held - selected);
+
+    return {
+      total,
+      available,
+      booked,
+      held,
+      selected
+    };
+  }, [seatLayout, selectedSeats]);
+
   const handleSeatClick = async (seat: Seat) => {
+    if (isLoadingSeats) return;
     if (seat.status === 'reserved') return;
     if (seat.status === 'held') {
       setErrorMessage('This seat is temporarily locked by another customer. Please choose an adjacent seat.');
@@ -222,7 +285,7 @@ export const SeatSelectionPage: React.FC = () => {
             try {
               const res = await holdSeatsApi(showtimeId, candidateSeats.map(s => s.id), sessionId, 7);
               if (res.success) {
-                candidateSeats.forEach(s => toggleSeat(s));
+                setSeats(candidateSeats);
                 setHoldExpiresAt(res.expiresAt);
                 return;
               }
@@ -268,6 +331,18 @@ export const SeatSelectionPage: React.FC = () => {
       setErrorMessage('Please select at least one seat to continue.');
       return;
     }
+
+    // Verify none of the selected seats became reserved or held by another session
+    const conflicting = selectedSeats.filter(s => {
+      const live = backendSeats[s.id];
+      return live && (live.status === 'reserved' || (live.status === 'held' && !live.heldByMe));
+    });
+
+    if (conflicting.length > 0) {
+      setErrorMessage(`Seat(s) ${conflicting.map(s => s.id).join(', ')} are no longer available. Please select different seats.`);
+      return;
+    }
+
     // Open interstitial F&B concession upsell modal before proceeding to payment
     setShowFnbModal(true);
   };
@@ -431,38 +506,115 @@ export const SeatSelectionPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setErrorMessage(null)}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {/* Legend Bar */}
-        <div className="mb-8 p-3.5 rounded-2xl border border-white/10 bg-[#14161F] flex flex-wrap items-center justify-center gap-6 text-xs shadow-md">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-[#1C1F2B] border border-white/10" />
-            <span className="text-slate-300 font-medium">{t.seats.available}</span>
+        {/* Live Loading State */}
+        {isLoadingSeats && (
+          <div className="mb-4 py-2.5 px-4 rounded-xl border border-blue-500/30 bg-blue-950/40 text-blue-300 text-xs flex items-center justify-center gap-2.5 animate-pulse shadow-md">
+            <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <span className="font-medium tracking-wide">Syncing live seat availability with cinema database...</span>
           </div>
+        )}
+
+        {/* 1. SEAT AVAILABILITY DASHBOARD */}
+        <div className="mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3" aria-label="Seat availability summary">
+          {/* TOTAL SEATS */}
+          <div className="p-3.5 rounded-2xl border border-white/10 bg-[#12141D] flex flex-col items-center justify-center text-center shadow-md">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <Armchair className="w-3.5 h-3.5 text-slate-400" />
+              <span>Total Seats</span>
+            </div>
+            <div className="text-2xl font-black text-white mt-1">
+              {dashboardCounts.total}
+            </div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Hall Capacity</div>
+          </div>
+
+          {/* AVAILABLE */}
+          <div className="p-3.5 rounded-2xl border border-blue-500/40 bg-blue-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-blue-950/20">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-300 uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+              <span>Available</span>
+            </div>
+            <div className="text-2xl font-black text-blue-400 mt-1">
+              {dashboardCounts.available}
+            </div>
+            <div className="text-[10px] text-blue-400/80 font-medium mt-0.5">Ready to Book</div>
+          </div>
+
+          {/* SELECTED */}
+          <div className="p-3.5 rounded-2xl border border-blue-500/60 bg-blue-600/20 flex flex-col items-center justify-center text-center shadow-md shadow-blue-600/10">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-300 uppercase tracking-wider">
+              <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+              <span>Selected</span>
+            </div>
+            <div className="text-2xl font-black text-blue-300 mt-1">
+              {dashboardCounts.selected}
+            </div>
+            <div className="text-[10px] text-blue-300/80 font-medium mt-0.5">In Your Order</div>
+          </div>
+
+          {/* TEMPORARILY HELD */}
+          <div className="p-3.5 rounded-2xl border border-amber-500/50 bg-amber-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-amber-950/20">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Temp Held</span>
+            </div>
+            <div className="text-2xl font-black text-amber-400 mt-1">
+              {dashboardCounts.held}
+            </div>
+            <div className="text-[10px] text-amber-400/80 font-medium mt-0.5">Other Customers</div>
+          </div>
+
+          {/* BOOKED / SOLD */}
+          <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl border border-rose-500/50 bg-rose-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-rose-950/20">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-400 uppercase tracking-wider">
+              <XCircle className="w-3.5 h-3.5 text-rose-400" />
+              <span>Booked / Sold</span>
+            </div>
+            <div className="text-2xl font-black text-rose-400 mt-1">
+              {dashboardCounts.booked}
+            </div>
+            <div className="text-[10px] text-rose-400/80 font-medium mt-0.5">Confirmed Booked</div>
+          </div>
+        </div>
+
+        {/* 2. VISIBLE COLOR LEGEND BAR */}
+        <div className="mb-8 p-3.5 rounded-2xl border border-white/10 bg-[#14161F] flex flex-wrap items-center justify-center gap-6 text-xs shadow-md">
+          {/* Available */}
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-blue-600 text-white font-bold border border-blue-400 shadow-md shadow-blue-500/30 flex items-center justify-center text-[10px]">
+            <div className="w-5 h-5 rounded-md bg-blue-950/30 border border-blue-500/50 flex items-center justify-center text-[10px] text-blue-300 font-bold" />
+            <span className="text-blue-300 font-semibold">{t.seats.available}</span>
+          </div>
+          {/* Selected */}
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-blue-600 text-white font-bold border border-blue-400 shadow-md shadow-blue-500/40 flex items-center justify-center text-[10px]">
               ✓
             </div>
             <span className="text-blue-400 font-bold">{t.seats.selected}</span>
           </div>
+          {/* Temporarily Held */}
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-[10px]">
-              <Lock className="w-3 h-3" />
+            <div className="w-5 h-5 rounded-md bg-amber-950/60 border border-amber-500/70 text-amber-300 flex items-center justify-center text-[10px]">
+              <Lock className="w-3 h-3 text-amber-300" />
             </div>
             <span className="text-amber-400 font-medium">{t.seats.held}</span>
           </div>
+          {/* Booked / Sold */}
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-[#090A0F] border border-white/5 opacity-40 cursor-not-allowed" />
-            <span className="text-slate-500 font-medium">{t.seats.reserved}</span>
+            <div className="w-5 h-5 rounded-md bg-rose-950/60 border border-rose-700/70 text-rose-300 flex items-center justify-center text-[10px] font-bold">
+              ✕
+            </div>
+            <span className="text-rose-400 font-medium">Booked / Sold</span>
           </div>
         </div>
 
-        {/* Seat Layout Grid by Cinema Tiers */}
+        {/* 3. CINEMA AUDITORIUM SEATING GRID */}
         <div className="overflow-x-auto pb-4">
           <div
             className="min-w-[680px] flex flex-col items-center space-y-3"
@@ -473,9 +625,8 @@ export const SeatSelectionPage: React.FC = () => {
               const prevRow = rowIndex > 0 ? seatLayout[rowIndex - 1] : null;
               const isFirstOfTier = !prevRow || prevRow.tier !== row.tier;
               const tierLabel = SEAT_TIER_LABELS[row.tier] || row.tier;
-              const tierPrice = SEAT_PRICING[row.tier] || 220;
+              const tierPrice = SEAT_PRICING[row.tier] || 5;
               const isVIP = row.tier === 'VIP';
-              const isPremium = row.tier === 'PREMIUM';
 
               return (
                 <React.Fragment key={row.rowLetter}>
@@ -508,23 +659,21 @@ export const SeatSelectionPage: React.FC = () => {
 
                         let seatClass = '';
                         if (isSelected) {
+                          // Bright blue with checkmark
                           seatClass =
-                            'bg-blue-600 text-white font-bold border-blue-400 shadow-md shadow-blue-500/40 scale-105 ring-2 ring-blue-400/50';
+                            'bg-blue-600 text-white font-bold border-blue-400 shadow-lg shadow-blue-500/50 scale-105 ring-2 ring-blue-400/60';
                         } else if (isReserved) {
+                          // Booked / Sold: Red, disabled
                           seatClass =
-                            'bg-[#090A0F] text-slate-700 border-white/5 cursor-not-allowed opacity-30';
+                            'bg-rose-950/60 text-rose-300 border-rose-700/60 cursor-not-allowed opacity-90 shadow-sm shadow-rose-950/40';
                         } else if (isHeld) {
+                          // Temporarily Held: Amber / yellow with lock icon, disabled
                           seatClass =
-                            'bg-amber-950/40 text-amber-400 border-amber-600/50 cursor-not-allowed opacity-60';
-                        } else if (isVIP) {
-                          seatClass =
-                            'bg-blue-950/30 text-blue-200 border-blue-800/50 hover:border-blue-400 hover:bg-blue-900/50 focus:ring-2 focus:ring-blue-400';
-                        } else if (isPremium) {
-                          seatClass =
-                            'bg-[#1C1F2B] text-slate-200 border-white/10 hover:border-blue-400 hover:bg-[#222634] focus:ring-2 focus:ring-blue-400';
+                            'bg-amber-950/60 text-amber-300 border-amber-500/70 cursor-not-allowed opacity-90 shadow-sm shadow-amber-950/40';
                         } else {
+                          // Available: Light blue / outlined blue
                           seatClass =
-                            'bg-[#14161F] text-slate-300 border-white/10 hover:border-blue-400 hover:bg-[#1C1F2B] focus:ring-2 focus:ring-blue-400';
+                            'bg-blue-950/25 text-blue-200 border-blue-500/40 hover:border-blue-400 hover:bg-blue-600/25 hover:scale-105 focus:ring-2 focus:ring-blue-400 shadow-sm';
                         }
 
                         return (
@@ -539,14 +688,22 @@ export const SeatSelectionPage: React.FC = () => {
                             <button
                               type="button"
                               role="gridcell"
-                              disabled={isReserved || isHeld || isHolding}
+                              disabled={isLoadingSeats || isReserved || isHeld || isHolding}
                               onClick={() => handleSeatClick(seat)}
                               className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 ${seatClass}`}
-                              aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${formatPrice(seat.price)}, ${isReserved ? 'Reserved' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
+                              aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${formatPrice(seat.price)}, ${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
                               aria-selected={isSelected}
-                              title={`${seat.id} (${tierLabel}) - ${formatPrice(seat.price)}`}
+                              title={`${seat.id} (${tierLabel}) - ${formatPrice(seat.price)} [${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
                             >
-                              {isSelected ? '✓' : isHeld ? <Lock className="w-2.5 h-2.5" /> : seat.number}
+                              {isSelected ? (
+                                '✓'
+                              ) : isReserved ? (
+                                <span className="text-[10px] text-rose-300 font-black">✕</span>
+                              ) : isHeld ? (
+                                <Lock className="w-2.5 h-2.5 text-amber-300" />
+                              ) : (
+                                seat.number
+                              )}
                             </button>
                           </React.Fragment>
                         );

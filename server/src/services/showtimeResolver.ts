@@ -4,20 +4,18 @@ import { db } from '../db.js';
 /**
  * Resolves the showtime the customer actually picked (movie + theatre + date + time)
  * to a real Prisma Showtime row, creating the theatre / screen / seat inventory /
- * showtime on first use. This replaces the old behaviour of silently falling back
- * to an arbitrary "first" showtime, which caused every booking to land on the same
- * showtime and enabled double-booking.
+ * showtime on first use.
  */
 
 const SEAT_ROWS: Array<{ row: string; tier: string; price: number }> = [
-  { row: 'A', tier: 'RECLINER', price: 650 },
-  { row: 'B', tier: 'RECLINER', price: 650 },
-  { row: 'C', tier: 'PRIME', price: 350 },
-  { row: 'D', tier: 'PRIME', price: 350 },
-  { row: 'E', tier: 'PRIME', price: 350 },
-  { row: 'F', tier: 'PRIME', price: 350 },
-  { row: 'G', tier: 'EXECUTIVE', price: 220 },
-  { row: 'H', tier: 'EXECUTIVE', price: 220 }
+  { row: 'A', tier: 'VIP', price: 18.0 },
+  { row: 'B', tier: 'VIP', price: 18.0 },
+  { row: 'C', tier: 'PREMIUM', price: 14.5 },
+  { row: 'D', tier: 'PREMIUM', price: 14.5 },
+  { row: 'E', tier: 'PREMIUM', price: 14.5 },
+  { row: 'F', tier: 'PREMIUM', price: 14.5 },
+  { row: 'G', tier: 'STANDARD', price: 10.0 },
+  { row: 'H', tier: 'STANDARD', price: 10.0 }
 ];
 const SEATS_PER_ROW = 16;
 
@@ -35,23 +33,6 @@ export interface ResolveShowtimeInput {
   language?: string;
 }
 
-function parseStart(date: string, time: string): Date {
-  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i.exec(time.trim());
-  let h = 0;
-  let min = 0;
-  if (m) {
-    h = Number(m[1]);
-    min = Number(m[2]);
-    const ap = (m[3] || '').toUpperCase();
-    if (ap === 'PM' && h < 12) h += 12;
-    if (ap === 'AM' && h === 12) h = 0;
-  }
-  const d = new Date(`${date}T00:00:00`);
-  if (isNaN(d.getTime())) return new Date();
-  d.setHours(h, min, 0, 0);
-  return d;
-}
-
 async function ensureMovie(input: ResolveShowtimeInput) {
   const existing = await prisma.movie.findUnique({ where: { id: input.movieId } });
   if (existing) return existing;
@@ -67,13 +48,14 @@ async function ensureMovie(input: ResolveShowtimeInput) {
       id: input.movieId,
       title: seed?.title || input.movieTitle!,
       synopsis: seed?.synopsis || seed?.description || 'Now showing at CineBook.',
-      duration: Number(seed?.durationMinutes || seed?.duration) || 150,
-      language: (seed?.languages || [seed?.language || input.language || 'Hindi']).join(', '),
-      genre: Array.isArray(seed?.genre) ? seed.genre.join(', ') : String(seed?.genre || 'Drama'),
-      certification: seed?.ageRating || seed?.certification || 'UA',
+      durationMinutes: Number(seed?.durationMinutes || 150),
+      originalLanguage: (seed?.languages && seed.languages[0]) || seed?.language || input.language || 'English',
+      languages: seed?.languages || [seed?.language || input.language || 'English'],
+      genre: Array.isArray(seed?.genre) ? seed.genre : [String(seed?.genre || 'Drama')],
+      ageRating: seed?.ageRating || 'UA',
       rating: Number(seed?.rating) || 8.0,
       posterUrl: seed?.posterUrl || '',
-      bannerUrl: seed?.backdropUrl || null,
+      backdropUrl: seed?.backdropUrl || '',
       status: seed?.status || 'now_showing'
     }
   });
@@ -85,28 +67,29 @@ async function ensureScreen(input: ResolveShowtimeInput) {
     (input.cinemaName ? await prisma.theatre.findFirst({ where: { name: input.cinemaName } }) : null);
 
   if (!theatre) {
-    if (!input.cinemaName) {
-      const err: any = new Error(`Theatre "${input.cinemaId}" does not exist.`);
-      err.statusCode = 404;
-      throw err;
-    }
     theatre = await prisma.theatre.create({
       data: {
         id: input.cinemaId,
-        name: input.cinemaName,
-        chain: input.cinemaName.split(/[:\s]/)[0] || 'CineBook',
+        name: input.cinemaName || 'CineBook Cinema',
         city: (input.city || '').split(',')[0] || 'Unknown',
-        address: input.address || input.cinemaName
+        address: input.address || input.cinemaName || 'Address',
+        facilities: ['Parking', 'Food Court', 'Dolby Atmos'],
+        distance: '0 km',
+        timezone: 'Asia/Kolkata'
       }
     });
   }
 
-  const hall = input.hall || 'Audi 1';
+  const hall = input.hall || 'Screen 1';
   let screen = await prisma.screen.findFirst({ where: { theatreId: theatre.id, name: hall } });
   if (!screen) {
-    const count = await prisma.screen.count({ where: { theatreId: theatre.id } });
     screen = await prisma.screen.create({
-      data: { theatreId: theatre.id, name: hall, screenNumber: count + 1, format: input.format || '2D' }
+      data: {
+        id: `scr-${theatre.id.replace('cin-', '')}-${hall.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        theatreId: theatre.id,
+        name: hall,
+        screenType: input.format || 'Standard'
+      }
     });
   }
 
@@ -114,6 +97,7 @@ async function ensureScreen(input: ResolveShowtimeInput) {
   if (seatCount === 0) {
     const data = SEAT_ROWS.flatMap(({ row, tier, price }) =>
       Array.from({ length: SEATS_PER_ROW }, (_, i) => ({
+        id: `seat-${screen!.id}-${row}${i + 1}`,
         screenId: screen!.id,
         row,
         number: i + 1,
@@ -139,23 +123,30 @@ export async function resolveShowtime(input: ResolveShowtimeInput) {
   const screen = await ensureScreen(input);
 
   const existing = await prisma.showtime.findFirst({
-    where: { movieId: movie.id, screenId: screen.id, date: input.date, time: input.time }
+    where: { movieId: movie.id, screenId: screen.id, date: input.date, time: input.time },
+    include: { movie: true, screen: { include: { theatre: true, seats: true } } }
   });
   if (existing) return existing;
 
-  const startTime = parseStart(input.date, input.time);
-  const endTime = new Date(startTime.getTime() + (movie.duration || 150) * 60000);
+  const cinSlug = input.cinemaId.replace('cin-', '');
+  const movieSlug = movie.id.substring(0, 6);
+  const showId = `show-${movieSlug}-${cinSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+
   return prisma.showtime.create({
     data: {
+      id: showId,
       movieId: movie.id,
+      cinemaId: screen.theatreId,
       screenId: screen.id,
-      startTime,
-      endTime,
       date: input.date,
       time: input.time,
-      language: input.language || movie.language.split(',')[0].trim(),
-      format: input.format || screen.format
-    }
+      language: input.language || (movie.languages && movie.languages[0]) || 'English',
+      format: input.format || screen.screenType || '2D',
+      hallName: screen.name,
+      hall: screen.name,
+      priceMultiplier: 1.0
+    },
+    include: { movie: true, screen: { include: { theatre: true, seats: true } } }
   });
 }
 
@@ -200,20 +191,21 @@ export async function ensurePrismaShowtime(showtimeId: string) {
       date: dbShow.date,
       time: dbShow.time
     });
-    const startTime = parseStart(dbShow.date, dbShow.time);
-    const endTime = new Date(startTime.getTime() + (resolvedMovie.duration || 150) * 60000);
+
     try {
       showtime = await prisma.showtime.create({
         data: {
           id: showtimeId,
-          movieId: resolvedMovie.id,
+          cinemaId: dbShow.cinemaId,
           screenId: resolvedScreen.id,
-          startTime,
-          endTime,
+          movieId: resolvedMovie.id,
           date: dbShow.date,
           time: dbShow.time,
-          language: dbShow.language || 'Hindi',
-          format: dbShow.format || resolvedScreen.format
+          language: dbShow.language || 'English',
+          format: dbShow.format || resolvedScreen.screenType,
+          hallName: dbShow.hall,
+          hall: dbShow.hall,
+          priceMultiplier: dbShow.priceMultiplier || 1.0
         },
         include: { movie: true, screen: { include: { theatre: true, seats: true } } }
       });
@@ -226,54 +218,20 @@ export async function ensurePrismaShowtime(showtimeId: string) {
     }
   }
 
-  // Custom or arbitrary showtimeId fallback
-  const firstMovie = (await prisma.movie.findFirst()) || await ensureMovie({
-    movieId: 'dune-part-two',
-    movieTitle: 'Dune: Part Two',
-    cinemaId: 'theatre-pvr-phoenix',
-    date: '2026-10-04',
-    time: '07:30 PM'
-  });
-  let firstScreen = await prisma.screen.findFirst({ include: { theatre: true, seats: true } });
-  if (!firstScreen) {
-    firstScreen = await ensureScreen({
-      movieId: firstMovie.id,
-      cinemaId: 'theatre-pvr-phoenix',
-      cinemaName: 'PVR ICON: Phoenix Palladium',
-      date: '2026-10-04',
-      time: '07:30 PM'
-    }) as any;
-    firstScreen = (await prisma.screen.findUnique({
-      where: { id: firstScreen!.id },
-      include: { theatre: true, seats: true }
-    }))!;
-  }
-  const today = new Date().toISOString().split('T')[0];
-  const startTime = new Date();
-  const endTime = new Date(startTime.getTime() + 150 * 60000);
-
-  try {
-    showtime = await prisma.showtime.create({
-      data: {
-        id: showtimeId,
-        movieId: firstMovie.id,
-        screenId: firstScreen!.id,
-        startTime,
-        endTime,
-        date: today,
-        time: '07:30 PM',
-        language: 'Hindi',
-        format: firstScreen!.format || 'IMAX 3D'
-      },
+  // Fallback match: if frontend generated a synthetic ID (e.g. show-kalki-28-cin-pvr--1)
+  const candidate = db.getShowtimes().find(s =>
+    showtimeId.includes(s.movieId.substring(0, 5)) &&
+    (showtimeId.includes(s.cinemaId.substring(0, 5)) || showtimeId.includes(s.cinemaId.replace('cin-', '').substring(0, 5)))
+  );
+  if (candidate) {
+    const existing = await prisma.showtime.findUnique({
+      where: { id: candidate.id },
       include: { movie: true, screen: { include: { theatre: true, seats: true } } }
     });
-  } catch {
-    showtime = await prisma.showtime.findUnique({
-      where: { id: showtimeId },
-      include: { movie: true, screen: { include: { theatre: true, seats: true } } }
-    });
+    if (existing) return existing;
   }
 
-  return showtime;
+  // Do not fall back to an arbitrary showtime; return null if not found
+  return null;
 }
 

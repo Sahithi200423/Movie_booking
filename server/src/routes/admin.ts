@@ -16,6 +16,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
     // 1. Fetch Prisma bookings
     const prismaBookings = await prisma.booking.findMany({
       include: {
+        seats: true,
         showtime: {
           include: {
             movie: true,
@@ -42,10 +43,10 @@ router.get('/stats', async (_req: Request, res: Response) => {
           bookingRef: pb.bookingRef,
           movieTitle: pb.showtime?.movie?.title || 'Cinema Screening',
           theatreName: pb.showtime?.screen?.theatre?.name || 'PVR Cinema',
-          seatsCount: pb.seatsCount || 1,
-          totalAmount: pb.totalAmount,
+          seatsCount: (pb as any).seatsCount || pb.seats?.length || 1,
+          totalAmount: Number(pb.totalAmount),
           status: pb.status.toLowerCase(),
-          bookedAt: pb.createdAt ? new Date(pb.createdAt).toISOString() : new Date().toISOString()
+          bookedAt: pb.bookedAt ? new Date(pb.bookedAt).toISOString() : new Date().toISOString()
         });
       }
     }
@@ -140,6 +141,7 @@ router.get('/bookings', async (_req: Request, res: Response) => {
   try {
     const prismaBookings = await prisma.booking.findMany({
       include: {
+        seats: true,
         showtime: {
           include: {
             movie: true,
@@ -148,7 +150,7 @@ router.get('/bookings', async (_req: Request, res: Response) => {
         },
         payment: true
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { bookedAt: 'desc' }
     });
 
     const dbBookings = db.getAllBookings();
@@ -162,8 +164,18 @@ router.get('/bookings', async (_req: Request, res: Response) => {
         seenRefs.add(ref);
         let parsedSeats = [];
         try {
-          if (b.seatDetails) parsedSeats = JSON.parse(b.seatDetails);
+          if ((b as any).seatDetails) parsedSeats = JSON.parse((b as any).seatDetails);
         } catch {}
+
+        if (parsedSeats.length === 0 && b.seats && b.seats.length > 0) {
+          parsedSeats = b.seats.map((s: any) => ({
+            id: s.seatId,
+            row: s.seatRow,
+            number: s.seatNumber,
+            tier: s.tier,
+            price: Number(s.price)
+          }));
+        }
 
         unified.push({
           id: b.id,
@@ -176,18 +188,18 @@ router.get('/bookings', async (_req: Request, res: Response) => {
           format: b.showtime?.format || 'IMAX',
           date: b.showtime?.date || 'Today',
           time: b.showtime?.time || '07:30 PM',
-          seats: parsedSeats.length > 0 ? parsedSeats : b.seatIds.split(',').map((s: string) => ({ id: s.trim() })),
-          totalAmount: b.totalAmount,
+          seats: parsedSeats.length > 0 ? parsedSeats : ((b as any).seatIds || '').split(',').map((s: string) => ({ id: s.trim() })),
+          totalAmount: Number(b.totalAmount),
           status: b.status.toLowerCase(),
-          qrToken: b.qrCodeData,
+          qrToken: (b as any).qrCodeData || `TKT-${b.id}`,
           checkedIn: b.status === 'CHECKED_IN',
-          checkedInAt: b.checkedInAt ? new Date(b.checkedInAt).toISOString() : undefined,
+          checkedInAt: (b as any).checkedInAt ? new Date((b as any).checkedInAt).toISOString() : undefined,
           customer: {
             name: b.customerName,
             email: b.customerEmail,
             phone: b.customerPhone
           },
-          bookedAt: b.createdAt ? new Date(b.createdAt).toISOString() : new Date().toISOString()
+          bookedAt: b.bookedAt ? new Date(b.bookedAt).toISOString() : new Date().toISOString()
         });
       }
     }
@@ -455,7 +467,6 @@ router.post('/cinemas', async (req: Request, res: Response) => {
       data: {
         id,
         name,
-        chain: chain || 'PVR',
         city,
         address: address || `${name}, ${city}`
       }
@@ -475,7 +486,6 @@ router.put('/cinemas/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: {
         name: req.body.name,
-        chain: req.body.chain,
         city: req.body.city,
         address: req.body.address
       }
@@ -528,7 +538,6 @@ router.post('/screens', async (req: Request, res: Response) => {
         data: {
           id: theatreId,
           name: 'Multiplex Grand',
-          chain: 'PVR',
           city: 'Hyderabad',
           address: 'Main Boulevard'
         }
@@ -538,10 +547,10 @@ router.post('/screens', async (req: Request, res: Response) => {
 
     const screen = await prisma.screen.create({
       data: {
+        id: `scr-${targetTheatreId}-${name.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
         theatreId: targetTheatreId,
         name,
-        screenNumber: Number(screenNumber) || 1,
-        format: format || '2D'
+        screenType: format || 'Standard'
       }
     });
     return res.status(201).json({ success: true, screen });
@@ -557,8 +566,7 @@ router.put('/screens/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: {
         name: req.body.name,
-        format: req.body.format,
-        screenNumber: req.body.screenNumber ? Number(req.body.screenNumber) : undefined
+        screenType: req.body.format || req.body.screenType
       }
     });
     return res.json({ success: true, screen });
@@ -601,6 +609,7 @@ router.post('/screens/:screenId/seats', async (req: Request, res: Response) => {
     const seatNumber = `${row.toUpperCase()}${number}`;
     const seat = await prisma.seat.create({
       data: {
+        id: `seat-${req.params.screenId}-${seatNumber}`,
         screenId: req.params.screenId,
         row: row.toUpperCase(),
         number: Number(number),
@@ -650,7 +659,7 @@ router.put('/bookings/:id/status', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Status is required' });
     }
 
-    const normStatus = status.toUpperCase();
+    const normStatus = status.toLowerCase();
 
     // Check Prisma booking
     const prismaBooking = await prisma.booking.findFirst({
@@ -666,22 +675,19 @@ router.put('/bookings/:id/status', async (req: Request, res: Response) => {
       const updated = await prisma.booking.update({
         where: { id: prismaBooking.id },
         data: {
-          status: normStatus,
-          checkedInAt: normStatus === 'CHECKED_IN' ? new Date() : undefined
+          status: normStatus
         }
       });
 
-      if (normStatus === 'CANCELLED') {
+      if (normStatus === 'cancelled') {
         await prisma.seatReservation.deleteMany({
           where: { bookingId: prismaBooking.id }
         }).catch(() => null);
 
-        if (prismaBooking.paymentId) {
-          await prisma.payment.update({
-            where: { id: prismaBooking.paymentId },
-            data: { status: 'REFUNDED' }
-          }).catch(() => null);
-        }
+        await prisma.payment.updateMany({
+          where: { bookingId: prismaBooking.id },
+          data: { status: 'REFUNDED' }
+        }).catch(() => null);
       }
 
       return res.json({ success: true, message: 'Booking status updated in Prisma', booking: updated });

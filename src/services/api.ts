@@ -1,7 +1,12 @@
-import type { Movie, Cinema, Seat, BookingRecord, User } from '../types';
+import type { Movie, Cinema, Seat, BookingRecord, User, CancellationAuditLog } from '../types';
 import { MOVIES, CINEMAS } from '../data/mockData';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
+const rawApiUrl = (import.meta.env.VITE_API_URL as string) || '/api';
+const API_BASE = rawApiUrl.startsWith('http')
+  ? rawApiUrl.replace(/\/+$/, '')
+  : rawApiUrl.startsWith('/')
+  ? rawApiUrl.replace(/\/+$/, '')
+  : `https://${rawApiUrl.replace(/\/+$/, '')}`;
 
 // Helper for resilient fetch
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -127,16 +132,14 @@ export async function getSeatsForShow(showtimeId: string, sessionId?: string): P
         price = 14.5;
       }
 
-      for (let num = 1; num <= 12; num++) {
-        // Pre-reserve a couple of realistic seats
-        const isReserved = (row === 'B' && num === 5) || (row === 'D' && num === 8) || (row === 'D' && num === 9);
+      for (let num = 1; num <= 16; num++) {
         seats.push({
           id: `${row}${num}`,
           row,
           number: num,
           tier,
           price,
-          status: isReserved ? 'reserved' : 'available'
+          status: 'available'
         });
       }
     }
@@ -308,16 +311,29 @@ export async function cancelBookingApi(
     originalAmount: number;
     cancellationFee: number;
     refundAmount: number;
-    refundStatus: string;
+    refundStatus: 'NOT_REQUESTED' | 'REFUND_PENDING' | 'REFUND_PROCESSING' | 'REFUNDED' | 'REFUND_FAILED';
     refundId?: string;
     refundError?: string;
     cancelledAt: string;
   };
+  auditLog?: CancellationAuditLog;
 }> {
   return await apiRequest(`/bookings/${bookingId}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ email, reason })
   });
+}
+
+export async function getBookingAuditTrailApi(bookingId: string): Promise<{
+  success: boolean;
+  bookingRef: string;
+  logs: CancellationAuditLog[];
+}> {
+  return await apiRequest<{
+    success: boolean;
+    bookingRef: string;
+    logs: CancellationAuditLog[];
+  }>(`/bookings/${bookingId}/audit-trail`);
 }
 
 // ----------------- AUTH API -----------------
@@ -439,6 +455,9 @@ export async function getMovieReviewsApi(movieId: string) {
   return await apiRequest<{
     success: boolean;
     total: number;
+    movieRating?: number;
+    averageRating?: number;
+    votesCount?: string;
     reviews: {
       id: string;
       movieId: string;
@@ -454,6 +473,8 @@ export async function submitMovieReviewApi(movieId: string, review: { userName: 
   return await apiRequest<{
     success: boolean;
     message: string;
+    movieRating?: number;
+    votesCount?: string;
     review: {
       id: string;
       movieId: string;

@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
+dotenv.config();
 import {
   MOVIES,
   CINEMAS,
@@ -95,7 +97,7 @@ export interface BookingEntity {
   totalAmount: number;
   couponCode?: string;
   discountAmount?: number;
-  status: 'confirmed' | 'cancelled' | 'pending';
+  status: 'confirmed' | 'cancelled' | 'pending' | 'expired';
   refundStatus?: 'NOT_REQUESTED' | 'REFUND_PENDING' | 'REFUND_PROCESSING' | 'REFUNDED' | 'REFUND_FAILED';
   refundAmount?: number;
   cancellationFee?: number;
@@ -109,6 +111,23 @@ export interface BookingEntity {
   checkedInBy?: string;
 }
 
+export interface CancellationAuditLogEntity {
+  id: string;
+  bookingId: string;
+  bookingRef: string;
+  action: string;
+  actorEmail: string;
+  previousStatus: string;
+  newStatus: string;
+  refundStatus: string;
+  refundAmount: number;
+  cancellationFee: number;
+  refundId?: string;
+  failureReason?: string;
+  notes?: string;
+  createdAt: string;
+}
+
 // In-Memory & Local Persistent State
 class Database {
   private pgPool: Pool | null = null;
@@ -120,6 +139,7 @@ class Database {
   private users: UserEntity[] = [];
   private bookings: BookingEntity[] = [];
   private bookingSeats: BookingSeatEntity[] = [];
+  private auditLogs: CancellationAuditLogEntity[] = [];
   private seatHolds: Map<string, SeatHoldEntity> = new Map();
   private coupons: CouponSeed[] = [...COUPONS];
   private reviews: ReviewSeed[] = [...INITIAL_REVIEWS];
@@ -127,23 +147,27 @@ class Database {
 
   private dataFilePath = path.join(process.cwd(), 'cinebook_local_db.json');
 
+  public readyPromise: Promise<void>;
+
   constructor() {
-    this.init();
+    this.loadFromDisk();
+    this.readyPromise = this.init();
     // Background interval to clean up expired seat holds every 15s
     setInterval(() => this.cleanupExpiredHolds(), 15000);
   }
 
   private async init() {
-    const dbUrl = process.env.DATABASE_URL;
-    if (dbUrl && dbUrl.startsWith('postgres')) {
+    const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+    if (dbUrl && (dbUrl.startsWith('postgres') || dbUrl.startsWith('postgresql'))) {
       try {
         this.pgPool = new Pool({
           connectionString: dbUrl,
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          ssl: { rejectUnauthorized: false }
         });
         await this.pgPool.query('SELECT 1');
         this.isPostgres = true;
         console.log('[DB] Connected successfully to PostgreSQL / Supabase database.');
+        await this.loadFromPostgres();
         return;
       } catch (err) {
         console.warn('[DB] PostgreSQL connection failed, falling back to local persistent database:', (err as Error).message);
@@ -151,8 +175,319 @@ class Database {
       }
     }
 
-    // Initialize local database engine
+    // Initialize local database engine fallback
     this.loadFromDisk();
+  }
+
+  private async loadFromPostgres() {
+    if (!this.pgPool) return;
+    try {
+      // 1. Load movies & movie cast
+      const moviesRes = await this.pgPool.query(`
+        SELECT 
+          id, title, tagline, synopsis, poster_url as "posterUrl", backdrop_url as "backdropUrl",
+          duration_minutes as "durationMinutes", rating::float as rating, votes_count as "votesCount",
+          age_rating as "ageRating", release_date as "releaseDate", status, director,
+          formats, featured, genre, languages
+        FROM public.movies
+        ORDER BY title ASC;
+      `);
+      
+      const castRes = await this.pgPool.query(`
+        SELECT movie_id, name, role, avatar
+        FROM public.movie_cast;
+      `);
+      const castMap: Record<string, { name: string; role: string; avatar: string }[]> = {};
+      for (const row of castRes.rows) {
+        if (!castMap[row.movie_id]) castMap[row.movie_id] = [];
+        castMap[row.movie_id].push({ name: row.name, role: row.role, avatar: row.avatar });
+      }
+
+      this.movies = moviesRes.rows.map(m => ({
+        ...m,
+        duration: `${Math.floor(m.durationMinutes / 60)}h ${m.durationMinutes % 60}m`,
+        language: m.languages && m.languages.length > 0 ? m.languages[0] : 'English',
+        cast: castMap[m.id] || []
+      }));
+
+      // 2. Load cinemas
+      const cinemasRes = await this.pgPool.query(`
+        SELECT 
+          id, name, city, address, facilities, distance, timezone
+        FROM public.cinemas
+        ORDER BY name ASC;
+      `);
+      this.cinemas = cinemasRes.rows.map(c => ({
+        ...c,
+        location: c.city,
+        facilities: c.facilities || [],
+        timezone: c.timezone || 'Asia/Kolkata',
+        chain: c.name.split(/[:\s]/)[0] || 'CineBook'
+      }));
+
+      // 3. Load showtimes
+      const showtimesRes = await this.pgPool.query(`
+        SELECT 
+          id, cinema_id as "cinemaId", screen_id as "screenId", movie_id as "movieId",
+          date, time, format, COALESCE(hall, hall_name) as hall, language,
+          price_multiplier::float as "priceMultiplier"
+        FROM public.showtimes
+        ORDER BY date ASC, time ASC;
+      `);
+      this.showtimes = showtimesRes.rows.map(s => ({
+        ...s,
+        priceMultiplier: Number(s.priceMultiplier) || 1.0
+      }));
+
+      // 4. Load users
+      const usersRes = await this.pgPool.query(`
+        SELECT 
+          id, name, email, password_hash as "passwordHash", phone, role,
+          created_at as "createdAt"
+        FROM public.users;
+      `);
+      this.users = usersRes.rows.map(u => ({
+        ...u,
+        phone: u.phone || '',
+        role: u.role as 'user' | 'admin',
+        createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : new Date().toISOString()
+      }));
+
+      // 5. Load bookings, booking seats, booking addons
+      const bookingsRes = await this.pgPool.query(`
+        SELECT 
+          b.id, b.user_id as "userId", b.showtime_id as "showtimeId",
+          b.customer_name as "customerName", b.customer_email as "customerEmail",
+          b.customer_phone as "customerPhone", b.subtotal::float as subtotal,
+          b.convenience_fee::float as "convenienceFee", b.tax::float as tax,
+          b.total_amount::float as "totalAmount", b.payment_method as "paymentMethod",
+          b.status, b.refund_status as "refundStatus", b.booked_at as "bookedAt",
+          b.cancelled_at as "cancelledAt", b.refund_amount::float as "refundAmount",
+          b.cancellation_fee::float as "cancellationFee", b.refund_id as "refundId",
+          b.booking_ref as "bookingRef",
+          s.movie_id as "movieId", COALESCE(m.title, 'Movie') as "movieTitle",
+          COALESCE(m.poster_url, '') as "moviePoster",
+          COALESCE(m.duration_minutes, 150)::text as "movieDuration",
+          COALESCE(m.age_rating, 'UA') as "movieAgeRating",
+          s.cinema_id as "cinemaId", COALESCE(c.name, 'Cinema') as "cinemaName",
+          COALESCE(c.address, '') as "cinemaAddress",
+          COALESCE(s.hall, s.hall_name, 'Screen 1') as hall,
+          COALESCE(s.format, '2D') as format,
+          COALESCE(s.date, '') as date,
+          COALESCE(s.time, '') as time,
+          COALESCE(s.language, 'English') as "selectedLanguage"
+        FROM public.bookings b
+        LEFT JOIN public.showtimes s ON b.showtime_id = s.id
+        LEFT JOIN public.movies m ON s.movie_id = m.id
+        LEFT JOIN public.cinemas c ON s.cinema_id = c.id
+        ORDER BY b.booked_at DESC;
+      `);
+
+      const bSeatsRes = await this.pgPool.query(`
+        SELECT 
+          booking_id as "bookingId", showtime_id as "showtimeId", seat_id as "seatId",
+          seat_row as "row", seat_number as "number", tier, price::float as price
+        FROM public.booking_seats;
+      `);
+      this.bookingSeats = bSeatsRes.rows.map(s => ({
+        ...s,
+        tier: s.tier as 'VIP' | 'PREMIUM' | 'STANDARD',
+        number: Number(s.number),
+        price: Number(s.price)
+      }));
+
+      const bAddonsRes = await this.pgPool.query(`
+        SELECT 
+          booking_id as "bookingId", addon_id as id, name, price::float as price, quantity
+        FROM public.booking_addons;
+      `);
+      const addonsMap: Record<string, any[]> = {};
+      for (const a of bAddonsRes.rows) {
+        if (!addonsMap[a.bookingId]) addonsMap[a.bookingId] = [];
+        addonsMap[a.bookingId].push({
+          id: a.id,
+          name: a.name,
+          price: Number(a.price),
+          quantity: Number(a.quantity)
+        });
+      }
+
+      const seatsMap: Record<string, any[]> = {};
+      for (const s of this.bookingSeats) {
+        if (!seatsMap[s.bookingId]) seatsMap[s.bookingId] = [];
+        seatsMap[s.bookingId].push({
+          id: s.seatId,
+          row: s.row,
+          number: s.number,
+          tier: s.tier,
+          price: s.price
+        });
+      }
+
+      this.bookings = bookingsRes.rows.map(b => ({
+        ...b,
+        qrToken: `TKT-${b.id}`,
+        seats: seatsMap[b.id] || [],
+        addons: addonsMap[b.id] || [],
+        bookedAt: b.bookedAt ? new Date(b.bookedAt).toISOString() : new Date().toISOString(),
+        cancelledAt: b.cancelledAt ? new Date(b.cancelledAt).toISOString() : undefined
+      }));
+
+      // 6. Load reviews
+      const reviewsRes = await this.pgPool.query(`
+        SELECT 
+          id, movie_id as "movieId", user_name as "userName", user_email as "userEmail",
+          rating::float as rating, comment, created_at as "createdAt"
+        FROM public.reviews
+        ORDER BY created_at DESC;
+      `);
+      this.reviews = reviewsRes.rows.map(r => ({
+        ...r,
+        rating: Number(r.rating),
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString()
+      }));
+
+      // 7. Load audit logs
+      const auditRes = await this.pgPool.query(`
+        SELECT 
+          id, booking_id as "bookingId", booking_ref as "bookingRef", action,
+          actor_email as "actorEmail", previous_status as "previousStatus",
+          new_status as "newStatus", refund_status as "refundStatus",
+          refund_amount::float as "refundAmount", cancellation_fee::float as "cancellationFee",
+          refund_id as "refundId", created_at as "createdAt"
+        FROM public.cancellation_audit_logs
+        ORDER BY created_at DESC;
+      `);
+      this.auditLogs = auditRes.rows.map(l => ({
+        ...l,
+        refundAmount: Number(l.refundAmount) || 0,
+        cancellationFee: Number(l.cancellationFee) || 0,
+        createdAt: l.createdAt ? new Date(l.createdAt).toISOString() : new Date().toISOString()
+      }));
+
+      console.log(`[DB] Successfully hydrated from Supabase PostgreSQL: ${this.movies.length} movies, ${this.cinemas.length} cinemas, ${this.showtimes.length} showtimes, ${this.users.length} users, ${this.bookings.length} bookings, ${this.reviews.length} reviews.`);
+    } catch (err) {
+      console.error('[DB] Failed loading data from Supabase PostgreSQL:', err);
+    }
+  }
+
+  private async persistBookingToPostgres(booking: BookingEntity, paymentMethod = 'Demo Card') {
+    if (!this.pgPool) return;
+    const client = await this.pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO public.bookings (
+          id, user_id, showtime_id, customer_name, customer_email, customer_phone,
+          subtotal, convenience_fee, tax, total_amount, payment_method, status,
+          booked_at, booking_ref
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ON CONFLICT (id) DO NOTHING`,
+        [
+          booking.id,
+          booking.userId || null,
+          booking.showtimeId,
+          booking.customerName,
+          booking.customerEmail,
+          booking.customerPhone,
+          booking.subtotal,
+          booking.convenienceFee,
+          booking.tax,
+          booking.totalAmount,
+          paymentMethod,
+          booking.status,
+          booking.bookedAt || new Date().toISOString(),
+          booking.id
+        ]
+      );
+
+      for (const seat of booking.seats) {
+        await client.query(
+          `INSERT INTO public.booking_seats (booking_id, showtime_id, seat_id, seat_row, seat_number, tier, price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (showtime_id, seat_id) DO UPDATE SET booking_id = EXCLUDED.booking_id`,
+          [booking.id, booking.showtimeId, seat.id, seat.row, seat.number, seat.tier, seat.price]
+        );
+      }
+
+      for (const addon of (booking.addons || [])) {
+        await client.query(
+          `INSERT INTO public.booking_addons (booking_id, addon_id, name, price, quantity)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [booking.id, addon.id, addon.name, addon.price, addon.quantity]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO public.payments (booking_id, provider, order_id, amount, currency, status, created_at)
+         VALUES ($1, $2, $3, $4, 'INR', 'COMPLETED', NOW())`,
+        [booking.id, 'DEMO_GATEWAY', `ord_${booking.id}`, booking.totalAmount]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('[DB] Transaction failed in persistBookingToPostgres:', err);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async persistCancellationToPostgres(booking: BookingEntity, auditEntry: CancellationAuditLogEntity) {
+    if (!this.pgPool) return;
+    const client = await this.pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE public.bookings
+         SET status = 'cancelled', cancelled_at = $1, refund_status = $2,
+             refund_amount = $3, cancellation_fee = $4, refund_id = $5
+         WHERE id = $6 OR booking_ref = $6`,
+        [
+          booking.cancelledAt || new Date().toISOString(),
+          booking.refundStatus || 'REFUNDED',
+          booking.refundAmount || 0,
+          booking.cancellationFee || 0,
+          booking.refundId || null,
+          booking.id
+        ]
+      );
+
+      await client.query(
+        `DELETE FROM public.booking_seats WHERE booking_id = $1`,
+        [booking.id]
+      );
+
+      await client.query(
+        `INSERT INTO public.cancellation_audit_logs (
+          id, booking_id, booking_ref, action, actor_email, previous_status, new_status,
+          refund_status, refund_amount, cancellation_fee, refund_id, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          auditEntry.id,
+          auditEntry.bookingId,
+          auditEntry.bookingRef,
+          auditEntry.action,
+          auditEntry.actorEmail,
+          auditEntry.previousStatus,
+          auditEntry.newStatus,
+          auditEntry.refundStatus,
+          auditEntry.refundAmount,
+          auditEntry.cancellationFee,
+          auditEntry.refundId || null,
+          auditEntry.createdAt
+        ]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('[DB] Transaction failed in persistCancellationToPostgres:', err);
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   private loadFromDisk() {
@@ -173,8 +508,10 @@ class Database {
         this.users = data.users || [];
         this.bookings = data.bookings || [];
         this.bookingSeats = data.bookingSeats || [];
+        this.auditLogs = data.auditLogs || [];
+        this.reviews = data.reviews && Array.isArray(data.reviews) && data.reviews.length > 0 ? data.reviews : [...INITIAL_REVIEWS];
         this.saveToDisk();
-        console.log(`[DB] Loaded ${this.movies.length} movies and ${this.bookings.length} bookings from local disk.`);
+        console.log(`[DB] Loaded ${this.movies.length} movies, ${this.reviews.length} reviews, and ${this.bookings.length} bookings from local disk.`);
         return;
       }
     } catch (e) {
@@ -194,7 +531,9 @@ class Database {
         showtimes: this.showtimes,
         users: this.users,
         bookings: this.bookings,
-        bookingSeats: this.bookingSeats
+        bookingSeats: this.bookingSeats,
+        auditLogs: this.auditLogs,
+        reviews: this.reviews
       };
       fs.writeFileSync(this.dataFilePath, JSON.stringify(payload, null, 2), 'utf-8');
     } catch (err) {
@@ -239,7 +578,9 @@ class Database {
     this.movies.slice(0, 10).forEach(movie => {
       this.cinemas.forEach(cinema => {
         times.forEach((t, idx) => {
-          const showId = `show-${movie.id.substring(0, 6)}-${cinema.id.substring(4, 8)}-${idx + 1}`;
+          const cinSlug = cinema.id.replace('cin-', '');
+          const movieSlug = movie.id.substring(0, 6);
+          const showId = `show-${movieSlug}-${cinSlug}-${idx + 1}`;
           generatedShowtimes.push({
             id: showId,
             movieId: movie.id,
@@ -491,7 +832,7 @@ class Database {
         price = 14.5;
       }
 
-      for (let num = 1; num <= 12; num++) {
+      for (let num = 1; num <= 16; num++) {
         const seatId = `${row}${num}`;
         const isBooked = bookedSeatIds.has(seatId);
         const hold = this.seatHolds.get(`${showtimeId}:${seatId}`);
@@ -622,6 +963,15 @@ class Database {
     this.bookingSeats.push(...newSeats);
     this.saveToDisk();
 
+    (async () => {
+      await this.readyPromise;
+      if (this.isPostgres && this.pgPool) {
+        await this.persistBookingToPostgres(newBooking, bookingData.paymentMethod);
+      }
+    })().catch(err => {
+      console.error('[DB] Error persisting booking to Supabase PostgreSQL:', err.message);
+    });
+
     return newBooking;
   }
 
@@ -649,6 +999,12 @@ class Database {
       throw err;
     }
 
+    if (booking.status === 'expired') {
+      const err = new Error(`Booking #${bookingId} has expired and cannot be cancelled.`);
+      (err as unknown as { statusCode: number }).statusCode = 400;
+      throw err;
+    }
+
     // Check user authorization if email provided
     if (userEmail && booking.customerEmail.toLowerCase() !== userEmail.toLowerCase()) {
       const err = new Error('You do not have permission to cancel this booking.');
@@ -665,6 +1021,7 @@ class Database {
       ? refundInfo.cancellationFee
       : Math.max(0, Math.round((booking.totalAmount - refund) * 100) / 100);
 
+    const prevStatus = booking.status;
     booking.status = 'cancelled';
     booking.cancelledAt = new Date().toISOString();
     booking.refundAmount = refund;
@@ -677,8 +1034,47 @@ class Database {
     // Release the seats so others can book them
     this.bookingSeats = this.bookingSeats.filter(bs => bs.bookingId !== booking.id && bs.bookingId !== bookingId);
 
+    // Record audit log
+    const auditEntry: CancellationAuditLogEntity = {
+      id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      bookingId: booking.id,
+      bookingRef: (booking as any).bookingId || (booking as any).bookingRef || booking.id,
+      action: 'CANCELLATION_REQUESTED',
+      actorEmail: userEmail || booking.customerEmail,
+      previousStatus: prevStatus,
+      newStatus: 'cancelled',
+      refundStatus: booking.refundStatus,
+      refundAmount: refund,
+      cancellationFee: fee,
+      refundId: booking.refundId,
+      createdAt: new Date().toISOString()
+    };
+    this.auditLogs.unshift(auditEntry);
+
     this.saveToDisk();
+
+    (async () => {
+      await this.readyPromise;
+      if (this.isPostgres && this.pgPool) {
+        await this.persistCancellationToPostgres(booking, auditEntry);
+      }
+    })().catch(err => {
+      console.error('[DB] Error persisting cancellation to Supabase PostgreSQL:', err.message);
+    });
+
     return booking;
+  }
+
+  public getAuditLogsForBooking(bookingId: string): CancellationAuditLogEntity[] {
+    const target = bookingId.toUpperCase();
+    return this.auditLogs.filter(
+      l => l.bookingId.toUpperCase() === target || l.bookingRef.toUpperCase() === target
+    );
+  }
+
+  public addAuditLog(entry: CancellationAuditLogEntity) {
+    this.auditLogs.unshift(entry);
+    this.saveToDisk();
   }
 
   public getBookingsForUser(userIdOrEmail: string): BookingEntity[] {
@@ -724,6 +1120,19 @@ class Database {
 
     this.users.push(newUser);
     this.saveToDisk();
+
+    (async () => {
+      await this.readyPromise;
+      if (this.isPostgres && this.pgPool) {
+        await this.pgPool.query(
+          `INSERT INTO public.users (id, name, email, password_hash, phone, role, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+           ON CONFLICT (email) DO NOTHING`,
+          [newUser.id, newUser.name, newUser.email, newUser.passwordHash, newUser.phone, newUser.role, newUser.createdAt]
+        );
+      }
+    })().catch(err => console.error('[DB] Error inserting user to Supabase:', err.message));
+
     return newUser;
   }
 
@@ -757,8 +1166,35 @@ class Database {
   }
 
   public addShowtime(show: ShowtimeEntity): ShowtimeEntity {
+    if (!show.id) {
+      const cinSlug = (show.cinemaId || 'cin').replace('cin-', '');
+      const movieSlug = (show.movieId || 'mov').substring(0, 6);
+      show.id = `show-${movieSlug}-${cinSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+    }
     this.showtimes.push(show);
     this.saveToDisk();
+
+    if (this.isPostgres && this.pgPool) {
+      this.pgPool.query(
+        `INSERT INTO public.showtimes (id, cinema_id, screen_id, movie_id, date, time, format, hall_name, hall, language, price_multiplier)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          show.id,
+          show.cinemaId,
+          (show as any).screenId || null,
+          show.movieId,
+          show.date,
+          show.time,
+          show.format,
+          show.hall,
+          show.hall,
+          show.language,
+          show.priceMultiplier
+        ]
+      ).catch(err => console.error('[DB] Error inserting showtime to Supabase:', err.message));
+    }
+
     return show;
   }
 
@@ -898,6 +1334,18 @@ class Database {
     movie.votesCount = `${movieReviews.length + 50} reviews`;
 
     this.saveToDisk();
+
+    (async () => {
+      await this.readyPromise;
+      if (this.isPostgres && this.pgPool) {
+        await this.pgPool.query(
+          `INSERT INTO public.reviews (id, movie_id, user_name, user_email, rating, comment, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [newRev.id, newRev.movieId, newRev.userName, newRev.userEmail || null, newRev.rating, newRev.comment, newRev.createdAt]
+        );
+      }
+    })().catch(err => console.error('[DB] Error inserting review to Supabase:', err.message));
+
     return newRev;
   }
 
@@ -932,6 +1380,10 @@ class Database {
     this.showtimes = this.showtimes.filter(s => s.id !== id);
     if (this.showtimes.length !== len) {
       this.saveToDisk();
+      if (this.isPostgres && this.pgPool) {
+        this.pgPool.query('DELETE FROM public.showtimes WHERE id = $1', [id])
+          .catch(err => console.error('[DB] Error deleting showtime from Supabase:', err.message));
+      }
       return true;
     }
     return false;

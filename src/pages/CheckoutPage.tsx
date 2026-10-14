@@ -37,7 +37,6 @@ import {
   getCouponsApi,
   createPaymentOrderApi,
   verifyPaymentApi,
-  holdSeatsApi,
   releaseSeatsHoldApi
 } from '../services/api';
 
@@ -390,27 +389,15 @@ export const CheckoutPage: React.FC = () => {
       };
     });
 
+    const movieSlug = activeBooking.movie?.id.includes('kalki') ? 'kalki' : (activeBooking.movie?.id || '').substring(0, 8);
+    const cinemaSlug = activeBooking.cinema?.id.includes('pvr') ? 'pvr' : (activeBooking.cinema?.id || '').replace('cin-', '').substring(0, 8);
     const showtimeId =
       activeBooking.showtimeId ||
-      `show-${activeBooking.movie!.id.substring(0, 8)}-${activeBooking.cinema!.id.substring(0, 8)}-1`;
+      `show-${movieSlug}--${cinemaSlug}--1`;
 
     const selectedSeatNumbers = activeBooking.seats.map(s => s.id);
 
-    // Step 1: Call /api/seats/lock to secure the seats (no raw alert())
-    try {
-      const lockRes = await holdSeatsApi(showtimeId, selectedSeatNumbers, sessionId);
-      if (!lockRes.success) {
-        showToast('Seats just taken by another user. Please choose available seats.', 'error');
-        setFormError('Seats just taken by another user. Please choose available seats.');
-        setIsProcessing(false);
-        return;
-      }
-    } catch (lockErr: any) {
-      showToast(lockErr.message || 'Seats just taken by another user.', 'error');
-      setFormError(lockErr.message || 'Seats just taken by another user.');
-      setIsProcessing(false);
-      return;
-    }
+    // Create payment order directly (the backend atomically verifies and locks seats)
 
     // Step 2: Call /api/payment/create-order to fetch the real gateway order_id
     let orderRes: any;

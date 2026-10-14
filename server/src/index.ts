@@ -1,8 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import movieRoutes from './routes/movies.js';
 import cinemaRoutes from './routes/cinemas.js';
@@ -14,8 +15,6 @@ import paymentFlowRoutes from './routes/paymentFlow.js';
 import seatLockRoutes from './routes/seatLocks.js';
 import ticketValidationRoutes from './routes/ticketValidation.js';
 import { setSocketIO } from './services/seatReservationService.js';
-
-dotenv.config();
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -100,11 +99,13 @@ app.use('/api/*', (req, res) => {
 });
 
 // Start Server with HTTP & WebSockets
-httpServer.listen(PORT, () => {
-  console.log(`🎬 CineBook API & Socket.io Server running on http://localhost:${PORT}`);
+httpServer.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🎬 CineBook API & Socket.io Server running on port ${PORT}`);
   console.log(`✨ Health check: http://localhost:${PORT}/api/health`);
   console.log(`⚡ WebSocket connection ready for real-time seat lock broadcasts`);
 });
 
 export { app, httpServer, io };
 export default app;
+// Reload trigger for Supabase DATABASE_URL activation
+

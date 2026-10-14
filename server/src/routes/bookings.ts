@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import jwt from 'jsonwebtoken';
 import { db } from '../db.js';
 import { prisma } from '../prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
@@ -203,16 +204,16 @@ function formatPrismaBooking(prismaBooking: any) {
     paymentMethod: prismaBooking.paymentMethod,
     payment: prismaBooking.payment,
     bookedAt: prismaBooking.createdAt ? new Date(prismaBooking.createdAt).toISOString() : new Date().toISOString(),
-    cancelledAt: (prismaBooking.cancelledAt || (prismaBooking.status === 'CANCELLED' ? prismaBooking.updatedAt : null))
+    cancelledAt: (prismaBooking.cancelledAt || (prismaBooking.status.toLowerCase() === 'cancelled' ? prismaBooking.updatedAt : null))
       ? new Date(prismaBooking.cancelledAt || prismaBooking.updatedAt).toISOString()
       : undefined,
-    refundStatus: prismaBooking.refundStatus || (prismaBooking.status === 'CANCELLED' ? 'REFUNDED' : 'NOT_REQUESTED'),
+    refundStatus: prismaBooking.refundStatus || (prismaBooking.status.toLowerCase() === 'cancelled' ? 'REFUNDED' : 'NOT_REQUESTED'),
     refundAmount: prismaBooking.refundAmount !== undefined && prismaBooking.refundAmount !== null
       ? prismaBooking.refundAmount
-      : (prismaBooking.status === 'CANCELLED' ? Math.round(prismaBooking.totalAmount * 0.9 * 100) / 100 : 0),
+      : (prismaBooking.status.toLowerCase() === 'cancelled' ? Math.round(prismaBooking.totalAmount * 0.9 * 100) / 100 : 0),
     cancellationFee: prismaBooking.cancellationFee !== undefined && prismaBooking.cancellationFee !== null
       ? prismaBooking.cancellationFee
-      : (prismaBooking.status === 'CANCELLED' ? Math.round(prismaBooking.totalAmount * 0.1 * 100) / 100 : 0),
+      : (prismaBooking.status.toLowerCase() === 'cancelled' ? Math.round(prismaBooking.totalAmount * 0.1 * 100) / 100 : 0),
     refundId: prismaBooking.refundId || prismaBooking.payment?.refundId || undefined
   };
 }
@@ -235,7 +236,7 @@ router.get('/my', async (req: Request, res: Response) => {
         },
         payment: true
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { bookedAt: 'desc' }
     });
 
     const formattedPrisma = prismaBookings.map(formatPrismaBooking);
@@ -348,7 +349,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
     });
 
     if (prismaBooking) {
-      if (prismaBooking.status === 'CANCELLED') {
+      if (prismaBooking.status.toLowerCase() === 'cancelled') {
         return res.status(400).json({
           success: false,
           eligible: false,
@@ -364,14 +365,14 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
         });
       }
 
-      const originalAmount = prismaBooking.totalAmount;
+      const originalAmount = Number(prismaBooking.totalAmount);
       // CineBook policy: 10% cancellation charge, 90% refund
       const cancellationFee = Math.round(originalAmount * 0.1 * 100) / 100;
       const refundAmount = Math.max(0, Math.round((originalAmount - cancellationFee) * 100) / 100);
 
-      const seatList = (prismaBooking.seatIds || '')
+      const seatList = ((prismaBooking as any).seatIds || '')
         .split(',')
-        .map(s => s.trim())
+        .map((s: string) => s.trim())
         .filter(Boolean);
 
       return res.json({
@@ -385,7 +386,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
         showDate: prismaBooking.showtime?.date || 'Show Date',
         showTime: prismaBooking.showtime?.time || 'Show Time',
         seats: seatList,
-        seatsCount: prismaBooking.seatsCount || seatList.length,
+        seatsCount: (prismaBooking as any).seatsCount || seatList.length,
         originalAmount,
         cancellationFee,
         refundAmount,
@@ -445,6 +446,17 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
     const { email, reason = 'Customer requested cancellation' } = req.body;
     const targetId = req.params.id;
 
+    // Optional user token verification
+    const authHeader = req.headers.authorization;
+    let authUserEmail: string | undefined;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cinebook_default_development_secret_2024') as any;
+        authUserEmail = decoded.email ? String(decoded.email).toLowerCase() : undefined;
+      } catch {}
+    }
+
     // 1. Check Prisma SQLite first
     const prismaBooking = await prisma.booking.findFirst({
       where: {
@@ -463,21 +475,40 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
 
     if (prismaBooking) {
       // Prevent double cancellation
-      if (prismaBooking.status === 'CANCELLED') {
+      if (prismaBooking.status.toLowerCase() === 'cancelled') {
         return res.status(400).json({
           success: false,
           message: `Booking #${prismaBooking.bookingRef} is already cancelled.`
         });
       }
 
-      if (email && prismaBooking.customerEmail.toLowerCase() !== email.toLowerCase()) {
+      // Prevent cancellation of expired booking
+      if (prismaBooking.status === 'EXPIRED') {
+        return res.status(400).json({
+          success: false,
+          message: `Booking #${prismaBooking.bookingRef} has expired and cannot be cancelled.`
+        });
+      }
+
+      // Prevent cancellation of checked-in / admitted booking
+      if (prismaBooking.status === 'CHECKED_IN') {
+        return res.status(400).json({
+          success: false,
+          message: `Booking #${prismaBooking.bookingRef} was already admitted and checked in. Cancellation is not permitted.`
+        });
+      }
+
+      // Verify user authorization (prevent cancelling another user's booking)
+      const bookingCustomerEmail = prismaBooking.customerEmail.toLowerCase();
+      const requestEmail = email ? String(email).trim().toLowerCase() : authUserEmail;
+      if (requestEmail && bookingCustomerEmail !== requestEmail) {
         return res.status(403).json({
           success: false,
           message: 'You do not have permission to cancel this booking.'
         });
       }
 
-      const originalAmount = prismaBooking.totalAmount;
+      const originalAmount = Number(prismaBooking.totalAmount);
       const cancellationFee = Math.round(originalAmount * 0.1 * 100) / 100;
       const refundAmount = Math.max(0, Math.round((originalAmount - cancellationFee) * 100) / 100);
 
@@ -490,31 +521,31 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
       const paymentId = prismaBooking.payment?.paymentId;
 
       if (paymentId && refundAmount > 0) {
-        try {
-          // Call official Razorpay Refund API
-          const refundResult = await razorpay.payments.refund(paymentId, {
-            amount: Math.round(refundAmount * 100), // amount in paise
-            notes: {
-              bookingRef: prismaBooking.bookingRef,
-              reason: String(reason).slice(0, 100)
-            }
-          });
-          refundId = refundResult.id;
-          refundStatus = 'REFUNDED';
-        } catch (rzpErr: any) {
-          if (isSandbox) {
-            // In test/sandbox mode with dummy credentials:
-            // Safely simulate the successful refund response with an official-style refund ID
-            refundId = `rfnd_${crypto.randomBytes(8).toString('hex')}`;
+        if (!isSandbox) {
+          try {
+            // Live Razorpay Gateway Call using backend keys (never exposed to frontend)
+            const refundResult = await razorpay.payments.refund(paymentId, {
+              amount: Math.round(refundAmount * 100), // amount in paise
+              notes: {
+                bookingRef: prismaBooking.bookingRef,
+                reason: String(reason).slice(0, 100)
+              }
+            });
+            refundId = refundResult.id;
             refundStatus = 'REFUNDED';
-          } else {
+          } catch (rzpErr: any) {
             console.error('[Razorpay Refund Gateway Error]:', rzpErr?.message || rzpErr);
+            // CRITICAL: Do NOT mark as REFUNDED on gateway failure
             refundStatus = 'REFUND_FAILED';
-            refundErrorMsg = rzpErr?.message || 'Payment gateway refund request failed.';
+            refundErrorMsg = rzpErr?.error?.description || rzpErr?.message || 'Payment gateway refund request failed.';
           }
+        } else {
+          // In test/sandbox mode with dummy credentials:
+          refundId = `rfnd_sim_${crypto.randomBytes(8).toString('hex')}`;
+          refundStatus = 'REFUNDED';
         }
       } else {
-        // Free ticket or cash/demo payment
+        // Free ticket or demo payment
         refundId = `rfnd_demo_${crypto.randomBytes(6).toString('hex')}`;
         refundStatus = 'REFUNDED';
       }
@@ -525,7 +556,7 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
       const updatedBooking = await prisma.booking.update({
         where: { id: prismaBooking.id },
         data: {
-          status: 'CANCELLED',
+          status: 'cancelled',
           refundStatus,
           refundAmount,
           cancellationFee,
@@ -557,12 +588,30 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
 
       // Atomically release seats in seatReservation
       await prisma.seatReservation.deleteMany({
+        where: {
+          OR: [
+            { bookingId: prismaBooking.id },
+            { bookingId: prismaBooking.bookingRef || prismaBooking.id }
+          ]
+        }
+      }).catch(() => null);
+
+      // Also release by showtime and seat IDs for this booking
+      const bookedSeats = await prisma.bookingSeat.findMany({
         where: { bookingId: prismaBooking.id }
       });
+      if (bookedSeats.length > 0) {
+        await prisma.seatReservation.deleteMany({
+          where: {
+            showtimeId: prismaBooking.showtimeId,
+            seatId: { in: bookedSeats.map(bs => bs.seatId) }
+          }
+        }).catch(() => null);
+      }
 
       // Broadcast real-time WebSocket update so seats immediately reflect as AVAILABLE to all users
       const io = getSocketIO();
-      const seatNames = (prismaBooking.seatIds || '').split(',').map(s => s.trim()).filter(Boolean);
+      const seatNames = ((prismaBooking as any).seatIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
       if (io && prismaBooking.showtimeId) {
         io.to(`showtime:${prismaBooking.showtimeId}`).emit('seats:unlocked', {
           showtimeId: prismaBooking.showtimeId,
@@ -575,9 +624,27 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
         });
       }
 
+      // Record Cancellation Audit Log in database
+      const auditLog = await prisma.cancellationAuditLog.create({
+        data: {
+          bookingId: prismaBooking.id,
+          bookingRef: prismaBooking.bookingRef || prismaBooking.id,
+          action: refundStatus === 'REFUNDED' ? 'REFUND_SUCCESS' : (refundStatus === 'REFUND_FAILED' ? 'REFUND_FAILED' : 'CANCELLATION_REQUESTED'),
+          actorEmail: requestEmail || prismaBooking.customerEmail,
+          previousStatus: prismaBooking.status,
+          newStatus: 'cancelled',
+          refundStatus,
+          refundAmount,
+          cancellationFee,
+          refundId,
+          failureReason: refundErrorMsg,
+          notes: String(reason).slice(0, 200)
+        }
+      });
+
       // Also sync cancel in local db.ts if present
       try {
-        db.cancelBooking(targetId, email, {
+        db.cancelBooking(targetId, requestEmail || prismaBooking.customerEmail, {
           refundAmount,
           cancellationFee,
           refundStatus,
@@ -605,7 +672,8 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
           refundId,
           refundError: refundErrorMsg,
           cancelledAt: cancelledAt.toISOString()
-        }
+        },
+        auditLog
       });
     }
 
@@ -614,6 +682,8 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
       refundStatus: 'REFUNDED',
       refundId: `rfnd_local_${crypto.randomBytes(6).toString('hex')}`
     });
+
+    const localAuditLogs = db.getAuditLogsForBooking(targetId);
 
     return res.json({
       success: true,
@@ -626,13 +696,53 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
         refundStatus: 'REFUNDED',
         refundId: cancelledBooking.refundId,
         cancelledAt: cancelledBooking.cancelledAt
-      }
+      },
+      auditLog: localAuditLogs[0]
     });
   } catch (err: unknown) {
     const error = err as { statusCode?: number; message?: string };
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Failed to cancel booking.'
+    });
+  }
+});
+
+// GET /api/bookings/:id/audit-trail (Retrieve full cancellation & refund audit log history)
+router.get('/:id/audit-trail', async (req: Request, res: Response) => {
+  try {
+    const targetId = req.params.id;
+
+    // 1. Check Prisma SQLite
+    const prismaBooking = await prisma.booking.findFirst({
+      where: {
+        OR: [{ id: targetId }, { bookingRef: targetId }]
+      }
+    });
+
+    if (prismaBooking) {
+      const logs = await prisma.cancellationAuditLog.findMany({
+        where: { bookingId: prismaBooking.id },
+        orderBy: { createdAt: 'desc' }
+      });
+      return res.json({
+        success: true,
+        bookingRef: prismaBooking.bookingRef,
+        logs
+      });
+    }
+
+    // 2. Check local db.ts fallback
+    const localLogs = db.getAuditLogsForBooking(targetId);
+    return res.json({
+      success: true,
+      bookingRef: targetId,
+      logs: localLogs
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to retrieve audit trail'
     });
   }
 });
@@ -668,7 +778,7 @@ router.post('/verify-ticket', async (req: Request, res: Response) => {
     });
 
     if (prismaBooking) {
-      if (prismaBooking.status === 'CANCELLED') {
+      if (prismaBooking.status.toLowerCase() === 'cancelled') {
         return res.status(400).json({
           success: false,
           valid: false,
@@ -678,23 +788,23 @@ router.post('/verify-ticket', async (req: Request, res: Response) => {
       }
 
       if (prismaBooking.status === 'CHECKED_IN') {
+        const checkedInAt = (prismaBooking as any).checkedInAt ? new Date((prismaBooking as any).checkedInAt).toISOString() : new Date().toISOString();
         return res.status(200).json({
           success: true,
           valid: false,
           alreadyCheckedIn: true,
-          checkedInAt: prismaBooking.checkedInAt ? new Date(prismaBooking.checkedInAt).toISOString() : new Date().toISOString(),
+          checkedInAt,
           checkedInBy: staffName,
           booking: formatPrismaBooking(prismaBooking),
-          message: `⚠️ REPLAY WARNING: Ticket #${prismaBooking.bookingRef} was already admitted at ${prismaBooking.checkedInAt ? new Date(prismaBooking.checkedInAt).toLocaleTimeString() : 'earlier'}.`
+          message: `⚠️ REPLAY WARNING: Ticket #${prismaBooking.bookingRef} was already admitted earlier.`
         });
       }
 
       // Mark as CHECKED_IN
-      const updated = await prisma.booking.update({
+      const updated: any = await prisma.booking.update({
         where: { id: prismaBooking.id },
         data: {
-          status: 'CHECKED_IN',
-          checkedInAt: new Date()
+          status: 'CHECKED_IN'
         },
         include: {
           showtime: {
@@ -703,18 +813,20 @@ router.post('/verify-ticket', async (req: Request, res: Response) => {
               screen: { include: { theatre: true } }
             }
           },
-          payment: true
+          payment: true,
+          seats: true
         }
       });
 
+      const seatsCount = updated.seats?.length || (updated as any).seatsCount || 1;
       return res.json({
         success: true,
         valid: true,
         alreadyCheckedIn: false,
-        checkedInAt: updated.checkedInAt ? new Date(updated.checkedInAt).toISOString() : new Date().toISOString(),
+        checkedInAt: new Date().toISOString(),
         checkedInBy: staffName,
         booking: formatPrismaBooking(updated),
-        message: `✅ VALID BOARDING PASS: Admittance granted for ${updated.customerName} (${updated.seatsCount} seats).`
+        message: `✅ VALID BOARDING PASS: Admittance granted for ${updated.customerName} (${seatsCount} seats).`
       });
     }
 

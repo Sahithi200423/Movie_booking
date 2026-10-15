@@ -1,278 +1,418 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Sparkles,
   Ticket,
-  Film,
+  Star,
+  Clock,
+  Play,
+  Filter,
+  MapPin,
   Flame,
-  Calendar,
   CheckCircle2,
-  Database,
-  Lock,
+  Tv
 } from 'lucide-react';
+
+import { MOVIES, GENRES, LANGUAGES, getCinemasForCity } from '../data/mockData';
 import { MovieCard } from '../components/MovieCard';
-import { fetchMovies } from '../features/movies/moviesService';
-import { useLanguage } from '../contexts/LanguageContext';
-import type { Movie } from '../types';
+import { useBooking } from '../context/BookingContext';
+import { useTranslation } from '../context/LanguageContext';
 
 export const HomePage: React.FC = () => {
-  const { t } = useLanguage();
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'Telugu' | 'Hindi' | 'English' | 'Action' | 'Sci-Fi'>('all');
-  const [loading, setLoading] = useState(true);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const navigate = useNavigate();
+  const { currentCity, setActiveMovie } = useBooking();
+  const { t, isRTL } = useTranslation();
 
-  useEffect(() => {
-    fetchMovies().then((data) => {
-      setMovies(data);
-      setLoading(false);
-      if (data.length > 0) setSelectedMovie(data[0]);
+  const cityCinemas = useMemo(() => getCinemasForCity(currentCity), [currentCity]);
+
+  const [activeTab, setActiveTab] = useState<'all' | 'now_showing' | 'coming_soon'>('all');
+  const [selectedGenre, setSelectedGenre] = useState('All Genres');
+  const [selectedLanguage, setSelectedLanguage] = useState('All Languages');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [trailerModalMovie, setTrailerModalMovie] = useState<string | null>(null);
+
+  // Featured Hero movie (e.g. Dune)
+  const featuredMovie = useMemo(() => MOVIES.find(m => m.featured) || MOVIES[0], []);
+
+  // Filtered movies
+  const filteredMovies = useMemo(() => {
+    return MOVIES.filter(movie => {
+      // Tab filter
+      if (activeTab === 'now_showing' && movie.status !== 'now_showing') return false;
+      if (activeTab === 'coming_soon' && movie.status !== 'coming_soon') return false;
+
+      // Genre filter
+      if (selectedGenre !== 'All Genres' && !movie.genre.includes(selectedGenre)) return false;
+
+      // Language filter
+      if (selectedLanguage !== 'All Languages') {
+        const matchesLanguage =
+          (movie.languages && movie.languages.some(l => l.toLowerCase() === selectedLanguage.toLowerCase())) ||
+          movie.language.toLowerCase() === selectedLanguage.toLowerCase();
+        if (!matchesLanguage) return false;
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = movie.title.toLowerCase().includes(q);
+        const matchesDirector = movie.director.toLowerCase().includes(q);
+        const matchesCast = movie.cast.some(c => c.name.toLowerCase().includes(q));
+        if (!matchesTitle && !matchesDirector && !matchesCast) return false;
+      }
+
+      return true;
     });
-  }, []);
+  }, [activeTab, selectedGenre, selectedLanguage, searchQuery]);
 
-  const nowShowingMovies = movies.filter((m) => m.status === 'now_showing');
-  const comingSoonMovies = movies.filter((m) => m.status === 'coming_soon');
+  const nowShowingMovies = useMemo(() => filteredMovies.filter(m => m.status === 'now_showing'), [filteredMovies]);
+  const comingSoonMovies = useMemo(() => filteredMovies.filter(m => m.status === 'coming_soon'), [filteredMovies]);
 
-  const filteredNowShowing = nowShowingMovies.filter((movie) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'Action' || activeTab === 'Sci-Fi') {
-      return movie.genres.includes(activeTab);
-    }
-    return movie.languages.includes(activeTab);
-  });
+  const handleHeroBookNow = () => {
+    setActiveMovie(featuredMovie);
+    navigate(`/movie/${featuredMovie.id}`);
+  };
 
   return (
-    <div className="space-y-12 pb-16">
-      {/* Cinematic Hero Banner */}
-      <section className="relative overflow-hidden bg-slate-950 text-white py-16 sm:py-24 border-b border-slate-800">
-        <div className="absolute inset-0 z-0 opacity-25">
+    <div className={`min-h-screen bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+      
+      {/* 1. HERO SPOTLIGHT BANNER */}
+      <section className="relative overflow-hidden pt-4 pb-14 sm:pb-24 border-b border-white/10">
+        
+        {/* Background Backdrop Image with Ambient Radial & Gradient Blending */}
+        <div className="absolute inset-0 z-0">
           <img
-            src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1920&q=80"
-            alt="Hero Cinema Backdrop"
-            className="w-full h-full object-cover"
+            src={featuredMovie.backdropUrl}
+            alt={featuredMovie.title}
+            className="w-full h-full object-cover object-center filter brightness-45 scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-[#090A0F]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#090A0F] via-[#090A0F]/80 to-transparent" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/25 via-[#090A0F]/50 to-[#090A0F]" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-bold tracking-wide">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>CineBook • Flat ₹5 Movie Ticket Revolution</span>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-16">
+          <div className="max-w-2xl space-y-4">
+            
+            {/* Spotlight Tag */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-[#1C1F2B]/90 text-blue-300 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/10">
+              <Flame className="w-3.5 h-3.5 text-blue-400" />
+              <span>{t.home.trending} • {currentCity.split(',')[0]}</span>
             </div>
 
-            <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
-              {t('hero.title')}{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-red-400 to-amber-400">
-                At Just ₹5
-              </span>
+            {/* Title - Pure High-Contrast White */}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
+              {featuredMovie.title}
             </h1>
 
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-              {t('hero.subtitle')} Complete with real-time 10-minute atomic seat reservations and digital QR turnstile passes.
+            {/* Metadata Pills */}
+            <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
+              <span className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                {featuredMovie.rating.toFixed(1)} / 10
+              </span>
+              <span className="flex items-center gap-1.5 bg-[#1C1F2B] border border-white/10 px-3 py-1.5 rounded-xl text-slate-300">
+                <Clock className="w-4 h-4 text-blue-400" />
+                {featuredMovie.duration}
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-[#1C1F2B] border border-white/10 font-bold uppercase text-[11px] text-slate-200">
+                {featuredMovie.ageRating}
+              </span>
+              <span className="text-blue-400 font-semibold px-1">
+                {featuredMovie.genre.join(', ')}
+              </span>
+            </div>
+
+            {/* Synopsis - High Contrast Light Slate */}
+            <p className="text-sm sm:text-base text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
+              {featuredMovie.synopsis}
             </p>
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <a
-                href="#now-showing"
-                className="px-6 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 shadow-lg shadow-rose-600/30 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <Film className="w-4 h-4" />
-                <span>Explore Movies (₹5)</span>
-              </a>
-
-              <a
-                href="#architecture"
-                className="px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-all flex items-center gap-2"
-              >
-                <Database className="w-4 h-4 text-emerald-400" />
-                <span>Database Schema</span>
-              </a>
-            </div>
-
-            {/* Quick Stat Pill */}
-            <div className="pt-4 flex items-center gap-6 text-xs text-slate-400">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-rose-500" />
-                <span>₹5 Ticket Formula</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-amber-500" />
-                <span>10-Min Temporary Locks</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span>PostgreSQL RLS Security</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Now Showing Section */}
-      <section id="now-showing" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-rose-500" />
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                {t('section.now_showing')}
-              </h2>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Select any movie to begin the ₹5 ticket reservation flow.
-            </p>
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-            {(['all', 'Telugu', 'Hindi', 'English', 'Action', 'Sci-Fi'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  activeTab === tab
-                    ? 'bg-rose-600 text-white font-bold shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
-                }`}
-              >
-                {tab === 'all' ? 'All Titles' : tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Movie Grid */}
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="aspect-[2/3] rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {filteredNowShowing.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} onSelectMovie={setSelectedMovie} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Selected Movie Detail Modal / Preview Drawer */}
-      {selectedMovie && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 text-white relative overflow-hidden shadow-2xl">
-            <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 pointer-events-none">
-              <img
-                src={selectedMovie.backdrop_url || selectedMovie.poster_url}
-                alt={selectedMovie.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="relative z-10 max-w-2xl space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold">
-                  Featured Spotlight • ₹5
-                </span>
-                <span className="text-xs text-slate-400">{selectedMovie.certification}</span>
-                <span className="text-xs text-slate-400">• {selectedMovie.duration_minutes} mins</span>
-              </div>
-
-              <h3 className="text-2xl sm:text-3xl font-extrabold">{selectedMovie.title}</h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                {selectedMovie.synopsis}
-              </p>
-
-              <div className="flex flex-wrap gap-2 text-xs">
-                {selectedMovie.languages.map((l) => (
-                  <span key={l} className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                    {l}
+            {/* Formats - Crisp Pill Badges */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {featuredMovie.formats.map(fmt => (
+                  <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shadow-sm">
+                    {fmt}
                   </span>
                 ))}
               </div>
-
-              <div className="pt-2 flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-rose-600/20 border border-rose-500/30 text-xs font-medium text-rose-300 flex items-center gap-2">
-                  <Ticket className="w-4 h-4 text-rose-400" />
-                  <span>Flat ₹5 Booking Ticket Foundation Ready</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Coming Soon Section */}
-      {comingSoonMovies.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-amber-500" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-              {t('section.coming_soon')}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {comingSoonMovies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Database Schema & Architecture Explainer (Stage 1 Requirement) */}
-      <section id="architecture" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#111217] border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                CineBook Architecture & Supabase Schema
-              </h2>
-              <p className="text-xs text-slate-500">
-                Stage 1 foundation: Clean entity-relationship model with atomic seat concurrency.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 space-y-2">
-              <h4 className="font-bold text-rose-500 flex items-center gap-1.5">
-                <Ticket className="w-4 h-4" />
-                Critical Seat Design
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Physical seats belong to screens, while show availability is separated into{' '}
-                <code className="text-rose-400 font-mono text-[11px]">show_seats</code>. A seat can be AVAILABLE for Show 1, BOOKED for Show 2, and BLOCKED with a 10-minute hold for Show 3.
-              </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 space-y-2">
-              <h4 className="font-bold text-amber-500 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4" />
-                ₹5 Ticket Price Rule
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Every ticket base price is ₹5. Total booking amounts are calculated through the formula:{' '}
-                <code className="text-amber-400 font-mono text-[11px]">(ticket_count × 5.00) - discount + charges</code>. Never hard-coded on the client.
-              </p>
-            </div>
+            {/* Call to Actions */}
+            <div className="flex flex-wrap items-center gap-3.5 pt-3">
+              <button
+                onClick={handleHeroBookNow}
+                className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 cursor-pointer"
+              >
+                <Ticket className="w-4 h-4 fill-white" />
+                <span>{t.home.bookNow}</span>
+              </button>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 space-y-2">
-              <h4 className="font-bold text-emerald-500 flex items-center gap-1.5">
-                <Lock className="w-4 h-4" />
-                PostgreSQL RLS Security
-              </h4>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Row Level Security strictly isolates customer orders. Users cannot modify another customer's booking or mark their own payment as successful.
-              </p>
+              <button
+                onClick={() => setTrailerModalMovie(featuredMovie.title)}
+                className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-white/10 bg-[#1C1F2B] hover:bg-[#222634] text-slate-200 transition-colors backdrop-blur-md cursor-pointer"
+              >
+                <Play className="w-4 h-4 text-blue-400 fill-blue-400" />
+                <span>{t.home.viewDetails}</span>
+              </button>
             </div>
           </div>
         </div>
       </section>
+
+      {/* 2. FILTER & SEARCH CONTROL BAR */}
+      <section className="sticky top-18 z-30 bg-slate-50/95 dark:bg-[#090A0F]/90 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 py-4 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          
+          {/* Main Category Tabs */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-[#14161F] border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'all'
+                  ? 'bg-blue-600 text-white shadow-md font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1F2B]'
+              }`}
+            >
+              All Movies ({MOVIES.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('now_showing')}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'now_showing'
+                  ? 'bg-blue-600 text-white shadow-md font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1F2B]'
+              }`}
+            >
+              {t.nav.nowShowing} ({MOVIES.filter(m => m.status === 'now_showing').length})
+            </button>
+            <button
+              onClick={() => setActiveTab('coming_soon')}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'coming_soon'
+                  ? 'bg-blue-600 text-white shadow-md font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1F2B]'
+              }`}
+            >
+              {t.nav.comingSoon} ({MOVIES.filter(m => m.status === 'coming_soon').length})
+            </button>
+          </div>
+
+          {/* Quick Filter Selectors */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+            
+            {/* Genre filter */}
+            <div className="relative">
+              <select
+                value={selectedGenre}
+                onChange={(e) => setSelectedGenre(e.target.value)}
+                className="appearance-none bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 hover:border-blue-500/50 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 pr-8 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer font-medium shadow-sm dark:shadow-none"
+              >
+                {GENRES.map(genre => (
+                  <option key={genre} value={genre} className="bg-white dark:bg-[#14161F] text-slate-800 dark:text-slate-200">
+                    {genre === 'All Genres' ? t.home.allGenres : genre}
+                  </option>
+                ))}
+              </select>
+              <Filter className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Language filter */}
+            <div className="relative">
+              <select
+                value={selectedLanguage}
+                onChange={(e) => setSelectedLanguage(e.target.value)}
+                className="appearance-none bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 hover:border-blue-500/50 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 pr-8 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer font-medium shadow-sm dark:shadow-none"
+              >
+                {LANGUAGES.map(lang => (
+                  <option key={lang} value={lang} className="bg-white dark:bg-[#14161F] text-slate-800 dark:text-slate-200">
+                    {lang === 'All Languages' ? t.home.allLanguages : lang}
+                  </option>
+                ))}
+              </select>
+              <Tv className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Reset Filters button */}
+            {(selectedGenre !== 'All Genres' || selectedLanguage !== 'All Languages' || activeTab !== 'all') && (
+              <button
+                onClick={() => {
+                  setSelectedGenre('All Genres');
+                  setSelectedLanguage('All Languages');
+                  setActiveTab('all');
+                  setSearchQuery('');
+                }}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline px-2.5 py-1.5 font-semibold cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 3. MAIN MOVIE GRIDS */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-16">
+        
+        {/* If Active Tab is 'all' or 'now_showing', render Now Showing */}
+        {(activeTab === 'all' || activeTab === 'now_showing') && (
+          <section id="now-showing" className="scroll-mt-32">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+                  <span className="w-2.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+                  {t.nav.nowShowing}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Book tickets for today and upcoming dates in {currentCity}
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+                {nowShowingMovies.length} Movies Available
+              </span>
+            </div>
+
+            {nowShowingMovies.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-sm">
+                <p className="text-slate-600 dark:text-slate-400 text-sm">No now-showing movies match your selected filters.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {nowShowingMovies.map(movie => (
+                  <MovieCard key={movie.id} movie={movie} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* If Active Tab is 'all' or 'coming_soon', render Coming Soon */}
+        {(activeTab === 'all' || activeTab === 'coming_soon') && (
+          <section id="coming-soon" className="scroll-mt-32">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+                  <span className="w-2.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full inline-block"></span>
+                  {t.nav.comingSoon}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Upcoming cinematic releases to look forward to
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-300 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+                {comingSoonMovies.length} Upcoming
+              </span>
+            </div>
+
+            {comingSoonMovies.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-sm">
+                <p className="text-slate-600 dark:text-slate-400 text-sm">No upcoming movies match your selected filters.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {comingSoonMovies.map(movie => (
+                  <MovieCard key={movie.id} movie={movie} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 4. CINEMAS & THEATRES SECTION */}
+        <section id="cinemas-section" className="scroll-mt-32 pt-6 border-t border-slate-200 dark:border-white/10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <MapPin className="w-6 h-6 text-blue-500" />
+                Featured Theatres in {currentCity}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+                State-of-the-art auditoriums equipped with IMAX Laser 4K and Dolby Atmos
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {cityCinemas.map(cinema => (
+              <div
+                key={cinema.id}
+                className="p-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] hover:border-blue-500/40 transition-all flex flex-col justify-between group shadow-sm dark:shadow-md"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                      {cinema.name}
+                    </h3>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-blue-600 dark:text-blue-400 font-semibold shrink-0">
+                      {cinema.distance}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span>{cinema.address}</span>
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {cinema.facilities.map(fac => (
+                      <span
+                        key={fac}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-medium"
+                      >
+                        {fac}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-xs text-blue-600 dark:text-blue-400 font-semibold">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    M-Ticket & Instant Mobile Entry
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+      </main>
+
+      {/* Teaser Video Mock Modal */}
+      {trailerModalMovie && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#090A0F]/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-3xl rounded-2xl overflow-hidden border border-white/10 bg-[#14161F] shadow-2xl">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h4 className="font-bold text-white text-base flex items-center gap-2">
+                <Play className="w-4 h-4 text-blue-400 fill-blue-400" />
+                <span>{trailerModalMovie} — Official Cinema Teaser</span>
+              </h4>
+              <button
+                onClick={() => setTrailerModalMovie(null)}
+                className="text-slate-400 hover:text-white px-2 py-1 rounded cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="aspect-video w-full bg-[#090A0F] flex flex-col items-center justify-center text-center p-8">
+              <div className="w-16 h-16 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center mb-4 animate-pulse">
+                <Play className="w-8 h-8 fill-blue-400 ml-1" />
+              </div>
+              <h5 className="font-bold text-lg text-white mb-1">Simulated 4K Cinema Teaser</h5>
+              <p className="text-xs text-slate-400 max-w-md">
+                Experience high-bitrate surround sound audio demo trailer for {trailerModalMovie}.
+              </p>
+              <button
+                onClick={() => setTrailerModalMovie(null)}
+                className="mt-6 px-6 py-2.5 text-xs font-bold rounded-full bg-blue-600 hover:bg-blue-500 text-white cursor-pointer transition-all shadow-lg shadow-blue-600/25"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

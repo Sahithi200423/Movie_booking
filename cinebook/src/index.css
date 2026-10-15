@@ -1,36 +1,113 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-sans: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --app-bg: #F8FAFC;
+    --surface-card: #FFFFFF;
+    --surface-pill: #F1F5F9;
+    --border-subtle: #E2E8F0;
+    --border-card: #E2E8F0;
+    --accent-blue: #2563EB;
+    --accent-blue-light: #3B82F6;
+    --accent-ice: #60A5FA;
+  }
+
+  html.dark, :root.dark {
+    --app-bg: #0B0C0E;
+    --surface-card: #14161F;
+    --surface-pill: #1C1F2B;
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    --border-card: #222634;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  /* High contrast headings: white in dark mode, slate-900 in light mode */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    color: #FFFFFF;
+  }
+
+  html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3, html:not(.dark) h4, html:not(.dark) h5, html:not(.dark) h6 {
+    color: #0F172A;
   }
 }
 
-html {
-  scroll-behavior: smooth;
+/* Dark mode cinema screen glow effect */
+.cinema-screen-glow {
+  box-shadow: 0 10px 45px -5px rgba(37, 99, 235, 0.35), 0 0 30px rgba(96, 165, 250, 0.2);
 }
 
-body {
-  margin: 0;
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+.cinema-screen-curve {
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
 }
 
-/* Custom scrollbar */
+/* Custom sleek subtle scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
-
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #090A0F;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.5);
+  background: #222634;
   border-radius: 9999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 114, 128, 0.8);
+  background: #3B82F6;
 }
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(20, 22, 31, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-nav {
+  background: rgba(14, 16, 23, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Print styles for digital ticket */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-ticket, #printable-ticket * {
+    visibility: visible;
+  }
+  #printable-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    box-shadow: none;
+    border: 2px dashed #000;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+

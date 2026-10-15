@@ -1,5 +1,5 @@
 // ====================================================================
-// CineBook Supabase Client Initialization & Realtime Configuration
+// CineBook Supabase Client Configuration
 // ====================================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -16,16 +16,14 @@ const isValidHttpUrl = (str: string): boolean => {
   }
 };
 
-export const isSupabaseConfigured = (): boolean => {
-  return (
-    isValidHttpUrl(rawUrl) &&
-    !rawUrl.includes('your_supabase_project_url') &&
-    !rawUrl.includes('placeholder') &&
-    Boolean(rawKey) &&
-    !rawKey.includes('your_supabase_anon_key') &&
-    !rawKey.includes('placeholder')
-  );
-};
+export const isSupabaseConfigured = Boolean(
+  isValidHttpUrl(rawUrl) &&
+  !rawUrl.includes('your_supabase_project_url') &&
+  !rawUrl.includes('placeholder') &&
+  Boolean(rawKey) &&
+  !rawKey.includes('your_supabase_anon_key') &&
+  !rawKey.includes('placeholder')
+);
 
 const clientUrl = isValidHttpUrl(rawUrl) && !rawUrl.includes('your_supabase_project_url')
   ? rawUrl
@@ -35,13 +33,7 @@ const clientKey = rawKey && !rawKey.includes('your_supabase_anon_key')
   ? rawKey
   : 'placeholder-anon-key';
 
-if (!isSupabaseConfigured()) {
-  console.info(
-    '⚡ [CineBook] Supabase credentials in .env are not yet configured or using placeholders (VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY).'
-  );
-}
-
-// Supabase client instance with session persistence & Realtime subscriptions
+// Instantiate Supabase Client (No hardcoded secrets)
 export const supabase = createClient(
   clientUrl,
   clientKey,
@@ -49,13 +41,6 @@ export const supabase = createClient(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storage: window.localStorage,
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
-      },
     },
   }
 );

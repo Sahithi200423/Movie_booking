@@ -19,7 +19,7 @@ import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
 import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS } from '../data/mockData';
 import type { Seat } from '../types';
-import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl } from '../services/api';
+import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl, getShowtimeByIdApi } from '../services/api';
 import { io } from 'socket.io-client';
 import { FnBUpsellModal } from '../components/FnBUpsellModal';
 
@@ -36,9 +36,10 @@ const PARTY_OPTIONS = [
 
 export const SeatSelectionPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeBooking, toggleSeat, setSeats, sessionId } = useBooking();
+  const { activeBooking, toggleSeat, setSeats, sessionId, setActiveMovie, setActiveShowtime } = useBooking();
   const { t, formatPrice, formatTime, isRTL } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [seatFetchError, setSeatFetchError] = useState<string | null>(null);
   const [backendSeats, setBackendSeats] = useState<Record<string, Seat>>({});
   const [serverAvailability, setServerAvailability] = useState<{
     totalSeats: number;
@@ -60,23 +61,75 @@ export const SeatSelectionPage: React.FC = () => {
     return activeBooking.seats.length === 0;
   });
 
-  // Derive stable showtimeId
+  // Extract query parameter if present
+  const queryShowtimeId = useMemo(() => {
+    return new URLSearchParams(window.location.search).get('showtimeId');
+  }, []);
+
+  // Rehydration state if activeBooking is empty but showtimeId exists in URL
+  const [isRehydrating, setIsRehydrating] = useState<boolean>(() => {
+    return (!activeBooking.movie || !activeBooking.cinema) && !!queryShowtimeId;
+  });
+
+  useEffect(() => {
+    if ((!activeBooking.movie || !activeBooking.cinema) && queryShowtimeId) {
+      let isMounted = true;
+      getShowtimeByIdApi(queryShowtimeId)
+        .then(res => {
+          if (!isMounted) return;
+          const st = res.show || res.showtime;
+          if (res.success && st) {
+            const mv = res.movie || st.movie;
+            if (mv) {
+              setActiveMovie(mv);
+            }
+            const cin = res.cinema || st.theatre || st.cinema;
+            setActiveShowtime({
+              cinema: cin || {
+                id: st.cinemaId || 'cin-pvr-01',
+                name: st.cinemaName || 'PVR INOX Cinemas',
+                city: st.city || 'Mumbai',
+                address: st.address || 'Central Mall'
+              },
+              date: st.date || (st.startTime ? st.startTime.substring(0, 10) : '2026-10-19'),
+              time: st.time || (st.startTime ? new Date(st.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '04:30 PM'),
+              format: st.format || 'Standard',
+              hall: st.hall || 'Audi 1',
+              showtimeId: st.id
+            });
+          }
+        })
+        .catch(err => {
+          console.warn('Rehydration from showtime API failed:', err);
+        })
+        .finally(() => {
+          if (isMounted) setIsRehydrating(false);
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [queryShowtimeId, activeBooking.movie, activeBooking.cinema, setActiveMovie, setActiveShowtime]);
+
+  // Derive stable authoritative showtimeId
   const showtimeId = useMemo(() => {
+    if (queryShowtimeId) return queryShowtimeId;
     if (activeBooking.showtimeId) return activeBooking.showtimeId;
     if (activeBooking.movie && activeBooking.cinema) {
       const movieSlug = activeBooking.movie.id.includes('kalki') ? 'kalki' : activeBooking.movie.id.substring(0, 8);
       const cinemaSlug = activeBooking.cinema.id.includes('pvr') ? 'pvr' : activeBooking.cinema.id.replace('cin-', '').substring(0, 8);
-      return `show-${movieSlug}--${cinemaSlug}--1`;
+      return `show-${movieSlug}-${cinemaSlug}-${activeBooking.date || '2026-10-19'}-1`;
     }
 
     return 'show-1';
-  }, [activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id]);
+  }, [queryShowtimeId, activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id, activeBooking.date]);
 
   // Load seats from backend & connect to real-time WebSockets with polling fallback
   useEffect(() => {
     let isMounted = true;
     async function loadSeats() {
       try {
+        setSeatFetchError(null);
         const result = await getSeatsWithCountsForShow(showtimeId, sessionId);
         if (isMounted) {
           const map: Record<string, Seat> = {};
@@ -105,8 +158,11 @@ export const SeatSelectionPage: React.FC = () => {
             }
           }
         }
-      } catch (err) {
-        console.warn('Backend seats fetch fallback:', err);
+      } catch (err: any) {
+        console.warn('Backend seats fetch error:', err);
+        if (isMounted) {
+          setSeatFetchError(err?.message || 'Failed to sync live seat counts with database.');
+        }
       } finally {
         if (isMounted) {
           setIsLoadingSeats(false);
@@ -202,6 +258,17 @@ export const SeatSelectionPage: React.FC = () => {
       })
     }));
   }, [baseLayout, backendSeats]);
+
+  // Rehydrating showtime if navigating directly with showtimeId
+  if (isRehydrating) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+        <h3 className="text-xl font-bold text-white mb-2">Restoring Your Showtime...</h3>
+        <p className="text-sm text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
+      </div>
+    );
+  }
 
   // If user navigated directly without selecting a movie or cinema
   if (!activeBooking.movie || !activeBooking.cinema) {
@@ -537,6 +604,49 @@ export const SeatSelectionPage: React.FC = () => {
           </div>
         )}
 
+        {/* Seat API Sync Error & Retry Banner */}
+        {seatFetchError && (
+          <div className="mb-6 p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+              <div>
+                <div className="font-bold text-white">Live Seat Data Synchronization Error</div>
+                <div className="text-xs text-rose-300 mt-0.5">{seatFetchError}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsLoadingSeats(true);
+                setSeatFetchError(null);
+                getSeatsWithCountsForShow(showtimeId, sessionId)
+                  .then(result => {
+                    const map: Record<string, Seat> = {};
+                    result.seats.forEach(s => {
+                      map[s.id] = s;
+                    });
+                    setBackendSeats(map);
+                    setServerAvailability({
+                      totalSeats: result.totalSeats,
+                      availableCount: result.availableCount,
+                      bookedCount: result.bookedCount,
+                      heldCount: result.heldCount
+                    });
+                  })
+                  .catch(err => {
+                    setSeatFetchError(err?.message || 'Failed to sync live seat counts with database.');
+                  })
+                  .finally(() => {
+                    setIsLoadingSeats(false);
+                  });
+              }}
+              className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs cursor-pointer transition-all shadow-md active:scale-95 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Live Loading State */}
         {isLoadingSeats && (
           <div className="mb-4 py-2.5 px-4 rounded-xl border border-blue-500/30 bg-blue-950/40 text-blue-300 text-xs flex items-center justify-center gap-2.5 animate-pulse shadow-md">
@@ -563,11 +673,11 @@ export const SeatSelectionPage: React.FC = () => {
             <div className="text-[9px] sm:text-[10px] text-slate-500 font-medium">Hall Capacity</div>
           </div>
 
-          {/* AVAILABLE */}
+          {/* AVAILABLE SEATS */}
           <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/40 bg-blue-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-blue-950/20">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-400 animate-pulse" />
-              <span>Available</span>
+              <span>Available Seats</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-blue-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {isLoadingSeats && !serverAvailability ? (
@@ -579,11 +689,11 @@ export const SeatSelectionPage: React.FC = () => {
             <div className="text-[9px] sm:text-[10px] text-blue-400/80 font-medium">Ready to Book</div>
           </div>
 
-          {/* SELECTED */}
+          {/* MY SELECTED SEATS */}
           <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/60 bg-blue-600/20 flex flex-col items-center justify-center text-center shadow-md shadow-blue-600/10">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
               <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
-              <span>Selected</span>
+              <span>My Selected Seats</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-blue-300 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {dashboardCounts.selected}
@@ -595,7 +705,7 @@ export const SeatSelectionPage: React.FC = () => {
           <div className="p-2.5 sm:p-3.5 rounded-2xl border border-amber-500/50 bg-amber-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-amber-950/20">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-amber-400 uppercase tracking-wider">
               <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
-              <span>Temp Held</span>
+              <span>Temporarily Held</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {isLoadingSeats && !serverAvailability ? (
@@ -607,11 +717,11 @@ export const SeatSelectionPage: React.FC = () => {
             <div className="text-[9px] sm:text-[10px] text-amber-400/80 font-medium">Other Guests</div>
           </div>
 
-          {/* BOOKED / SOLD */}
+          {/* BOOKED SEATS */}
           <div className="col-span-2 sm:col-span-1 p-2.5 sm:p-3.5 rounded-2xl border border-rose-500/50 bg-rose-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-rose-950/20">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-rose-400 uppercase tracking-wider">
               <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400" />
-              <span>Booked / Sold</span>
+              <span>Booked Seats</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-rose-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {isLoadingSeats && !serverAvailability ? (

@@ -248,7 +248,7 @@ export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShow
     });
   }
 
-  // Fallback match: if frontend generated a synthetic ID (e.g. show-kalki--pvr--1 or show-rudra--orion--1)
+  // Fallback match: if frontend generated a synthetic ID (e.g. show-kalki--pvr--1 or show-rudra-phoenix-2026-10-19-0430PM)
   const candidate = db.getShowtimes().find(s =>
     showtimeId.includes(s.movieId.substring(0, 5)) &&
     (showtimeId.includes(s.cinemaId.substring(0, 5)) || showtimeId.includes(s.cinemaId.replace('cin-', '').substring(0, 5)))
@@ -258,12 +258,15 @@ export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShow
     const movie = db.getMovieById(candidate.movieId);
     const cinema = db.getCinemas().find(c => c.id === candidate.cinemaId);
 
-    // Determine target date: If candidate date has passed, or if hint date is provided, use appropriate date
-    let targetDate = hint?.date;
-    let targetTime = hint?.time || candidate.time;
+    // Extract embedded ISO date if present in showtimeId (e.g. 2026-10-19)
+    const dateMatch = showtimeId.match(/(\d{4}-\d{2}-\d{2})/);
+    const timeMatch = showtimeId.match(/(1[0-2]|0?[1-9])([0-5][0-9])([AP]M)/i);
+
+    let targetDate = hint?.date || (dateMatch ? dateMatch[1] : undefined);
+    let targetTime = hint?.time || (timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]} ${timeMatch[3].toUpperCase()}` : candidate.time);
 
     if (!targetDate) {
-      if (isPastShowtime(candidate.date, candidate.time)) {
+      if (isPastShowtime(candidate.date, targetTime)) {
         // Candidate was an old seeded past date (e.g. Oct 4, 2026); resolve for current IST date
         targetDate = formatToISODate(new Date());
       } else {

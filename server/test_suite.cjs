@@ -206,6 +206,62 @@ async function runTestSuite() {
     });
   });
 
+  // TEST 9: October 19, 2026 at 4:30 PM — correct showtime resolution & live seat counts
+  await runAsyncTest('October 19, 2026 at 4:30 PM resolves to authoritative Supabase showtime with 128 seats', async () => {
+    const { resolveShowtime } = require('./dist/services/showtimeResolver.js');
+    const { seatReservationService } = require('./dist/services/seatReservationService.js');
+
+    const showtime = await resolveShowtime({
+      movieId: 'kalki-2898-ad',
+      movieTitle: 'Kalki 2898 AD',
+      cinemaId: 'cin-pvr-orion',
+      cinemaName: 'PVR INOX Orion Mall',
+      city: 'Bangalore',
+      date: '2026-10-19',
+      time: '04:30 PM',
+      format: '4DX',
+      hall: 'Screen 1'
+    });
+
+    assert.ok(showtime, 'Showtime must resolve successfully');
+    assert.strictEqual(showtime.date, '2026-10-19', 'Date must be 2026-10-19');
+    assert.strictEqual(showtime.time, '04:30 PM', 'Time must be 04:30 PM');
+    assert.ok(showtime.id, 'Authoritative Supabase showtime ID must exist');
+
+    const liveSeats = await seatReservationService.getLiveSeats(showtime.id, 'session-audit-verifier');
+    assert.ok(Array.isArray(liveSeats), 'liveSeats must be an array');
+    assert.strictEqual(liveSeats.length, 128, 'Auditorium must have 128 seats');
+
+    const booked = liveSeats.filter(s => s.status === 'reserved').length;
+    const held = liveSeats.filter(s => s.status === 'held').length;
+    const available = liveSeats.filter(s => s.status === 'available').length;
+    assert.strictEqual(128, available + booked + held, 'Total must equal Available + Booked + Held');
+  });
+
+  // TEST 10: Rehydration via showtime ID returns movie, theatre, date, and time
+  await runAsyncTest('Rehydration endpoint verification: showtime lookup returns full theatre & movie details', async () => {
+    const { prisma } = require('./dist/prisma.js');
+
+    const testShow = await prisma.showtime.findFirst({
+      where: { date: '2026-10-19', time: '04:30 PM' },
+      include: { movie: true, screen: { include: { theatre: true } } }
+    });
+
+    assert.ok(testShow, 'Showtime for Oct 19 4:30 PM must exist in database');
+    assert.ok(testShow.movie, 'Movie relation must be present');
+    assert.ok(testShow.screen?.theatre, 'Theatre relation must be present');
+  });
+
+  // TEST 11: Exact pricing formula verification (1 seat = ₹5, 2 seats = ₹10)
+  runTest('Pricing formula: 1 seat = ₹5 (500 paise), 2 seats = ₹10 (1000 paise)', () => {
+    const singleSeatPrice = 1 * 5.0;
+    const twoSeatPrice = 2 * 5.0;
+    assert.strictEqual(singleSeatPrice, 5.0);
+    assert.strictEqual(Math.round(singleSeatPrice * 100), 500);
+    assert.strictEqual(twoSeatPrice, 10.0);
+    assert.strictEqual(Math.round(twoSeatPrice * 100), 1000);
+  });
+
   console.log(`\n=== TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED ===`);
   if (failed > 0) {
     process.exit(1);

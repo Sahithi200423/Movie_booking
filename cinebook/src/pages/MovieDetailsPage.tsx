@@ -20,7 +20,8 @@ import {
   Play,
   X,
   ThumbsUp,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { MOVIES, SHOWTIMES_SCHEDULE, getCinemasForCity } from '../data/mockData';
 import { useBooking } from '../context/BookingContext';
@@ -62,11 +63,11 @@ export const MovieDetailsPage: React.FC = () => {
     return MOVIES.find(m => m.id === id) || null;
   }, [id]);
 
-  // Generate next 6 dates (Today, Tomorrow, Day 3, 4, 5, 6)
+  // Generate rolling dates for upcoming week (All scheduled dates have active shows)
   const availableDates = useMemo(() => {
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -77,13 +78,14 @@ export const MovieDetailsPage: React.FC = () => {
         label: `${dayName}, ${monthDay}`,
         dayName,
         monthDay,
-        hasShows: i < 5 // 6th day simulates no screenings for personality empty state
+        hasShows: true
       });
     }
     return dates;
   }, []);
 
   const [selectedDate, setSelectedDate] = useState(availableDates[0].label);
+  const [isResolvingShow, setIsResolvingShow] = useState(false);
   const [selectedCinema, setSelectedCinema] = useState<Cinema>(() => cityCinemas[0]);
   const [selectedShowtimeItem, setSelectedShowtimeItem] = useState(SHOWTIMES_SCHEDULE[1]); // Default 01:45 PM
   const [selectedAudioLanguage, setSelectedAudioLanguage] = useState<string>(movie?.language || 'Hindi');
@@ -296,47 +298,52 @@ export const MovieDetailsPage: React.FC = () => {
   }
 
   const handleProceedToSeats = async () => {
-    const movieSlug = movie.id.includes('kalki') ? 'kalki' : movie.id.substring(0, 8);
-    const cinemaSlug = selectedCinema.id.includes('pvr') ? 'pvr' : selectedCinema.id.replace('cin-', '').substring(0, 8);
-    
-    // Determine target ISO date
-    const dateObj = availableDates.find(d => d.label === selectedDate || d.id === selectedDate);
-    const targetIsoDate = dateObj ? dateObj.id : (selectedDate.match(/^\d{4}-\d{2}-\d{2}$/) ? selectedDate : formatToISODate(new Date()));
-
-    let showtimeId = `show-${movieSlug}-${cinemaSlug}-${targetIsoDate}-${selectedShowtimeItem.time.replace(/[^a-zA-Z0-9]/g, '')}`;
-
+    setIsResolvingShow(true);
     try {
-      const resolved = await resolveShowtimeApi({
-        movieId: movie.id,
-        movieTitle: movie.title,
-        cinemaId: selectedCinema.id,
-        cinemaName: selectedCinema.name,
-        city: currentCity,
-        address: selectedCinema.address,
+      const movieSlug = movie.id.includes('kalki') ? 'kalki' : movie.id.substring(0, 8);
+      const cinemaSlug = selectedCinema.id.includes('pvr') ? 'pvr' : selectedCinema.id.replace('cin-', '').substring(0, 8);
+      
+      // Determine target ISO date
+      const dateObj = availableDates.find(d => d.label === selectedDate || d.id === selectedDate);
+      const targetIsoDate = dateObj ? dateObj.id : (selectedDate.match(/^\d{4}-\d{2}-\d{2}$/) ? selectedDate : formatToISODate(new Date()));
+
+      let showtimeId = `show-${movieSlug}-${cinemaSlug}-${targetIsoDate}-${selectedShowtimeItem.time.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+      try {
+        const resolved = await resolveShowtimeApi({
+          movieId: movie.id,
+          movieTitle: movie.title,
+          cinemaId: selectedCinema.id,
+          cinemaName: selectedCinema.name,
+          city: currentCity,
+          address: selectedCinema.address,
+          date: targetIsoDate,
+          time: selectedShowtimeItem.time,
+          format: selectedShowtimeItem.format,
+          hall: selectedShowtimeItem.hall,
+          language: selectedAudioLanguage
+        });
+        if (resolved && resolved.showtimeId) {
+          showtimeId = resolved.showtimeId;
+        }
+      } catch (resolveErr) {
+        console.warn('Could not resolve showtime via backend API, using structured ID:', resolveErr);
+      }
+
+      setActiveMovie(movie);
+      setActiveShowtime({
+        cinema: selectedCinema,
         date: targetIsoDate,
         time: selectedShowtimeItem.time,
         format: selectedShowtimeItem.format,
         hall: selectedShowtimeItem.hall,
-        language: selectedAudioLanguage
+        language: selectedAudioLanguage,
+        showtimeId
       });
-      if (resolved && resolved.showtimeId) {
-        showtimeId = resolved.showtimeId;
-      }
-    } catch (resolveErr) {
-      console.warn('Could not resolve showtime via backend API, using structured ID:', resolveErr);
+      navigate(`/seat-selection?showtimeId=${encodeURIComponent(showtimeId)}`);
+    } finally {
+      setIsResolvingShow(false);
     }
-
-    setActiveMovie(movie);
-    setActiveShowtime({
-      cinema: selectedCinema,
-      date: targetIsoDate,
-      time: selectedShowtimeItem.time,
-      format: selectedShowtimeItem.format,
-      hall: selectedShowtimeItem.hall,
-      language: selectedAudioLanguage,
-      showtimeId
-    });
-    navigate('/seat-selection');
   };
 
   return (
@@ -812,10 +819,20 @@ export const MovieDetailsPage: React.FC = () => {
 
               <button
                 onClick={handleProceedToSeats}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                disabled={isResolvingShow}
+                className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed"
               >
-                <Ticket className="w-4 h-4 fill-white" />
-                <span>Select Seats</span>
+                {isResolvingShow ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Resolving Showtime...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ticket className="w-4 h-4 fill-white" />
+                    <span>Select Seats</span>
+                  </>
+                )}
               </button>
             </div>
           )}

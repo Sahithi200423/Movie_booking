@@ -187,63 +187,40 @@ export async function getSeatsForShow(showtimeId: string, sessionId?: string): P
 }
 
 export async function getSeatsWithCountsForShow(showtimeId: string, sessionId?: string): Promise<SeatAvailabilityResult> {
-  try {
-    const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
-    const res = await apiRequest<{
-      success: boolean;
-      totalSeats?: number;
-      availableCount?: number;
-      bookedCount?: number;
-      reservedCount?: number;
-      heldCount?: number;
-      seats: Seat[];
-    }>(`/shows/${showtimeId}/seats${q}`);
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  const res = await apiRequest<{
+    success: boolean;
+    totalSeats?: number;
+    availableCount?: number;
+    bookedCount?: number;
+    reservedCount?: number;
+    heldCount?: number;
+    seats: Seat[];
+  }>(`/shows/${showtimeId}/seats${q}`);
 
-    const seats = res.seats || [];
-    const totalSeats = res.totalSeats ?? seats.length;
-    const bookedCount = res.bookedCount ?? res.reservedCount ?? seats.filter(s => s.status === 'reserved').length;
-    const heldCount = res.heldCount ?? seats.filter(s => s.status === 'held').length;
-    const availableCount = res.availableCount ?? Math.max(0, totalSeats - bookedCount - heldCount);
+  const seats = res.seats || [];
+  const totalSeats = res.totalSeats ?? seats.length;
+  const bookedCount = res.bookedCount ?? res.reservedCount ?? seats.filter(s => s.status === 'reserved').length;
+  const heldCount = res.heldCount ?? seats.filter(s => s.status === 'held').length;
+  const availableCount = res.availableCount ?? Math.max(0, totalSeats - bookedCount - heldCount);
 
-    return {
-      seats,
-      totalSeats,
-      availableCount,
-      bookedCount,
-      heldCount
-    };
-  } catch (err) {
-    // Generate fallback layout (128 seats strictly priced at ₹5 in demo)
-    const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const seats: Seat[] = [];
-    for (const row of rows) {
-      let tier: 'VIP' | 'PREMIUM' | 'STANDARD' = 'STANDARD';
-      const price = 5.0; // CineBook ₹5 demo rule
-      if (row === 'A' || row === 'B') {
-        tier = 'VIP';
-      } else if (row === 'C' || row === 'D' || row === 'E' || row === 'F') {
-        tier = 'PREMIUM';
-      }
+  return {
+    seats,
+    totalSeats,
+    availableCount,
+    bookedCount,
+    heldCount
+  };
+}
 
-      for (let num = 1; num <= 16; num++) {
-        seats.push({
-          id: `${row}${num}`,
-          row,
-          number: num,
-          tier,
-          price,
-          status: 'available'
-        });
-      }
-    }
-    return {
-      seats,
-      totalSeats: seats.length,
-      availableCount: seats.length,
-      bookedCount: 0,
-      heldCount: 0
-    };
-  }
+export async function getShowtimeByIdApi(showtimeId: string) {
+  return await apiRequest<{
+    success: boolean;
+    show?: any;
+    showtime?: any;
+    movie?: any;
+    cinema?: any;
+  }>(`/shows/${showtimeId}`);
 }
 
 export async function holdSeatsApi(showtimeId: string, seatIds: string[], sessionId: string, durationMinutes = 10) {

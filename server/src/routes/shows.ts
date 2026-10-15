@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db.js';
+import { prisma } from '../prisma.js';
 import { resolveShowtime } from '../services/showtimeResolver.js';
 import { seatReservationService } from '../services/seatReservationService.js';
 
@@ -44,22 +45,55 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // GET /api/shows/:id
-router.get('/:id', (req: Request, res: Response) => {
-  const show = db.getShowtimeById(req.params.id);
-  if (!show) {
-    return res.status(404).json({ success: false, message: 'Showtime not found' });
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    // 1. Primary check: Prisma Supabase database
+    const prismaShow = await prisma.showtime.findUnique({
+      where: { id: req.params.id },
+      include: { movie: true, screen: { include: { theatre: true } } }
+    });
+
+    if (prismaShow) {
+      const showData = {
+        id: prismaShow.id,
+        movieId: prismaShow.movieId,
+        cinemaId: prismaShow.cinemaId,
+        date: prismaShow.date,
+        time: prismaShow.time,
+        format: prismaShow.format,
+        hall: prismaShow.hall || prismaShow.hallName,
+        language: prismaShow.language,
+        priceMultiplier: Number(prismaShow.priceMultiplier) || 1.0
+      };
+      return res.json({
+        success: true,
+        show: showData,
+        showtime: showData,
+        movie: prismaShow.movie,
+        cinema: prismaShow.screen?.theatre
+      });
+    }
+
+    // 2. Secondary check: mock/in-memory store
+    const show = db.getShowtimeById(req.params.id);
+    if (!show) {
+      return res.status(404).json({ success: false, message: 'Showtime not found' });
+    }
+
+    const movie = db.getMovieById(show.movieId);
+    const cinemas = db.getCinemas();
+    const cinema = cinemas.find(c => c.id === show.cinemaId);
+
+    return res.json({
+      success: true,
+      show,
+      showtime: show,
+      movie,
+      cinema
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
   }
-
-  const movie = db.getMovieById(show.movieId);
-  const cinemas = db.getCinemas();
-  const cinema = cinemas.find(c => c.id === show.cinemaId);
-
-  return res.json({
-    success: true,
-    show,
-    movie,
-    cinema
-  });
 });
 
 // GET /api/shows/:id/seats (Live seat statuses with booked & hold conflict detection)

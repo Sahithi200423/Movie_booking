@@ -1,12 +1,47 @@
 import type { Movie, Cinema, Seat, BookingRecord, User, CancellationAuditLog } from '../types';
 import { MOVIES, CINEMAS } from '../data/mockData';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL as string) || '/api';
-const API_BASE = rawApiUrl.startsWith('http')
-  ? rawApiUrl.replace(/\/+$/, '')
-  : rawApiUrl.startsWith('/')
-  ? rawApiUrl.replace(/\/+$/, '')
-  : `https://${rawApiUrl.replace(/\/+$/, '')}`;
+const rawApiUrl = ((import.meta.env.VITE_API_URL as string) || '/api').trim();
+
+// Normalize API_BASE:
+// Automatically handles full URLs with or without /api, trailing slashes, or relative paths
+export const getNormalizedApiBase = (url: string): string => {
+  if (!url || url === '/api' || url === '/api/') return '/api';
+  let clean = url.replace(/\/+$/, '');
+  if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('/')) {
+    clean = `https://${clean}`;
+  }
+  if (!clean.endsWith('/api')) {
+    clean = `${clean}/api`;
+  }
+  return clean;
+};
+
+export const API_BASE = getNormalizedApiBase(rawApiUrl);
+
+// Get root origin for WebSocket (Socket.io)
+export const getSocketBaseUrl = (): string | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  if (!API_BASE.startsWith('http')) return undefined; // relative path uses current window origin
+  try {
+    return new URL(API_BASE).origin;
+  } catch {
+    return undefined;
+  }
+};
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'error';
+  ok: boolean;
+  database?: string;
+  service?: string;
+  version?: string;
+  timestamp?: string;
+}
+
+export async function checkHealthApi(): Promise<HealthStatus> {
+  return apiRequest<HealthStatus>('/health');
+}
 
 // Helper for resilient fetch
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {

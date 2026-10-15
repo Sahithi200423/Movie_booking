@@ -15,6 +15,7 @@ import paymentFlowRoutes from './routes/paymentFlow.js';
 import seatLockRoutes from './routes/seatLocks.js';
 import ticketValidationRoutes from './routes/ticketValidation.js';
 import { setSocketIO } from './services/seatReservationService.js';
+import prisma from './prisma.js';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -22,8 +23,9 @@ const httpServer = http.createServer(app);
 // Setup Socket.io for Real-time seat reservation broadcasts
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: (origin, callback) => callback(null, true),
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -56,16 +58,29 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow frontend dev server and production origins
-  credentials: true
+  origin: (origin, callback) => {
+    // Dynamically reflect origin to allow Vercel, localhost, and preview URLs
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 
-// API Health Check
-app.get('/api/health', (_req, res) => {
+// API Health Check with live Supabase PostgreSQL ping
+app.get('/api/health', async (_req, res) => {
+  let dbStatus = 'connected';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (err: any) {
+    dbStatus = 'degraded: ' + (err?.message || 'database query failed');
+  }
+
   res.json({
-    status: 'healthy',
+    status: dbStatus === 'connected' ? 'healthy' : 'degraded',
     ok: true,
+    database: dbStatus,
     service: 'CineBook Movie Ticket Booking API',
     version: '1.0.0',
     timestamp: new Date().toISOString()

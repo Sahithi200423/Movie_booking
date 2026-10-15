@@ -18,7 +18,7 @@ import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
 import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS } from '../data/mockData';
 import type { Seat } from '../types';
-import { getSeatsForShow, holdSeatsApi, releaseSeatsHoldApi } from '../services/api';
+import { getSeatsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl } from '../services/api';
 import { io } from 'socket.io-client';
 import { FnBUpsellModal } from '../components/FnBUpsellModal';
 
@@ -106,9 +106,7 @@ export const SeatSelectionPage: React.FC = () => {
     // Setup Socket.io real-time connection
     let socket: any = null;
     try {
-      const socketTarget = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.startsWith('http')
-        ? new URL(import.meta.env.VITE_API_URL).origin
-        : undefined;
+      const socketTarget = getSocketBaseUrl();
       socket = io(socketTarget, { path: '/socket.io', transports: ['websocket', 'polling'] });
       socket.emit('join:showtime', showtimeId);
 

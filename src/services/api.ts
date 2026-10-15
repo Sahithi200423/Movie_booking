@@ -1,7 +1,9 @@
 import type { Movie, Cinema, Seat, BookingRecord, User, CancellationAuditLog } from '../types';
 import { MOVIES, CINEMAS } from '../data/mockData';
 
-const rawApiUrl = ((import.meta.env.VITE_API_URL as string) || '/api').trim();
+const DEFAULT_RENDER_API = 'https://cinebook-backend-as00.onrender.com/api';
+const envApiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+const rawApiUrl = envApiUrl || (import.meta.env.PROD ? DEFAULT_RENDER_API : '/api');
 
 // Normalize API_BASE:
 // Automatically handles full URLs with or without /api, trailing slashes, or relative paths

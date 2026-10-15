@@ -75,6 +75,10 @@ router.post('/create-order', async (req: Request, res: Response) => {
   try {
     const {
       showtimeId,
+      date,
+      time,
+      movieId,
+      cinemaId,
       selectedSeats,
       seatIds,
       seatNumbers,
@@ -100,8 +104,8 @@ router.post('/create-order', async (req: Request, res: Response) => {
       });
     }
 
-    // Strict showtime lookup with automatic Prisma resolution
-    const showtime = await ensurePrismaShowtime(showtimeId);
+    // Strict showtime lookup with automatic Prisma resolution and authoritative date/time
+    const showtime = await ensurePrismaShowtime(showtimeId, { date, time, movieId, cinemaId });
 
     if (!showtime || !showtime.screen || !showtime.movie) {
       return res.status(404).json({ success: false, message: `Showtime ${showtimeId} not found.` });

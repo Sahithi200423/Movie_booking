@@ -31,8 +31,10 @@ import {
   getMovieReviewsApi,
   submitMovieReviewApi,
   getFavoritesApi,
-  toggleFavoriteApi
+  toggleFavoriteApi,
+  resolveShowtimeApi
 } from '../services/api';
+import { formatToISODate } from '../utils/dateUtils';
 
 const RATING_DESCRIPTIONS: Record<number, string> = {
   1: 'Disappointing (1/10)',
@@ -69,8 +71,9 @@ export const MovieDetailsPage: React.FC = () => {
       d.setDate(today.getDate() + i);
       const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short' });
       const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const isoDate = formatToISODate(d);
       dates.push({
-        id: d.toISOString().split('T')[0],
+        id: isoDate,
         label: `${dayName}, ${monthDay}`,
         dayName,
         monthDay,
@@ -292,14 +295,41 @@ export const MovieDetailsPage: React.FC = () => {
     );
   }
 
-  const handleProceedToSeats = () => {
+  const handleProceedToSeats = async () => {
     const movieSlug = movie.id.includes('kalki') ? 'kalki' : movie.id.substring(0, 8);
     const cinemaSlug = selectedCinema.id.includes('pvr') ? 'pvr' : selectedCinema.id.replace('cin-', '').substring(0, 8);
-    const showtimeId = `show-${movieSlug}--${cinemaSlug}--1`;
+    
+    // Determine target ISO date
+    const dateObj = availableDates.find(d => d.label === selectedDate || d.id === selectedDate);
+    const targetIsoDate = dateObj ? dateObj.id : (selectedDate.match(/^\d{4}-\d{2}-\d{2}$/) ? selectedDate : formatToISODate(new Date()));
+
+    let showtimeId = `show-${movieSlug}-${cinemaSlug}-${targetIsoDate}-${selectedShowtimeItem.time.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    try {
+      const resolved = await resolveShowtimeApi({
+        movieId: movie.id,
+        movieTitle: movie.title,
+        cinemaId: selectedCinema.id,
+        cinemaName: selectedCinema.name,
+        city: currentCity,
+        address: selectedCinema.address,
+        date: targetIsoDate,
+        time: selectedShowtimeItem.time,
+        format: selectedShowtimeItem.format,
+        hall: selectedShowtimeItem.hall,
+        language: selectedAudioLanguage
+      });
+      if (resolved && resolved.showtimeId) {
+        showtimeId = resolved.showtimeId;
+      }
+    } catch (resolveErr) {
+      console.warn('Could not resolve showtime via backend API, using structured ID:', resolveErr);
+    }
+
     setActiveMovie(movie);
     setActiveShowtime({
       cinema: selectedCinema,
-      date: selectedDate,
+      date: targetIsoDate,
       time: selectedShowtimeItem.time,
       format: selectedShowtimeItem.format,
       hall: selectedShowtimeItem.hall,

@@ -70,14 +70,20 @@ router.get('/:id/seats', async (req: Request, res: Response) => {
   // Primary source of truth: Prisma (same store used by /api/seats/lock and /api/payment/verify)
   const liveSeats = await seatReservationService.getLiveSeats(showId, sessionId).catch(() => null);
   if (liveSeats) {
+    const totalSeats = liveSeats.length;
+    const bookedCount = liveSeats.filter(s => s.status === 'reserved').length;
+    const heldCount = liveSeats.filter(s => s.status === 'held').length;
+    const availableCount = Math.max(0, totalSeats - bookedCount - heldCount);
+
     return res.json({
       success: true,
       showtimeId: showId,
       source: 'database',
-      totalSeats: liveSeats.length,
-      availableCount: liveSeats.filter(s => s.status === 'available').length,
-      reservedCount: liveSeats.filter(s => s.status === 'reserved').length,
-      heldCount: liveSeats.filter(s => s.status === 'held').length,
+      totalSeats,
+      availableCount,
+      bookedCount,
+      reservedCount: bookedCount,
+      heldCount,
       seats: liveSeats
     });
   }
@@ -89,14 +95,19 @@ router.get('/:id/seats', async (req: Request, res: Response) => {
   }
 
   const seats = db.getSeatsForShow(showId, sessionId);
+  const totalSeats = seats.length;
+  const bookedCount = seats.filter(s => s.status === 'reserved').length;
+  const heldCount = seats.filter(s => s.status === 'held').length;
+  const availableCount = Math.max(0, totalSeats - bookedCount - heldCount);
 
   return res.json({
     success: true,
     showtimeId: showId,
-    totalSeats: seats.length,
-    availableCount: seats.filter(s => s.status === 'available').length,
-    reservedCount: seats.filter(s => s.status === 'reserved').length,
-    heldCount: seats.filter(s => s.status === 'held').length,
+    totalSeats,
+    availableCount,
+    bookedCount,
+    reservedCount: bookedCount,
+    heldCount,
     seats
   });
 });

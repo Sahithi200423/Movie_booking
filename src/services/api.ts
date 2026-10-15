@@ -148,25 +148,81 @@ export async function getCinemas(city?: string): Promise<Cinema[]> {
   }
 }
 
+// ----------------- SHOWTIMES RESOLVER API -----------------
+export async function resolveShowtimeApi(payload: {
+  movieId: string;
+  movieTitle?: string;
+  cinemaId: string;
+  cinemaName?: string;
+  city?: string;
+  address?: string;
+  date: string;
+  time: string;
+  format?: string;
+  hall?: string;
+  language?: string;
+}) {
+  return await apiRequest<{
+    success: boolean;
+    showtimeId: string;
+    showtime: any;
+  }>('/shows/resolve', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
 // ----------------- SEATS API -----------------
+export interface SeatAvailabilityResult {
+  seats: Seat[];
+  totalSeats: number;
+  availableCount: number;
+  bookedCount: number;
+  heldCount: number;
+}
+
 export async function getSeatsForShow(showtimeId: string, sessionId?: string): Promise<Seat[]> {
+  const res = await getSeatsWithCountsForShow(showtimeId, sessionId);
+  return res.seats;
+}
+
+export async function getSeatsWithCountsForShow(showtimeId: string, sessionId?: string): Promise<SeatAvailabilityResult> {
   try {
     const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
-    const res = await apiRequest<{ success: boolean; seats: Seat[] }>(`/shows/${showtimeId}/seats${q}`);
-    return res.seats;
+    const res = await apiRequest<{
+      success: boolean;
+      totalSeats?: number;
+      availableCount?: number;
+      bookedCount?: number;
+      reservedCount?: number;
+      heldCount?: number;
+      seats: Seat[];
+    }>(`/shows/${showtimeId}/seats${q}`);
+
+    const seats = res.seats || [];
+    const totalSeats = res.totalSeats ?? seats.length;
+    const bookedCount = res.bookedCount ?? res.reservedCount ?? seats.filter(s => s.status === 'reserved').length;
+    const heldCount = res.heldCount ?? seats.filter(s => s.status === 'held').length;
+    const availableCount = res.availableCount ?? Math.max(0, totalSeats - bookedCount - heldCount);
+
+    return {
+      seats,
+      totalSeats,
+      availableCount,
+      bookedCount,
+      heldCount
+    };
   } catch (err) {
-    // Generate fallback layout
+    // Generate fallback layout (128 seats strictly priced at ₹5 in demo)
     const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     const seats: Seat[] = [];
     for (const row of rows) {
       let tier: 'VIP' | 'PREMIUM' | 'STANDARD' = 'STANDARD';
-      let price = 10.0;
+      const price = 5.0; // CineBook ₹5 demo rule
       if (row === 'A' || row === 'B') {
         tier = 'VIP';
-        price = 18.0;
-      } else if (row === 'C' || row === 'D' || row === 'E') {
+      } else if (row === 'C' || row === 'D' || row === 'E' || row === 'F') {
         tier = 'PREMIUM';
-        price = 14.5;
       }
 
       for (let num = 1; num <= 16; num++) {
@@ -180,7 +236,13 @@ export async function getSeatsForShow(showtimeId: string, sessionId?: string): P
         });
       }
     }
-    return seats;
+    return {
+      seats,
+      totalSeats: seats.length,
+      availableCount: seats.length,
+      bookedCount: 0,
+      heldCount: 0
+    };
   }
 }
 
@@ -246,6 +308,10 @@ export async function releaseSeatsHoldApi(showtimeId: string, sessionId: string,
 // ----------------- PAYMENT GATEWAY API -----------------
 export async function createPaymentOrderApi(payload: {
   showtimeId: string;
+  date?: string;
+  time?: string;
+  movieId?: string;
+  cinemaId?: string;
   seatIds: string[];
   customerName: string;
   customerEmail: string;

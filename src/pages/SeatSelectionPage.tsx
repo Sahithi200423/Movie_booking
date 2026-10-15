@@ -12,13 +12,14 @@ import {
   Lock,
   X,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
 import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS } from '../data/mockData';
 import type { Seat } from '../types';
-import { getSeatsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl } from '../services/api';
+import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl } from '../services/api';
 import { io } from 'socket.io-client';
 import { FnBUpsellModal } from '../components/FnBUpsellModal';
 
@@ -39,6 +40,12 @@ export const SeatSelectionPage: React.FC = () => {
   const { t, formatPrice, formatTime, isRTL } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [backendSeats, setBackendSeats] = useState<Record<string, Seat>>({});
+  const [serverAvailability, setServerAvailability] = useState<{
+    totalSeats: number;
+    availableCount: number;
+    bookedCount: number;
+    heldCount: number;
+  } | null>(null);
   const [isLoadingSeats, setIsLoadingSeats] = useState(true);
   const [isHolding, setIsHolding] = useState(false);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
@@ -65,18 +72,24 @@ export const SeatSelectionPage: React.FC = () => {
     return 'show-1';
   }, [activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id]);
 
-  // Load seats from backend & connect to real-time WebSockets
+  // Load seats from backend & connect to real-time WebSockets with polling fallback
   useEffect(() => {
     let isMounted = true;
     async function loadSeats() {
       try {
-        const seats = await getSeatsForShow(showtimeId, sessionId);
+        const result = await getSeatsWithCountsForShow(showtimeId, sessionId);
         if (isMounted) {
           const map: Record<string, Seat> = {};
-          seats.forEach(s => {
+          result.seats.forEach(s => {
             map[s.id] = s;
           });
           setBackendSeats(map);
+          setServerAvailability({
+            totalSeats: result.totalSeats,
+            availableCount: result.availableCount,
+            bookedCount: result.bookedCount,
+            heldCount: result.heldCount
+          });
 
           // Reconcile user's previously selected seats against live database status
           const currentlySelected = activeBooking.seats;
@@ -103,6 +116,13 @@ export const SeatSelectionPage: React.FC = () => {
 
     loadSeats();
 
+    // 10s polling fallback to ensure live counts remain accurate even if socket drops
+    const pollInterval = setInterval(() => {
+      if (isMounted) {
+        loadSeats();
+      }
+    }, 10000);
+
     // Setup Socket.io real-time connection
     let socket: any = null;
     try {
@@ -126,6 +146,7 @@ export const SeatSelectionPage: React.FC = () => {
 
     return () => {
       isMounted = false;
+      clearInterval(pollInterval);
       if (socket) {
         socket.emit('leave:showtime', showtimeId);
         socket.disconnect();
@@ -211,9 +232,8 @@ export const SeatSelectionPage: React.FC = () => {
       row.seats.forEach(s => allSeats.push(s));
     });
 
-    const total = allSeats.length;
+    const total = serverAvailability?.totalSeats ?? (allSeats.length || 128);
     const selected = selectedSeats.length;
-    const selectedSeatIds = new Set(selectedSeats.map(s => s.id));
 
     let booked = 0;
     let held = 0;
@@ -221,14 +241,20 @@ export const SeatSelectionPage: React.FC = () => {
     allSeats.forEach(s => {
       if (s.status === 'reserved') {
         booked++;
-      } else if (s.status === 'held' && !selectedSeatIds.has(s.id)) {
-        // Temporarily held by another customer
+      } else if (s.status === 'held') {
+        // Active hold in database
         held++;
       }
     });
 
-    // Available seats = Total - Booked - Held (by others) - Selected (by me)
-    const available = Math.max(0, total - booked - held - selected);
+    // If server provided authoritative counts from Supabase, prioritize them
+    if (serverAvailability) {
+      booked = serverAvailability.bookedCount;
+      held = serverAvailability.heldCount;
+    }
+
+    // Ensure Total = Available + Booked + Active Held
+    const available = Math.max(0, total - booked - held);
 
     return {
       total,
@@ -237,7 +263,7 @@ export const SeatSelectionPage: React.FC = () => {
       held,
       selected
     };
-  }, [seatLayout, selectedSeats]);
+  }, [seatLayout, selectedSeats, serverAvailability]);
 
   const handleSeatClick = async (seat: Seat) => {
     if (isLoadingSeats) return;
@@ -527,8 +553,12 @@ export const SeatSelectionPage: React.FC = () => {
               <Armchair className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
               <span>Total Seats</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-white mt-0.5 sm:mt-1">
-              {dashboardCounts.total}
+            <div className="text-xl sm:text-2xl font-black text-white mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+              {isLoadingSeats && !serverAvailability ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-slate-400" />
+              ) : (
+                dashboardCounts.total
+              )}
             </div>
             <div className="text-[9px] sm:text-[10px] text-slate-500 font-medium">Hall Capacity</div>
           </div>
@@ -539,8 +569,12 @@ export const SeatSelectionPage: React.FC = () => {
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-400 animate-pulse" />
               <span>Available</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-blue-400 mt-0.5 sm:mt-1">
-              {dashboardCounts.available}
+            <div className="text-xl sm:text-2xl font-black text-blue-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+              {isLoadingSeats && !serverAvailability ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-blue-400" />
+              ) : (
+                dashboardCounts.available
+              )}
             </div>
             <div className="text-[9px] sm:text-[10px] text-blue-400/80 font-medium">Ready to Book</div>
           </div>
@@ -551,7 +585,7 @@ export const SeatSelectionPage: React.FC = () => {
               <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
               <span>Selected</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-blue-300 mt-0.5 sm:mt-1">
+            <div className="text-xl sm:text-2xl font-black text-blue-300 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {dashboardCounts.selected}
             </div>
             <div className="text-[9px] sm:text-[10px] text-blue-300/80 font-medium">In Your Order</div>
@@ -563,8 +597,12 @@ export const SeatSelectionPage: React.FC = () => {
               <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
               <span>Temp Held</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 sm:mt-1">
-              {dashboardCounts.held}
+            <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+              {isLoadingSeats && !serverAvailability ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-amber-400" />
+              ) : (
+                dashboardCounts.held
+              )}
             </div>
             <div className="text-[9px] sm:text-[10px] text-amber-400/80 font-medium">Other Guests</div>
           </div>
@@ -575,8 +613,12 @@ export const SeatSelectionPage: React.FC = () => {
               <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400" />
               <span>Booked / Sold</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-rose-400 mt-0.5 sm:mt-1">
-              {dashboardCounts.booked}
+            <div className="text-xl sm:text-2xl font-black text-rose-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+              {isLoadingSeats && !serverAvailability ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-rose-400" />
+              ) : (
+                dashboardCounts.booked
+              )}
             </div>
             <div className="text-[9px] sm:text-[10px] text-rose-400/80 font-medium">Sold Out</div>
           </div>

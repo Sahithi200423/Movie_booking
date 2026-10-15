@@ -399,6 +399,10 @@ export const CheckoutPage: React.FC = () => {
     try {
       orderRes = await createPaymentOrderApi({
         showtimeId,
+        date: activeBooking.date,
+        time: activeBooking.time,
+        movieId: activeBooking.movie?.id,
+        cinemaId: activeBooking.cinema?.id,
         seatIds: selectedSeatNumbers,
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim().toLowerCase(),

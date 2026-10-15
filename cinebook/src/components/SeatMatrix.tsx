@@ -74,22 +74,22 @@ const TIER_CONFIG: Record<
 > = {
   VIP_RECLINER: {
     name: 'Royal Recliners',
-    subtitle: 'Plush automated recliners with food service',
-    price: 380,
+    subtitle: 'Plush automated recliners with food service (₹5 Demo)',
+    price: 5,
     badgeColor: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
     rowCount: 2 // Rows A, B
   },
   GOLD: {
     name: 'Prime Gold',
-    subtitle: 'Optimal eye-level viewing with cushioned leather',
-    price: 240,
+    subtitle: 'Optimal eye-level viewing with cushioned leather (₹5 Demo)',
+    price: 5,
     badgeColor: 'border-purple-500/40 bg-purple-500/10 text-purple-300',
     rowCount: 4 // Rows C, D, E, F
   },
   SILVER: {
     name: 'Classic Silver',
-    subtitle: 'Comfortable stadium seating layout',
-    price: 160,
+    subtitle: 'Comfortable stadium seating layout (₹5 Demo)',
+    price: 5,
     badgeColor: 'border-sky-500/40 bg-sky-500/10 text-sky-300',
     rowCount: 4 // Rows G, H, I, J
   }
@@ -310,15 +310,16 @@ export const SeatMatrix: React.FC<SeatMatrixProps> = ({
   // -------------------------------------------------------------------------
   const financials = useMemo(() => {
     const selectedSeatObjects = seats.filter((s) => selectedSeatIds.includes(s.id));
-    const subtotal = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
+    // CineBook ₹5 Rule: Every seat is exactly ₹5
+    const subtotal = selectedSeatObjects.length * 5;
 
     const fnbTotal = addons.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const grossTotal = subtotal + fnbTotal;
 
-    // Convenience fee: ₹30 per seat
-    const convenienceFee = selectedSeatIds.length * 30;
-    // GST: 18% on convenience fee + 5% on F&B
-    const gstTax = Math.round((convenienceFee * 0.18 + fnbTotal * 0.05) * 100) / 100;
+    // Convenience fee: ₹0 in demo (Demo waiver)
+    const convenienceFee = 0;
+    // GST: ₹0 in demo (Demo waiver)
+    const gstTax = 0;
 
     const discount = appliedPromo ? Math.min(appliedPromo.discount, grossTotal) : 0;
     const total = Math.max(0, Math.round(grossTotal + convenienceFee + gstTax - discount));
@@ -689,13 +690,13 @@ export const SeatMatrix: React.FC<SeatMatrixProps> = ({
 
               <div className="flex justify-between text-slate-400">
                 <span className="flex items-center gap-1">
-                  <span>Convenience Fee (18% GST)</span>
-                  <span title="Includes GST and booking administration charges">
+                  <span>Convenience Fee (Demo Waiver)</span>
+                  <span title="Demo waiver: ₹0.00">
                     <Info className="w-3 h-3 text-slate-500 cursor-help" />
                   </span>
                 </span>
-                <span className="font-mono text-slate-200">
-                  ₹{(financials.convenienceFee + financials.gstTax).toFixed(2)}
+                <span className="font-mono text-emerald-400 font-semibold">
+                  ₹0.00
                 </span>
               </div>
 

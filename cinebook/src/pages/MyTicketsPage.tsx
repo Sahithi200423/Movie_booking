@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import { cancelBookingApi, fetchMyBookingsApi, getCancelQuoteApi, getBookingAuditTrailApi, type CancelQuoteResponse } from '../services/api';
 import type { BookingRecord, CancellationAuditLog } from '../types';
+import { isPastShowtime } from '../utils/dateUtils';
 
 export const MyTicketsPage: React.FC = () => {
   const { myBookings, cancelBooking, syncBookings } = useBooking();
@@ -119,13 +120,13 @@ export const MyTicketsPage: React.FC = () => {
     return `https://api.whatsapp.com/send?text=${text}`;
   };
 
-  // Categorize bookings into tabs
+  // Categorize bookings into tabs (Past showtimes automatically move to Completed)
   const upcomingBookings = useMemo(() => {
-    return myBookings.filter(b => b.status === 'confirmed' && !b.checkedIn);
+    return myBookings.filter(b => b.status === 'confirmed' && !b.checkedIn && !isPastShowtime(b.date, b.time));
   }, [myBookings]);
 
   const completedBookings = useMemo(() => {
-    return myBookings.filter(b => b.status === 'confirmed' && b.checkedIn);
+    return myBookings.filter(b => b.status === 'confirmed' && (b.checkedIn || isPastShowtime(b.date, b.time)));
   }, [myBookings]);
 
   const cancelledBookings = useMemo(() => {
@@ -186,9 +187,12 @@ export const MyTicketsPage: React.FC = () => {
     // Pre-seed local estimate
     const local = myBookings.find(b => b.bookingId === bookingId || b.id === bookingId);
     if (local) {
-      const orig = local.totalAmount || 0;
-      const fee = Math.round(orig * 0.1 * 100) / 100;
-      const refAmt = Math.max(0, Math.round((orig - fee) * 100) / 100);
+      const orig = Number(local.totalAmount) || 0;
+      const totalPaise = Math.round(orig * 100);
+      const feePaise = Math.round(totalPaise * 0.1);
+      const refundPaise = totalPaise - feePaise;
+      const fee = feePaise / 100;
+      const refAmt = refundPaise / 100;
       setCancelQuote({
         success: true,
         eligible: true,
@@ -249,7 +253,7 @@ export const MyTicketsPage: React.FC = () => {
         loading: false,
         success: isFailed
           ? `Booking #${cancellationTarget} cancelled. Gateway refund failed (${refundInfo.refundError || 'Gateway error'}). Support desk notified for manual processing.`
-          : `Booking #${cancellationTarget} successfully cancelled. A 90% refund of ${refundDisplay} has been initiated${refIdNote}!`
+          : `Booking #${cancellationTarget} successfully cancelled. A 90% simulated refund of ${refundDisplay} has been recorded (Demo Sandbox)${refIdNote}. Reserved seats have been released!`
       });
 
       // Refresh audit logs for the cancelled ticket
@@ -513,7 +517,7 @@ export const MyTicketsPage: React.FC = () => {
 
                         {/* Quick action buttons */}
                         <div className="flex items-center gap-2 mt-2">
-                          {b.status === 'confirmed' && !b.checkedIn && (
+                          {b.status === 'confirmed' && !b.checkedIn && !isPastShowtime(b.date, b.time) && (
                             <button
                               type="button"
                               onClick={e => {
@@ -526,6 +530,11 @@ export const MyTicketsPage: React.FC = () => {
                               <XCircle className="w-3.5 h-3.5" />
                               <span className="hidden sm:inline">Cancel</span>
                             </button>
+                          )}
+                          {b.status === 'confirmed' && isPastShowtime(b.date, b.time) && (
+                            <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 border border-slate-200 dark:border-white/10">
+                              Completed
+                            </span>
                           )}
                         </div>
                       </div>
@@ -834,7 +843,7 @@ export const MyTicketsPage: React.FC = () => {
                   </div>
 
                   {/* 5. Prominent Cancel Ticket Button in Right Detail Panel */}
-                  {selectedBooking.status === 'confirmed' && !selectedBooking.checkedIn && (
+                  {selectedBooking.status === 'confirmed' && !selectedBooking.checkedIn && !isPastShowtime(selectedBooking.date, selectedBooking.time) && (
                     <button
                       type="button"
                       onClick={() => handleOpenCancelModal(selectedBooking.bookingId)}
@@ -843,6 +852,12 @@ export const MyTicketsPage: React.FC = () => {
                       <XCircle className="w-4 h-4 text-rose-500" />
                       <span>Cancel Ticket & Request 90% Refund</span>
                     </button>
+                  )}
+                  {selectedBooking.status === 'confirmed' && isPastShowtime(selectedBooking.date, selectedBooking.time) && (
+                    <div className="w-full mt-2 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-slate-500 text-xs font-semibold flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Showtime Ended • Completed Session</span>
+                    </div>
                   )}
                   {selectedBooking.status === 'cancelled' && (
                     <div className="w-full mt-2 py-2.5 px-3 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-500 text-xs font-semibold flex items-center justify-center gap-2">
@@ -927,27 +942,27 @@ export const MyTicketsPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="pt-2.5 border-t border-slate-200 dark:border-white/10 flex justify-between items-center text-sm font-bold">
-                    <span className="text-slate-900 dark:text-white">Refund to Payment Method (90%)</span>
+                    <span className="text-slate-900 dark:text-white">Simulated Demo Refund (90%)</span>
                     <span className="text-emerald-600 dark:text-emerald-400 font-black text-base">
                       {formatPrice(cancelQuote.refundAmount)}
                     </span>
                   </div>
                 </div>
 
-                {/* Policy note */}
-                <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed flex items-start gap-2">
-                  <RotateCcw className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                  <div>
-                    <span>{cancelQuote.policy}</span>
-                    <p className="mt-1 text-slate-500 dark:text-slate-400">
-                      Refunds are credited directly to the original payment source ({cancelQuote.paymentMethod}). The reserved seats will immediately be released and restored for other moviegoers.
-                    </p>
+                {/* Policy & Sandbox Disclaimer note */}
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-900 dark:text-amber-300 leading-relaxed space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-400">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>DEMO / SIMULATED REFUND NOTICE</span>
                   </div>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    In this CineBook demonstration environment, all bookings, payments, and cancellations are <strong>SIMULATED</strong>. No real money was charged or returned to a bank account. A 90% simulated credit of {formatPrice(cancelQuote.refundAmount)} will be recorded, and your seats will be released back to the seating inventory.
+                  </p>
                 </div>
               </div>
             ) : (
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Are you sure you want to cancel this booking? A 90% refund will be credited back to your original payment method, and 10% cancellation charges apply. The reserved seats will be freed up.
+                Are you sure you want to cancel this booking? A 90% simulated refund will be processed in this demo environment, and 10% demo cancellation charges apply. The reserved seats will immediately be freed up for other moviegoers.
               </p>
             )}
 

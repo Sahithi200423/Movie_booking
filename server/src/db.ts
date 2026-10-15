@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 dotenv.config();
+import { isPastShowtime } from './utils/dateUtils.js';
 import {
   MOVIES,
   CINEMAS,
@@ -405,7 +406,7 @@ class Database {
         await client.query(
           `INSERT INTO public.booking_seats (booking_id, showtime_id, seat_id, seat_row, seat_number, tier, price)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT (showtime_id, seat_id) DO UPDATE SET booking_id = EXCLUDED.booking_id`,
+           ON CONFLICT (showtime_id, seat_id) DO NOTHING`,
           [booking.id, booking.showtimeId, seat.id, seat.row, seat.number, seat.tier, seat.price]
         );
       }
@@ -823,13 +824,11 @@ class Database {
 
     for (const row of rows) {
       let tier: 'VIP' | 'PREMIUM' | 'STANDARD' = 'STANDARD';
-      let price = 10.0;
+      const price = 5.0; // CineBook ₹5 rule for all tiers
       if (row === 'A' || row === 'B') {
         tier = 'VIP';
-        price = 18.0;
       } else if (row === 'C' || row === 'D' || row === 'E') {
         tier = 'PREMIUM';
-        price = 14.5;
       }
 
       for (let num = 1; num <= 16; num++) {
@@ -897,6 +896,13 @@ class Database {
     this.cleanupExpiredHolds();
     const now = Date.now();
 
+    // Check if showtime has already passed
+    if (isPastShowtime(bookingData.date, bookingData.time)) {
+      const err = new Error('Cannot book tickets for a showtime that has already passed.');
+      (err as unknown as { statusCode: number }).statusCode = 400;
+      throw err;
+    }
+
     // 1. Conflict Check: verify every seat requested is still available for this showtime
     const currentBookedSeats = new Set(
       this.bookingSeats
@@ -928,6 +934,15 @@ class Database {
       throw err;
     }
 
+    // Authoritative Server-Side Pricing: ₹5 per seat
+    const seatsCount = bookingData.seats.length;
+    const ticketPaise = seatsCount * 500;
+    const authoritativeTotal = ticketPaise / 100;
+    bookingData.subtotal = authoritativeTotal;
+    bookingData.convenienceFee = 0.00;
+    bookingData.tax = 0.00;
+    bookingData.totalAmount = authoritativeTotal;
+
     // 2. Generate unique booking reference & secure QR verification token
     const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -956,7 +971,7 @@ class Database {
       row: s.row,
       number: s.number,
       tier: s.tier,
-      price: s.price
+      price: 5.00
     }));
 
     this.bookings.unshift(newBooking);
@@ -1005,6 +1020,12 @@ class Database {
       throw err;
     }
 
+    if (isPastShowtime(booking.date, booking.time)) {
+      const err = new Error(`Booking #${bookingId} is for a showtime that has already ended. Cancellation is not permitted.`);
+      (err as unknown as { statusCode: number }).statusCode = 400;
+      throw err;
+    }
+
     // Check user authorization if email provided
     if (userEmail && booking.customerEmail.toLowerCase() !== userEmail.toLowerCase()) {
       const err = new Error('You do not have permission to cancel this booking.');
@@ -1013,13 +1034,16 @@ class Database {
     }
 
     // Calculate eligible refund (prorated demo policy: 90% refund if cancelled before show)
+    const totalPaise = Math.round(Number(booking.totalAmount) * 100);
+    const feePaise = Math.round(totalPaise * 0.1);
+    const refundPaise = totalPaise - feePaise;
     const refund = refundInfo?.refundAmount !== undefined
       ? refundInfo.refundAmount
-      : Math.round(booking.totalAmount * 0.9 * 100) / 100;
+      : (refundPaise / 100);
 
     const fee = refundInfo?.cancellationFee !== undefined
       ? refundInfo.cancellationFee
-      : Math.max(0, Math.round((booking.totalAmount - refund) * 100) / 100);
+      : (feePaise / 100);
 
     const prevStatus = booking.status;
     booking.status = 'cancelled';

@@ -202,7 +202,7 @@ export const SeatSelectionPage: React.FC = () => {
   }
 
   const selectedSeats = activeBooking.seats;
-  const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+  const subtotal = selectedSeats.length * 5;
 
   // Accurate seat availability counts for live dashboard
   const dashboardCounts = useMemo(() => {

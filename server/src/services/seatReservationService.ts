@@ -80,62 +80,25 @@ export class SeatReservationService {
       };
     }
 
-    const existingReservations = await prisma.seatReservation.findMany({
-      where: {
-        showtimeId: showtime.id,
-        seatId: { in: targetSeatIds }
-      }
-    });
+    // Acquire or refresh locks for all requested seats atomically via PostgreSQL ON CONFLICT conditional updates
+    for (const seat of targetSeats) {
+      const seatLabel = seat.seatNumber || `${seat.row}${seat.number}` || seat.id;
+      const rowsAffected = await prisma.$executeRaw`
+        INSERT INTO seat_reservations (id, showtime_id, seat_id, status, held_by, held_expires_at, created_at)
+        VALUES ((gen_random_uuid())::text, ${showtime.id}, ${seat.id}, 'HELD', ${sessionId}, ${heldExpiresAt}, NOW())
+        ON CONFLICT (showtime_id, seat_id)
+        DO UPDATE SET status = 'HELD', held_by = ${sessionId}, held_expires_at = ${heldExpiresAt}
+        WHERE seat_reservations.status != 'BOOKED'
+          AND (seat_reservations.held_expires_at IS NULL OR seat_reservations.held_expires_at < NOW() OR seat_reservations.held_by = ${sessionId});
+      `;
 
-    for (const res of existingReservations) {
-      const seat = targetSeats.find((s: any) => s.id === res.seatId);
-      const seatLabel = seat ? (seat.seatNumber || seat.id) : res.seatId;
-
-      if (res.status === 'BOOKED') {
+      if (rowsAffected === 0) {
         throw {
           statusCode: 409,
-          message: `Seat ${seatLabel} has already been reserved and paid for.`,
+          message: `Seat ${seatLabel} is temporarily locked and held by another customer.`,
           conflictingSeat: seatLabel
         };
       }
-
-      const activeExpiry = res.heldExpiresAt;
-      const isStillHeld = (res.status === 'HELD' || res.status === 'LOCKED') && activeExpiry && activeExpiry > now;
-
-      if (isStillHeld) {
-        const holderSession = res.heldBy;
-        if (holderSession !== sessionId) {
-          throw {
-            statusCode: 409,
-            message: `Seat ${seatLabel} is temporarily locked and held by another customer.`,
-            conflictingSeat: seatLabel
-          };
-        }
-      }
-    }
-
-    // Acquire or refresh locks for all requested seats
-    for (const seat of targetSeats) {
-      await prisma.seatReservation.upsert({
-        where: {
-          showtimeId_seatId: {
-            showtimeId: showtime.id,
-            seatId: seat.id
-          }
-        },
-        update: {
-          status: 'HELD',
-          heldBy: sessionId,
-          heldExpiresAt
-        },
-        create: {
-          showtimeId: showtime.id,
-          seatId: seat.id,
-          status: 'HELD',
-          heldBy: sessionId,
-          heldExpiresAt
-        }
-      });
     }
 
     // Broadcast real-time update via WebSockets
@@ -305,7 +268,7 @@ export class SeatReservationService {
         row: seat.row,
         number: seat.number,
         tier: seat.tier,
-        price: Number(seat.basePrice),
+        price: 5.00,
         status,
         heldByMe,
         holdExpiresAt

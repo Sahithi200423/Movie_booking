@@ -6,6 +6,7 @@ import { db } from '../db.js';
 import { prisma } from '../prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { getSocketIO } from '../services/seatReservationService.js';
+import { isPastShowtime } from '../utils/dateUtils.js';
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_sampleKey';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sampleSecretKey';
@@ -61,43 +62,24 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'A maximum of 8 seats can be booked in a single transaction.' });
     }
 
-    // 2. Server-side price calculation (Security rule: never blindly trust client total amount)
-    let validatedSeatSubtotal = 0;
-    for (const seat of seats) {
-      let expectedPrice = 10.0;
-      if (seat.tier === 'VIP') expectedPrice = 18.0;
-      else if (seat.tier === 'PREMIUM') expectedPrice = 14.5;
-      validatedSeatSubtotal += expectedPrice;
+    // Prevent bookings for past showtimes
+    if (isPastShowtime(date, time)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot book tickets for a showtime that has already passed.'
+      });
     }
 
-    let validatedAddonSubtotal = 0;
-    if (Array.isArray(addons)) {
-      for (const addon of addons) {
-        validatedAddonSubtotal += (Number(addon.price) || 0) * (Number(addon.quantity) || 0);
-      }
-    }
-
-    const subtotal = Math.round((validatedSeatSubtotal + validatedAddonSubtotal) * 100) / 100;
-    
-    // Server-side coupon verification
-    let discountAmount = 0;
-    let verifiedCouponCode: string | undefined = undefined;
-    if (couponCode && typeof couponCode === 'string') {
-      try {
-        const couponCheck = db.validateCoupon(couponCode, subtotal);
-        if (couponCheck.success) {
-          discountAmount = couponCheck.coupon.calculatedDiscount;
-          verifiedCouponCode = couponCheck.coupon.code;
-        }
-      } catch (e) {
-        // invalid coupon ignored or rejected
-      }
-    }
-
-    const discountedSubtotal = Math.max(0, subtotal - discountAmount);
-    const convenienceFee = 2.50;
-    const tax = Math.round(discountedSubtotal * 0.05 * 100) / 100; // 5% tax
-    const totalAmount = Math.round((discountedSubtotal + convenienceFee + tax) * 100) / 100;
+    // 2. Authoritative server-side price calculation (CineBook ₹5 Rule)
+    // Every movie ticket costs exactly ₹5 per seat (500 paise) regardless of tier.
+    // Zero convenience fees, zero platform fees, zero taxes.
+    const seatsCount = seats.length;
+    const ticketPaisePerSeat = 500;
+    const totalInPaise = seatsCount * ticketPaisePerSeat;
+    const totalAmount = totalInPaise / 100;
+    const subtotal = totalAmount;
+    const convenienceFee = 0.00;
+    const tax = 0.00;
 
     // 3. Atomically attempt to book in database (will throw 409 if seats are already taken)
     const booking = db.createBooking({
@@ -125,8 +107,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       convenienceFee,
       tax,
       totalAmount,
-      couponCode: verifiedCouponCode,
-      discountAmount,
+      couponCode: couponCode ? String(couponCode).trim() : undefined,
+      discountAmount: 0,
       paymentMethod,
       sessionId
     });
@@ -148,24 +130,66 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
 // Helper to format Prisma Booking
 function formatPrismaBooking(prismaBooking: any) {
-  let parsedSeatDetails = [];
-  try {
-    if (prismaBooking.seatDetails) {
-      parsedSeatDetails = JSON.parse(prismaBooking.seatDetails);
+  let parsedSeats: any[] = [];
+  if (Array.isArray(prismaBooking.seats) && prismaBooking.seats.length > 0) {
+    parsedSeats = prismaBooking.seats.map((s: any) => {
+      const row = (s.seatRow || '').trim();
+      const num = s.seatNumber ? Number(s.seatNumber) : null;
+      const cleanId = (row && num) ? `${row}${num}` : (s.seatId ? s.seatId.replace(/^.*-([A-Z]\d+)$/, '$1') : 'A1');
+      return {
+        id: cleanId,
+        row: row || cleanId.charAt(0) || 'A',
+        number: num || parseInt(cleanId.slice(1)) || 1,
+        tier: s.tier || 'STANDARD',
+        price: Number(s.price) || 5.00
+      };
+    });
+  } else if (prismaBooking.seatDetails) {
+    try {
+      parsedSeats = JSON.parse(prismaBooking.seatDetails);
+    } catch (e) {}
+  } else if (prismaBooking.seatIds) {
+    parsedSeats = prismaBooking.seatIds.split(',').map((s: string) => {
+      const clean = s.trim();
+      return {
+        id: clean,
+        row: clean.charAt(0) || 'A',
+        number: parseInt(clean.slice(1)) || 1,
+        tier: 'STANDARD',
+        price: 5.00
+      };
+    });
+  } else {
+    // Fallback to local DB record if available
+    const allLocal = db.getAllBookings();
+    const dbMatch = allLocal.find(b => b.id === prismaBooking.id || (b as any).bookingId === prismaBooking.id || (b as any).bookingRef === prismaBooking.bookingRef);
+    if (dbMatch && Array.isArray(dbMatch.seats) && dbMatch.seats.length > 0) {
+      parsedSeats = dbMatch.seats;
     }
-  } catch (e) {}
+  }
+
+  const finalSeatsCount = parsedSeats.length || Number(prismaBooking.seatsCount) || 1;
+  const originalTotal = Number(prismaBooking.totalAmount) || 0;
+  const isCancelled = prismaBooking.status.toLowerCase() === 'cancelled';
+
+  // Integer paise arithmetic for cancellation refund: 90% refund, 10% cancellation fee
+  const totalPaise = Math.round(originalTotal * 100);
+  const feePaise = Math.round(totalPaise * 0.1);
+  const refundPaise = totalPaise - feePaise;
+  const autoCancellationFee = feePaise / 100;
+  const autoRefundAmount = refundPaise / 100;
 
   return {
     id: prismaBooking.id,
-    bookingId: prismaBooking.bookingRef,
-    bookingRef: prismaBooking.bookingRef,
+    bookingId: prismaBooking.bookingRef || prismaBooking.id,
+    bookingRef: prismaBooking.bookingRef || prismaBooking.id,
     movieId: prismaBooking.showtime?.movieId || 'movie-1',
     movieTitle: prismaBooking.showtime?.movie?.title || 'Blockbuster Movie',
     moviePoster: prismaBooking.showtime?.movie?.posterUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
-    movieDuration: prismaBooking.showtime?.movie?.duration
-      ? `${Math.floor(prismaBooking.showtime.movie.duration / 60)}h ${prismaBooking.showtime.movie.duration % 60}m`
+    movieDuration: prismaBooking.showtime?.movie?.durationMinutes
+      ? `${Math.floor(prismaBooking.showtime.movie.durationMinutes / 60)}h ${prismaBooking.showtime.movie.durationMinutes % 60}m`
       : '2h 15m',
-    movieAgeRating: prismaBooking.showtime?.movie?.certification || 'UA',
+    movieAgeRating: prismaBooking.showtime?.movie?.ageRating || 'UA',
     cinemaId: prismaBooking.showtime?.screen?.theatreId || 'theatre-1',
     cinemaName: prismaBooking.showtime?.screen?.theatre?.name || 'PVR Cinema',
     cinemaAddress: prismaBooking.showtime?.screen?.theatre?.address || 'City Centre Cinema Complex',
@@ -173,28 +197,17 @@ function formatPrismaBooking(prismaBooking: any) {
     format: prismaBooking.showtime?.format || 'IMAX 3D',
     date: prismaBooking.showtime?.date || 'Today',
     time: prismaBooking.showtime?.time || '07:30 PM',
-    seats:
-      parsedSeatDetails.length > 0
-        ? parsedSeatDetails
-        : (prismaBooking.seatIds || 'A1')
-            .split(',')
-            .map((s: string) => ({
-              id: s.trim(),
-              row: s.trim().charAt(0) || 'A',
-              number: parseInt(s.trim().slice(1)) || 1,
-              tier: 'PRIME',
-              price: Math.round(prismaBooking.baseAmount / (prismaBooking.seatsCount || 1))
-            })),
-    seatsCount: prismaBooking.seatsCount || parsedSeatDetails.length || (prismaBooking.seatIds ? prismaBooking.seatIds.split(',').length : 1),
+    seats: parsedSeats,
+    seatsCount: finalSeatsCount,
     addons: [],
-    subtotal: prismaBooking.baseAmount,
-    convenienceFee: prismaBooking.convenienceFee,
-    tax: prismaBooking.gstAmount,
-    totalAmount: prismaBooking.totalAmount,
+    subtotal: Number(prismaBooking.subtotal) || originalTotal,
+    convenienceFee: Number(prismaBooking.convenienceFee) || 0,
+    tax: Number(prismaBooking.tax) || 0,
+    totalAmount: originalTotal,
     status: prismaBooking.status.toLowerCase(),
-    qrToken: prismaBooking.qrCodeData,
-    qrCodeData: prismaBooking.qrCodeData,
-    checkedIn: prismaBooking.status === 'CHECKED_IN',
+    qrToken: prismaBooking.bookingRef || prismaBooking.id,
+    qrCodeData: prismaBooking.bookingRef || prismaBooking.id,
+    checkedIn: prismaBooking.status === 'CHECKED_IN' || prismaBooking.status === 'checked_in',
     checkedInAt: prismaBooking.checkedInAt ? new Date(prismaBooking.checkedInAt).toISOString() : undefined,
     customer: {
       name: prismaBooking.customerName,
@@ -203,17 +216,17 @@ function formatPrismaBooking(prismaBooking: any) {
     },
     paymentMethod: prismaBooking.paymentMethod,
     payment: prismaBooking.payment,
-    bookedAt: prismaBooking.createdAt ? new Date(prismaBooking.createdAt).toISOString() : new Date().toISOString(),
-    cancelledAt: (prismaBooking.cancelledAt || (prismaBooking.status.toLowerCase() === 'cancelled' ? prismaBooking.updatedAt : null))
+    bookedAt: prismaBooking.bookedAt ? new Date(prismaBooking.bookedAt).toISOString() : (prismaBooking.createdAt ? new Date(prismaBooking.createdAt).toISOString() : new Date().toISOString()),
+    cancelledAt: (prismaBooking.cancelledAt || (isCancelled ? prismaBooking.updatedAt : null))
       ? new Date(prismaBooking.cancelledAt || prismaBooking.updatedAt).toISOString()
       : undefined,
-    refundStatus: prismaBooking.refundStatus || (prismaBooking.status.toLowerCase() === 'cancelled' ? 'REFUNDED' : 'NOT_REQUESTED'),
+    refundStatus: prismaBooking.refundStatus || (isCancelled ? 'REFUNDED' : 'NOT_REQUESTED'),
     refundAmount: prismaBooking.refundAmount !== undefined && prismaBooking.refundAmount !== null
-      ? prismaBooking.refundAmount
-      : (prismaBooking.status.toLowerCase() === 'cancelled' ? Math.round(prismaBooking.totalAmount * 0.9 * 100) / 100 : 0),
+      ? Number(prismaBooking.refundAmount)
+      : (isCancelled ? autoRefundAmount : 0),
     cancellationFee: prismaBooking.cancellationFee !== undefined && prismaBooking.cancellationFee !== null
-      ? prismaBooking.cancellationFee
-      : (prismaBooking.status.toLowerCase() === 'cancelled' ? Math.round(prismaBooking.totalAmount * 0.1 * 100) / 100 : 0),
+      ? Number(prismaBooking.cancellationFee)
+      : (isCancelled ? autoCancellationFee : 0),
     refundId: prismaBooking.refundId || prismaBooking.payment?.refundId || undefined
   };
 }
@@ -224,10 +237,11 @@ router.get('/my', async (req: Request, res: Response) => {
     const email = (req.query.email as string)?.trim().toLowerCase();
     const userId = req.query.userId as string;
 
-    // 1. Fetch from Prisma SQLite
+    // 1. Fetch from Prisma with full relations including seats
     const prismaBookings = await prisma.booking.findMany({
       where: email ? { customerEmail: { equals: email } } : undefined,
       include: {
+        seats: true,
         showtime: {
           include: {
             movie: true,
@@ -293,6 +307,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         ]
       },
       include: {
+        seats: true,
         showtime: {
           include: {
             movie: true,
@@ -338,6 +353,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
         OR: [{ id: targetId }, { bookingRef: targetId }]
       },
       include: {
+        seats: true,
         showtime: {
           include: {
             movie: true,
@@ -357,7 +373,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
         });
       }
 
-      if (prismaBooking.status === 'CHECKED_IN') {
+      if (prismaBooking.status === 'CHECKED_IN' || prismaBooking.status === 'checked_in') {
         return res.status(400).json({
           success: false,
           eligible: false,
@@ -365,20 +381,30 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
         });
       }
 
-      const originalAmount = Number(prismaBooking.totalAmount);
-      // CineBook policy: 10% cancellation charge, 90% refund
-      const cancellationFee = Math.round(originalAmount * 0.1 * 100) / 100;
-      const refundAmount = Math.max(0, Math.round((originalAmount - cancellationFee) * 100) / 100);
+      if (isPastShowtime(prismaBooking.showtime?.date, prismaBooking.showtime?.time)) {
+        return res.status(400).json({
+          success: false,
+          eligible: false,
+          message: `Showtime for booking #${prismaBooking.bookingRef} has already ended. Cancellation is not permitted.`
+        });
+      }
 
-      const seatList = ((prismaBooking as any).seatIds || '')
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean);
+      const originalAmount = Number(prismaBooking.totalAmount);
+      // Integer paise calculation: 90% refund, 10% cancellation fee
+      const totalPaise = Math.round(originalAmount * 100);
+      const feePaise = Math.round(totalPaise * 0.1);
+      const refundPaise = totalPaise - feePaise;
+      const cancellationFee = feePaise / 100;
+      const refundAmount = refundPaise / 100;
+
+      const seatList = Array.isArray(prismaBooking.seats) && prismaBooking.seats.length > 0
+        ? prismaBooking.seats.map(s => `${(s.seatRow || '').trim()}${s.seatNumber}`)
+        : (((prismaBooking as any).seatIds || '').split(',').map((s: string) => s.trim()).filter(Boolean));
 
       return res.json({
         success: true,
         eligible: true,
-        bookingId: prismaBooking.bookingRef,
+        bookingId: prismaBooking.bookingRef || prismaBooking.id,
         id: prismaBooking.id,
         movieTitle: prismaBooking.showtime?.movie?.title || 'Movie',
         cinemaName: prismaBooking.showtime?.screen?.theatre?.name || 'Cinema',
@@ -386,7 +412,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
         showDate: prismaBooking.showtime?.date || 'Show Date',
         showTime: prismaBooking.showtime?.time || 'Show Time',
         seats: seatList,
-        seatsCount: (prismaBooking as any).seatsCount || seatList.length,
+        seatsCount: seatList.length || (prismaBooking as any).seatsCount || 1,
         originalAmount,
         cancellationFee,
         refundAmount,
@@ -412,9 +438,20 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
       });
     }
 
+    if (isPastShowtime(dbBooking.date, dbBooking.time)) {
+      return res.status(400).json({
+        success: false,
+        eligible: false,
+        message: `Showtime for booking #${targetId} has already ended. Cancellation is not permitted.`
+      });
+    }
+
     const originalAmount = dbBooking.totalAmount;
-    const cancellationFee = Math.round(originalAmount * 0.1 * 100) / 100;
-    const refundAmount = Math.max(0, Math.round((originalAmount - cancellationFee) * 100) / 100);
+    const totalPaise = Math.round(originalAmount * 100);
+    const feePaise = Math.round(totalPaise * 0.1);
+    const refundPaise = totalPaise - feePaise;
+    const cancellationFee = feePaise / 100;
+    const refundAmount = refundPaise / 100;
 
     return res.json({
       success: true,
@@ -429,6 +466,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
       seats: dbBooking.seats.map(s => s.id),
       seatsCount: dbBooking.seats.length,
       originalAmount,
+      paidAmount: originalAmount,
       cancellationFee,
       refundAmount,
       refundPercentage: 90,
@@ -463,6 +501,7 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
         OR: [{ id: targetId }, { bookingRef: targetId }]
       },
       include: {
+        seats: true,
         showtime: {
           include: {
             movie: true,
@@ -491,10 +530,18 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
       }
 
       // Prevent cancellation of checked-in / admitted booking
-      if (prismaBooking.status === 'CHECKED_IN') {
+      if (prismaBooking.status === 'CHECKED_IN' || prismaBooking.status === 'checked_in') {
         return res.status(400).json({
           success: false,
           message: `Booking #${prismaBooking.bookingRef} was already admitted and checked in. Cancellation is not permitted.`
+        });
+      }
+
+      // Prevent cancellation of past showtime
+      if (isPastShowtime(prismaBooking.showtime?.date, prismaBooking.showtime?.time)) {
+        return res.status(400).json({
+          success: false,
+          message: `Showtime for booking #${prismaBooking.bookingRef} has already ended. Cancellation is not permitted.`
         });
       }
 
@@ -509,8 +556,12 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
       }
 
       const originalAmount = Number(prismaBooking.totalAmount);
-      const cancellationFee = Math.round(originalAmount * 0.1 * 100) / 100;
-      const refundAmount = Math.max(0, Math.round((originalAmount - cancellationFee) * 100) / 100);
+      // Integer paise calculation: 90% refund, 10% cancellation fee
+      const totalPaise = Math.round(originalAmount * 100);
+      const feePaise = Math.round(totalPaise * 0.1);
+      const refundPaise = totalPaise - feePaise;
+      const cancellationFee = feePaise / 100;
+      const refundAmount = refundPaise / 100;
 
       // Execute official payment gateway refund
       let refundStatus: 'NOT_REQUESTED' | 'REFUND_PENDING' | 'REFUND_PROCESSING' | 'REFUNDED' | 'REFUND_FAILED' = 'REFUND_PENDING';
@@ -606,6 +657,10 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
             showtimeId: prismaBooking.showtimeId,
             seatId: { in: bookedSeats.map(bs => bs.seatId) }
           }
+        }).catch(() => null);
+        // Release bookingSeat records so seats can be re-booked without unique constraint failure
+        await prisma.bookingSeat.deleteMany({
+          where: { bookingId: prismaBooking.id }
         }).catch(() => null);
       }
 

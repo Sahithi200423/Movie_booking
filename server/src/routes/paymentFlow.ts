@@ -4,6 +4,7 @@ import Razorpay from 'razorpay';
 import { prisma } from '../prisma.js';
 import { getSocketIO, seatReservationService } from '../services/seatReservationService.js';
 import { ensurePrismaShowtime } from '../services/showtimeResolver.js';
+import { isPastShowtime } from '../utils/dateUtils.js';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cinebook_default_development_secret_2024';
@@ -106,11 +107,25 @@ router.post('/create-order', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: `Showtime ${showtimeId} not found.` });
     }
 
+    // Prevent bookings for past showtimes
+    if (isPastShowtime(showtime.date, showtime.time)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot book tickets for a showtime that has already passed.'
+      });
+    }
+
     // Match seats - every requested seat must exist
     const screenSeats = showtime.screen.seats || [];
-    const matchedSeats = screenSeats.filter(s =>
-      targetSeats.includes(s.seatNumber || '') || targetSeats.includes(s.id)
-    );
+    const matchedSeats = screenSeats.filter(s => {
+      const code = `${(s.row || '').trim()}${s.number}`;
+      return (
+        targetSeats.includes(s.seatNumber || '') ||
+        targetSeats.includes(s.id) ||
+        (code && targetSeats.includes(code)) ||
+        targetSeats.some(ts => s.id.endsWith(`-${ts}`) || s.id === ts)
+      );
+    });
     if (matchedSeats.length !== new Set(targetSeats).size) {
       return res.status(404).json({ success: false, message: 'One or more selected seats do not exist for this showtime.' });
     }
@@ -133,22 +148,19 @@ router.post('/create-order', async (req: Request, res: Response) => {
 
     const userId = await resolveBookingUserId(req.headers.authorization);
 
-    // Price is always computed server-side; any client-supplied `amount` is ignored.
+    // Authoritative Server-Side Pricing (CineBook ₹5 Rule):
+    // Every movie ticket costs exactly ₹5 per seat (500 paise).
+    // Standard, Premium, VIP, and all movie formats follow this rule.
+    // Zero convenience fees, zero platform fees, zero taxes, zero hidden charges in this demo.
+    // 1 seat = ₹5, 2 seats = ₹10, 3 seats = ₹15, 4 seats = ₹20.
     void amount;
     const seatsCount = matchedSeats.length;
-    // CineBook demo rule: every movie ticket is ₹5 regardless of seat tier.
-    const ticketsBase = seatsCount * 5.0;
-    const baseConvenience = Math.round(seatsCount * 30.0 * 100) / 100;
-    const gstOnFee = Math.round(seatsCount * 5.4 * 100) / 100;
-    const addonsTotal = Array.isArray(addons)
-      ? addons.reduce((sum: number, a: any) => sum + Math.max(0, Number(a.price) || 0) * Math.max(0, Number(a.quantity) || 0), 0)
-      : 0;
-    const finalAmount = Math.max(
-      0,
-      Math.round((ticketsBase + addonsTotal + baseConvenience + gstOnFee + Math.max(0, Number(donationAmount) || 0) - Math.max(0, Number(discountAmount) || 0)) * 100) / 100
-    );
-
-    const totalInPaise = Math.round(finalAmount * 100);
+    const ticketPaisePerSeat = 500;
+    const totalInPaise = seatsCount * ticketPaisePerSeat;
+    const finalAmount = totalInPaise / 100;
+    const ticketsBase = finalAmount;
+    const baseConvenience = 0.00;
+    const gstOnFee = 0.00;
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const bookingRef = `BMS-${randomSuffix}-IN`;
 
@@ -435,6 +447,23 @@ router.post('/verify', async (req: Request, res: Response) => {
 
     try {
       [updatedPayment, confirmedBooking] = await prisma.$transaction(async tx => {
+        // Double-booking check: ensure none of the seats are already booked by another confirmed booking
+        const seatIds = matchedSeats.map((s: any) => s.id);
+        const alreadyBookedReservation = await tx.seatReservation.findFirst({
+          where: {
+            showtimeId: showtime.id,
+            seatId: { in: seatIds },
+            status: 'BOOKED',
+            bookingId: { not: finalBookingRef }
+          }
+        });
+
+        if (alreadyBookedReservation) {
+          const conflictErr = new Error(`Seat Conflict: Seat reservation ${alreadyBookedReservation.seatId} has already been booked by another customer.`);
+          (conflictErr as any).statusCode = 409;
+          throw conflictErr;
+        }
+
         // 3. Atomically claim seats as BOOKED in seatReservation
         for (const seat of matchedSeats) {
           await tx.seatReservation.upsert({
@@ -444,7 +473,6 @@ router.post('/verify', async (req: Request, res: Response) => {
           });
         }
 
-
         // 4. Create confirmed booking row in PostgreSQL
         let b: any;
         if (payment?.booking) {
@@ -453,6 +481,7 @@ router.post('/verify', async (req: Request, res: Response) => {
             data: { status: 'confirmed' },
             include: {
               showtime: { include: { movie: true, screen: { include: { theatre: true } } } },
+              seats: true,
               payment: true
             }
           });
@@ -467,8 +496,8 @@ router.post('/verify', async (req: Request, res: Response) => {
               customerEmail: pending.customerEmail,
               customerPhone: pending.customerPhone,
               subtotal: pending.subtotal,
-              convenienceFee: pending.convenienceFee,
-              tax: pending.tax,
+              convenienceFee: 0.00,
+              tax: 0.00,
               totalAmount: pending.totalAmount,
               status: 'confirmed',
               paymentMethod: pending.paymentMethod,
@@ -479,7 +508,7 @@ router.post('/verify', async (req: Request, res: Response) => {
                   seatRow: s.row,
                   seatNumber: s.number,
                   tier: s.tier,
-                  price: s.basePrice
+                  price: 5.00
                 }))
               }
             },

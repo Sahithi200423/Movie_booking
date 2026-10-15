@@ -74,9 +74,6 @@ export const CheckoutPage: React.FC = () => {
     }, 4500);
   };
 
-  // BookASmile Add-on (₹2 default checked)
-  const [donateBookASmile, setDonateBookASmile] = useState(true);
-
   // Fee breakdown collapse
   const [showFeeDetails, setShowFeeDetails] = useState(false);
 
@@ -129,13 +126,13 @@ export const CheckoutPage: React.FC = () => {
 
   const seatsCount = activeBooking.seats.length;
 
-  // Calculate base ticket breakdown
-  const seatsSubtotal = activeBooking.seats.reduce((sum, seat) => sum + seat.price, 0);
+  // Calculate base ticket breakdown: Exactly ₹5 per seat in demo
+  const seatsSubtotal = seatsCount * 5;
 
-  // Group seats by tier for itemized display
+  // Group seats by tier for itemized display: Exactly ₹5 per seat in demo
   const seatsByTier = activeBooking.seats.reduce((acc, seat) => {
     if (!acc[seat.tier]) {
-      acc[seat.tier] = { count: 0, price: seat.price, seats: [] };
+      acc[seat.tier] = { count: 0, price: 5, seats: [] };
     }
     acc[seat.tier].count += 1;
     acc[seat.tier].seats.push(seat.id);
@@ -150,13 +147,11 @@ export const CheckoutPage: React.FC = () => {
 
   const rawSubtotal = seatsSubtotal + snacksSubtotal;
 
-  // Authentic Convenience Fee breakdown: ₹30.00 base + ₹5.40 (18% IGST) = ₹35.40 per ticket
-  const baseConvenienceFee = Math.round(seatsCount * 30.00 * 100) / 100;
-  const integratedGst = Math.round(seatsCount * 5.40 * 100) / 100;
-  const totalConvenienceFee = Math.round((baseConvenienceFee + integratedGst) * 100) / 100;
+  // No convenience fees, platform fees, taxes added on top, or hidden charges in demo
+  const totalConvenienceFee = 0;
 
-  // BookASmile donation
-  const donationAmount = donateBookASmile ? 2 : 0;
+  // BookASmile donation: ₹0 in demo
+  const donationAmount = 0;
 
   // Coupon discount calculation
   let discountAmount = 0;
@@ -410,8 +405,8 @@ export const CheckoutPage: React.FC = () => {
         customerPhone: customerPhone.trim(),
         addons: addonsList,
         deliveryPreference: activeBooking.deliveryPreference || 'seat',
-        donationAmount: donateBookASmile ? 2.0 : 0.0,
-        discountAmount,
+        donationAmount: 0.0,
+        discountAmount: 0.0,
         provider: 'RAZORPAY',
         sessionId
       });
@@ -1016,55 +1011,48 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Convenience Fee with Expandable Breakdown */}
+                {/* Convenience Fee (Demo Waiver) */}
                 <div className="border border-white/5 rounded-xl p-2.5 bg-[#1C1F2B]">
                   <div
                     onClick={() => setShowFeeDetails(!showFeeDetails)}
                     className="flex justify-between items-center text-slate-300 cursor-pointer"
                   >
                     <span className="flex items-center gap-1">
-                      <span>Convenience Fees (₹35.40/ticket)</span>
+                      <span>Convenience Fees (Demo Waiver)</span>
                       {showFeeDetails ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
                     </span>
-                    <span className="text-white font-medium">{formatPrice(totalConvenienceFee)}</span>
+                    <span className="text-emerald-400 font-medium">₹0.00</span>
                   </div>
 
                   {showFeeDetails && (
                     <div className="pt-2 mt-2 border-t border-white/10 space-y-1 text-[11px] text-slate-400">
                       <div className="flex justify-between">
-                        <span>Base Convenience Fee (₹30.00 × {seatsCount})</span>
-                        <span>{formatPrice(baseConvenienceFee)}</span>
+                        <span>Platform & Service Fee (Demo)</span>
+                        <span>₹0.00</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Integrated GST (18%)</span>
-                        <span>{formatPrice(integratedGst)}</span>
+                        <span>Integrated GST (0%)</span>
+                        <span>₹0.00</span>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* BookASmile Optional ₹2 Add-on */}
+                {/* BookASmile Demo Notice */}
                 <div className="p-3 rounded-xl border border-white/10 bg-[#1C1F2B] flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <input
-                      type="checkbox"
-                      id="bookasmile"
-                      checked={donateBookASmile}
-                      onChange={(e) => setDonateBookASmile(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 bg-[#14161F] border-white/20 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <label htmlFor="bookasmile" className="cursor-pointer text-xs">
+                    <div className="cursor-pointer text-xs">
                       <div className="font-semibold text-white flex items-center gap-1">
                         <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
-                        <span>Donate ₹2 to BookASmile</span>
+                        <span>BookASmile Community Initiative</span>
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        (Empowering rural education & youth sports)
+                        (Demo charity support • No extra charges added)
                       </div>
-                    </label>
+                    </div>
                   </div>
-                  <span className="text-xs font-bold text-white shrink-0">
-                    {donateBookASmile ? '₹2.00' : '₹0.00'}
+                  <span className="text-xs font-bold text-emerald-400 shrink-0">
+                    ₹0.00
                   </span>
                 </div>
 

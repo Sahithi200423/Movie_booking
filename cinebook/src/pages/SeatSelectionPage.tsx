@@ -202,7 +202,7 @@ export const SeatSelectionPage: React.FC = () => {
   }
 
   const selectedSeats = activeBooking.seats;
-  const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+  const subtotal = selectedSeats.length * 5;
 
   // Accurate seat availability counts for live dashboard
   const dashboardCounts = useMemo(() => {
@@ -548,7 +548,7 @@ export const SeatSelectionPage: React.FC = () => {
           {/* SELECTED */}
           <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/60 bg-blue-600/20 flex flex-col items-center justify-center text-center shadow-md shadow-blue-600/10">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
-              <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+              <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
               <span>Selected</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-blue-300 mt-0.5 sm:mt-1">
@@ -560,7 +560,7 @@ export const SeatSelectionPage: React.FC = () => {
           {/* TEMPORARILY HELD */}
           <div className="p-2.5 sm:p-3.5 rounded-2xl border border-amber-500/50 bg-amber-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-amber-950/20">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
               <span>Temp Held</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 sm:mt-1">
@@ -572,7 +572,7 @@ export const SeatSelectionPage: React.FC = () => {
           {/* BOOKED / SOLD */}
           <div className="col-span-2 sm:col-span-1 p-2.5 sm:p-3.5 rounded-2xl border border-rose-500/50 bg-rose-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-rose-950/20">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-rose-400 uppercase tracking-wider">
-              <XCircle className="w-3.5 h-3.5 text-rose-400" />
+              <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400" />
               <span>Booked / Sold</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-rose-400 mt-0.5 sm:mt-1">

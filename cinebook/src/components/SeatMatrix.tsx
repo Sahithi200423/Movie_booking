@@ -13,6 +13,7 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
+import { releaseSeatsHoldApi } from '../services/api';
 
 // ---------------------------------------------------------------------------
 // Types & Domain Models
@@ -211,11 +212,7 @@ export const SeatMatrix: React.FC<SeatMatrixProps> = ({
             );
 
             // Send backend request to release seats back to Available
-            fetch('/api/bookings/release', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ showtimeId: _showtimeId, sessionId: currentUserId })
-            }).catch(() => {});
+            releaseSeatsHoldApi(_showtimeId, currentUserId).catch(() => {});
 
             showNotice('⚠️ Checkout Time-Out: Your 5-minute reservation hold has expired. Selected seats have been released back to Available.');
             return 300;

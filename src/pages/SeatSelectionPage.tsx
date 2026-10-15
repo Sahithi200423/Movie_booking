@@ -357,37 +357,37 @@ export const SeatSelectionPage: React.FC = () => {
     <div className={`min-h-screen pb-32 bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* 1. TOP SESSION BAR */}
-      <div className="border-b border-white/10 bg-[#0E1017]/95 backdrop-blur-md sticky top-18 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div className="border-b border-white/10 bg-[#0E1017]/95 backdrop-blur-md sticky top-16 sm:top-18 z-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               to={`/movie/${activeBooking.movie.id}`}
-              className="p-2.5 rounded-xl border border-white/10 bg-[#1C1F2B] text-slate-200 hover:text-white hover:bg-[#222634] transition-colors"
+              className="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-[#1C1F2B] text-slate-200 hover:text-white hover:bg-[#222634] transition-colors shrink-0"
               title="Back to showtimes"
             >
-              <ChevronLeft className="w-5 h-5 text-blue-400" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
             </Link>
             <div>
-              <h1 className="text-lg font-black text-white flex items-center gap-2">
-                <span>{activeBooking.movie.title}</span>
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-[#1C1F2B] text-blue-300 border border-white/10">
+              <h1 className="text-sm sm:text-lg font-black text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="truncate max-w-[170px] sm:max-w-none">{activeBooking.movie.title}</span>
+                <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shrink-0">
                   {activeBooking.format}
                 </span>
               </h1>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-0.5">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs text-slate-400 mt-0.5">
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                  {activeBooking.cinema.name} ({activeBooking.hall})
+                  <MapPin className="w-3 h-3 text-blue-500" />
+                  <span className="truncate max-w-[120px] sm:max-w-none">{activeBooking.cinema.name}</span>
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  <Calendar className="w-3 h-3 text-blue-400" />
                   {activeBooking.date}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1 font-semibold text-slate-200">
-                  <Clock className="w-3.5 h-3.5 text-blue-400" />
+                  <Clock className="w-3 h-3 text-blue-400" />
                   {formatTime(activeBooking.time)}
                 </span>
               </div>
@@ -395,22 +395,22 @@ export const SeatSelectionPage: React.FC = () => {
           </div>
 
           {/* Party Size & Live Hold Timer Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Party Size Selector Trigger */}
             <button
               type="button"
               onClick={() => setShowPartyModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-[#1C1F2B] hover:bg-[#222634] text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 bg-[#1C1F2B] hover:bg-[#222634] text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
             >
-              <span className="text-base">{currentPartyOption.icon}</span>
+              <span className="text-sm sm:text-base">{currentPartyOption.icon}</span>
               <span>{partySize} {partySize === 1 ? 'Ticket' : 'Tickets'}</span>
-              <span className="text-blue-400 text-[11px] underline">Change</span>
+              <span className="text-blue-400 text-[10px] sm:text-[11px] underline">Change</span>
             </button>
 
             {secondsRemaining !== null && secondsRemaining > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold animate-pulse">
-                <Timer className="w-4 h-4 text-amber-400" />
-                <span>{t.seats.holdExpiresIn}: {formatTimerDisplay(secondsRemaining)}</span>
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold animate-pulse">
+                <Timer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+                <span>{formatTimerDisplay(secondsRemaining)}</span>
               </div>
             )}
           </div>
@@ -520,102 +520,107 @@ export const SeatSelectionPage: React.FC = () => {
         )}
 
         {/* 1. SEAT AVAILABILITY DASHBOARD */}
-        <div className="mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3" aria-label="Seat availability summary">
+        <div className="mb-4 sm:mb-6 grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3" aria-label="Seat availability summary">
           {/* TOTAL SEATS */}
-          <div className="p-3.5 rounded-2xl border border-white/10 bg-[#12141D] flex flex-col items-center justify-center text-center shadow-md">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              <Armchair className="w-3.5 h-3.5 text-slate-400" />
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-white/10 bg-[#12141D] flex flex-col items-center justify-center text-center shadow-md">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <Armchair className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
               <span>Total Seats</span>
             </div>
-            <div className="text-2xl font-black text-white mt-1">
+            <div className="text-xl sm:text-2xl font-black text-white mt-0.5 sm:mt-1">
               {dashboardCounts.total}
             </div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">Hall Capacity</div>
+            <div className="text-[9px] sm:text-[10px] text-slate-500 font-medium">Hall Capacity</div>
           </div>
 
           {/* AVAILABLE */}
-          <div className="p-3.5 rounded-2xl border border-blue-500/40 bg-blue-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-blue-950/20">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-300 uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/40 bg-blue-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-blue-950/20">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-400 animate-pulse" />
               <span>Available</span>
             </div>
-            <div className="text-2xl font-black text-blue-400 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-blue-400 mt-0.5 sm:mt-1">
               {dashboardCounts.available}
             </div>
-            <div className="text-[10px] text-blue-400/80 font-medium mt-0.5">Ready to Book</div>
+            <div className="text-[9px] sm:text-[10px] text-blue-400/80 font-medium">Ready to Book</div>
           </div>
 
           {/* SELECTED */}
-          <div className="p-3.5 rounded-2xl border border-blue-500/60 bg-blue-600/20 flex flex-col items-center justify-center text-center shadow-md shadow-blue-600/10">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-300 uppercase tracking-wider">
-              <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/60 bg-blue-600/20 flex flex-col items-center justify-center text-center shadow-md shadow-blue-600/10">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
+              <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
               <span>Selected</span>
             </div>
-            <div className="text-2xl font-black text-blue-300 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-blue-300 mt-0.5 sm:mt-1">
               {dashboardCounts.selected}
             </div>
-            <div className="text-[10px] text-blue-300/80 font-medium mt-0.5">In Your Order</div>
+            <div className="text-[9px] sm:text-[10px] text-blue-300/80 font-medium">In Your Order</div>
           </div>
 
           {/* TEMPORARILY HELD */}
-          <div className="p-3.5 rounded-2xl border border-amber-500/50 bg-amber-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-amber-950/20">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-amber-500/50 bg-amber-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-amber-950/20">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+              <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
               <span>Temp Held</span>
             </div>
-            <div className="text-2xl font-black text-amber-400 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 sm:mt-1">
               {dashboardCounts.held}
             </div>
-            <div className="text-[10px] text-amber-400/80 font-medium mt-0.5">Other Customers</div>
+            <div className="text-[9px] sm:text-[10px] text-amber-400/80 font-medium">Other Guests</div>
           </div>
 
           {/* BOOKED / SOLD */}
-          <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl border border-rose-500/50 bg-rose-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-rose-950/20">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-400 uppercase tracking-wider">
-              <XCircle className="w-3.5 h-3.5 text-rose-400" />
+          <div className="col-span-2 sm:col-span-1 p-2.5 sm:p-3.5 rounded-2xl border border-rose-500/50 bg-rose-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-rose-950/20">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-rose-400 uppercase tracking-wider">
+              <XCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400" />
               <span>Booked / Sold</span>
             </div>
-            <div className="text-2xl font-black text-rose-400 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-rose-400 mt-0.5 sm:mt-1">
               {dashboardCounts.booked}
             </div>
-            <div className="text-[10px] text-rose-400/80 font-medium mt-0.5">Confirmed Booked</div>
+            <div className="text-[9px] sm:text-[10px] text-rose-400/80 font-medium">Sold Out</div>
           </div>
         </div>
 
         {/* 2. VISIBLE COLOR LEGEND BAR */}
-        <div className="mb-8 p-3.5 rounded-2xl border border-white/10 bg-[#14161F] flex flex-wrap items-center justify-center gap-6 text-xs shadow-md">
+        <div className="mb-4 sm:mb-6 p-2.5 sm:p-3.5 rounded-2xl border border-white/10 bg-[#14161F] flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[11px] sm:text-xs shadow-md">
           {/* Available */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-blue-950/30 border border-blue-500/50 flex items-center justify-center text-[10px] text-blue-300 font-bold" />
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-blue-950/30 border border-blue-500/50 flex items-center justify-center text-[10px] text-blue-300 font-bold" />
             <span className="text-blue-300 font-semibold">{t.seats.available}</span>
           </div>
           {/* Selected */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-blue-600 text-white font-bold border border-blue-400 shadow-md shadow-blue-500/40 flex items-center justify-center text-[10px]">
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-blue-600 text-white font-bold border border-blue-400 shadow-md shadow-blue-500/40 flex items-center justify-center text-[10px]">
               ✓
             </div>
             <span className="text-blue-400 font-bold">{t.seats.selected}</span>
           </div>
           {/* Temporarily Held */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-amber-950/60 border border-amber-500/70 text-amber-300 flex items-center justify-center text-[10px]">
-              <Lock className="w-3 h-3 text-amber-300" />
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-amber-950/60 border border-amber-500/70 text-amber-300 flex items-center justify-center text-[10px]">
+              <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-300" />
             </div>
             <span className="text-amber-400 font-medium">{t.seats.held}</span>
           </div>
           {/* Booked / Sold */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-rose-950/60 border border-rose-700/70 text-rose-300 flex items-center justify-center text-[10px] font-bold">
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-rose-950/60 border border-rose-700/70 text-rose-300 flex items-center justify-center text-[10px] font-bold">
               ✕
             </div>
             <span className="text-rose-400 font-medium">Booked / Sold</span>
           </div>
         </div>
 
+        {/* Mobile Swipe Cue */}
+        <div className="md:hidden flex items-center justify-center gap-1.5 py-1.5 px-3 mb-3 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold animate-pulse">
+          <span>⇄ Swipe sideways to view all 16 seats in each row</span>
+        </div>
+
         {/* 3. CINEMA AUDITORIUM SEATING GRID */}
-        <div className="overflow-x-auto pb-4">
+        <div className="overflow-x-auto touch-pan-x no-scrollbar pb-6 overscroll-x-contain">
           <div
-            className="min-w-[680px] flex flex-col items-center space-y-3"
+            className="min-w-[620px] sm:min-w-[680px] flex flex-col items-center space-y-2.5 sm:space-y-3"
             role="grid"
             aria-label="Cinema auditorium seating arrangement"
           >
@@ -730,21 +735,21 @@ export const SeatSelectionPage: React.FC = () => {
       </main>
 
       {/* 4. STICKY BOTTOM ACTION BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0E1017]/95 backdrop-blur-xl p-4 sm:p-5 shadow-2xl">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0E1017]/95 backdrop-blur-xl p-3 sm:p-5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-2xl">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           
           {/* Seats & Subtotal info */}
-          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
-            <div>
-              <div className="text-xs text-slate-400">
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="max-w-[65%] sm:max-w-none">
+              <div className="text-[11px] sm:text-xs text-slate-400">
                 {t.seats.selected} ({selectedSeats.length}):
               </div>
-              <div className="text-sm font-bold text-white flex items-center gap-1.5 flex-wrap">
+              <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1 sm:gap-1.5 flex-wrap max-h-12 overflow-y-auto no-scrollbar">
                 {selectedSeats.length > 0 ? (
                   selectedSeats.map(s => (
                     <span
                       key={s.id}
-                      className="px-2.5 py-0.5 rounded-lg bg-[#1C1F2B] text-blue-400 border border-blue-500/30 text-xs font-mono font-bold"
+                      className="px-2 py-0.5 rounded-lg bg-[#1C1F2B] text-blue-400 border border-blue-500/30 text-[11px] sm:text-xs font-mono font-bold"
                     >
                       {s.id}
                     </span>
@@ -755,9 +760,9 @@ export const SeatSelectionPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="sm:border-l sm:border-white/10 sm:pl-4 text-right sm:text-left">
-              <div className="text-xs text-slate-400">{t.seats.subtotal}</div>
-              <div className="text-xl font-black text-blue-400">
+            <div className="sm:border-l sm:border-white/10 sm:pl-4 text-right sm:text-left shrink-0">
+              <div className="text-[11px] sm:text-xs text-slate-400">{t.seats.subtotal}</div>
+              <div className="text-lg sm:text-xl font-black text-blue-400">
                 {formatPrice(subtotal)}
               </div>
             </div>
@@ -767,7 +772,7 @@ export const SeatSelectionPage: React.FC = () => {
           <button
             onClick={handleProceedToCheckout}
             disabled={selectedSeats.length === 0}
-            className={`w-full sm:w-auto px-8 py-3.5 rounded-full font-extrabold text-sm transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer ${
+            className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-extrabold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer shrink-0 ${
               selectedSeats.length > 0
                 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95'
                 : 'bg-[#1C1F2B] text-slate-500 border border-white/5 cursor-not-allowed opacity-60'

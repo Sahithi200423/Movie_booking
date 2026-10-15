@@ -21,6 +21,7 @@ import {
 import QRCode from 'qrcode';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
+import { getBookingByIdApi } from '../services/api';
 import type { BookingRecord } from '../types';
 
 interface ErrorBoundaryProps {
@@ -96,8 +97,7 @@ const ConfirmationContent: React.FC = () => {
     let isMounted = true;
     setIsLoadingDb(true);
 
-    fetch(`/api/bookings/${cleanId}`)
-      .then(r => r.json())
+    getBookingByIdApi(cleanId)
       .then(data => {
         if (isMounted && data.success && data.booking) {
           setDbBooking(data.booking);

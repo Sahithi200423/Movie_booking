@@ -17,6 +17,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { verifyTicketGateApi, getRecentTicketScansApi } from '../services/api';
 
 interface ValidationResult {
   success: boolean;
@@ -87,17 +88,11 @@ export const TicketScannerPage: React.FC = () => {
     setScanResult(null);
 
     try {
-      const res = await fetch('/api/tickets/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...queryPayload,
-          scannedBy: 'Gate Scanner Terminal #1'
-        })
+      const data = await verifyTicketGateApi({
+        ...queryPayload,
+        scannedBy: 'Gate Scanner Terminal #1'
       });
-
-      const data: ValidationResult = await res.json();
-      setScanResult(data);
+      setScanResult(data as ValidationResult);
 
       if (data.valid && !data.alreadyCheckedIn) {
         playSound('success');
@@ -186,8 +181,7 @@ export const TicketScannerPage: React.FC = () => {
 
   // Load recent scans
   useEffect(() => {
-    fetch('/api/tickets/recent-scans')
-      .then(r => r.json())
+    getRecentTicketScansApi()
       .then(d => {
         if (d.success && d.scans) {
           setRecentScans(d.scans);

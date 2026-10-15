@@ -311,6 +311,10 @@ export async function fetchMyBookingsApi(emailOrUserId?: string): Promise<Bookin
   }
 }
 
+export async function getBookingByIdApi(bookingId: string): Promise<{ success: boolean; booking: BookingRecord }> {
+  return await apiRequest<{ success: boolean; booking: BookingRecord }>(`/bookings/${bookingId}`);
+}
+
 export interface CancelQuoteResponse {
   success: boolean;
   eligible: boolean;
@@ -485,6 +489,25 @@ export async function verifyTicketApi(query: string, staffName = 'Cinema Staff')
     method: 'POST',
     body: JSON.stringify({ query, staffName })
   });
+}
+
+export async function verifyTicketGateApi(queryPayload: { qrData?: string; bookingRef?: string; scannedBy?: string }) {
+  return await apiRequest<{
+    success: boolean;
+    valid: boolean;
+    alreadyCheckedIn: boolean;
+    checkedInAt?: string;
+    checkedInBy?: string;
+    booking?: BookingRecord;
+    message?: string;
+  }>('/tickets/verify', {
+    method: 'POST',
+    body: JSON.stringify(queryPayload)
+  });
+}
+
+export async function getRecentTicketScansApi() {
+  return await apiRequest<{ success: boolean; scans: BookingRecord[] }>('/tickets/recent-scans');
 }
 
 // ----------------- REVIEWS & RATINGS API -----------------

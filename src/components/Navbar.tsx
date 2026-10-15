@@ -52,6 +52,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [mobileLangOpen, setMobileLangOpen] = useState(false);
+  const [mobileCityOpen, setMobileCityOpen] = useState(false);
 
   const activeBookingsCount = myBookings.filter(b => b.status === 'confirmed').length;
   const currentLangInfo = SUPPORTED_LANGUAGES.find(l => l.code === language) || SUPPORTED_LANGUAGES[0];
@@ -60,23 +62,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-white/85 dark:bg-[#0E1017]/85 backdrop-blur-md border-b border-slate-200 dark:border-white/10 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-[#0E1017]/90 backdrop-blur-md border-b border-slate-200 dark:border-white/10 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo */}
           <Link 
             to="/" 
-            className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg p-1 shrink-0"
+            className="flex items-center gap-2 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg p-1 shrink-0"
             aria-label="CineBook Home"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 group-hover:scale-105 group-hover:shadow-blue-500/40 transition-all duration-300">
-              <Film className="w-5 h-5 transition-transform group-hover:rotate-12 duration-300" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 group-hover:scale-105 group-hover:shadow-blue-500/40 transition-all duration-300 shrink-0">
+              <Film className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:rotate-12 duration-300" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white group-hover:opacity-90">
+              <span className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white group-hover:opacity-90">
                 CINE<span className="text-blue-500 font-extrabold">BOOK</span>
               </span>
-              <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold -mt-1 flex items-center gap-1">
+              <span className="hidden sm:flex text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-semibold -mt-1 items-center gap-1">
                 Cinema Experience <Sparkles className="w-2.5 h-2.5 text-blue-500 dark:text-blue-400" />
               </span>
             </div>
@@ -123,8 +125,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
           </nav>
 
           {/* Right Section Controls */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Supabase Connection Status */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Supabase Connection Status (sm+) */}
             <div className="hidden sm:flex items-center">
               <SupabaseConnectionBadge />
             </div>
@@ -132,19 +134,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
             {/* Search Trigger */}
             <button
               onClick={onOpenSearch}
-              className="flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
+              className="flex items-center gap-1.5 p-2 sm:px-3.5 sm:py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
               aria-label={t.nav.searchPlaceholder}
               title={`${t.nav.searchPlaceholder} (Press /)`}
             >
               <Search className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-              <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-300 truncate max-w-[100px]">{t.nav.searchPlaceholder.slice(0, 15)}...</span>
+              <span className="hidden md:inline text-xs text-slate-500 dark:text-slate-300 truncate max-w-[100px]">{t.nav.searchPlaceholder.slice(0, 15)}...</span>
               <kbd className="hidden xl:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-[#14161F] text-slate-600 dark:text-slate-400 rounded border border-slate-200 dark:border-white/10">
                 /
               </kbd>
             </button>
 
-            {/* Language & Currency Selector (18 Languages + 5 Currencies + 12h/24h) */}
-            <div className="relative">
+            {/* Language & Currency Selector (Visible on desktop/tablet md+) */}
+            <div className="relative hidden md:block">
               <button
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-colors cursor-pointer"
@@ -153,7 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               >
                 <Languages className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-900 dark:text-white">{currentLangInfo.nativeName}</span>
-                <span className="hidden md:inline px-1.5 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 text-[9px] font-mono font-bold">
+                <span className="hidden lg:inline px-1.5 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 text-[9px] font-mono font-bold">
                   {currency}
                 </span>
                 <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${langDropdownOpen ? 'rotate-180' : ''}`} />
@@ -232,8 +234,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               )}
             </div>
 
-            {/* Location Selector */}
-            <div className="relative">
+            {/* Location Selector (Visible on tablet/desktop sm+) */}
+            <div className="relative hidden sm:block">
               <button
                 onClick={() => setCityDropdownOpen(!cityDropdownOpen)}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-colors cursor-pointer"
@@ -277,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
             {/* My Tickets Button */}
             <Link
               to="/my-tickets"
-              className="relative flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-full bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-md shadow-blue-600/25 cursor-pointer shrink-0"
+              className="relative flex items-center gap-1.5 p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-full bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-md shadow-blue-600/25 cursor-pointer shrink-0"
               aria-label={t.nav.myTickets}
             >
               <Ticket className="w-4 h-4 fill-white" />
@@ -289,8 +291,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               )}
             </Link>
 
-            {/* Auth / Account Profile Dropdown */}
-            <div className="relative">
+            {/* Auth / Account Profile Dropdown (sm+) */}
+            <div className="relative hidden sm:block">
               {isAuthenticated ? (
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
@@ -354,10 +356,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               )}
             </div>
 
-            {/* Theme Toggle Button */}
+            {/* Theme Toggle Button (sm+) */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
+              className="hidden sm:flex p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
               aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
@@ -381,73 +383,204 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
 
         {/* Mobile Drawer Navigation */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-b py-4 px-6 space-y-3 bg-white/95 dark:bg-[#0E1017]/95 border-slate-200 dark:border-white/10 backdrop-blur-xl animate-in slide-in-from-top-2 duration-200 text-slate-800 dark:text-slate-200">
-            <Link
-              to="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
+          <div className="lg:hidden border-b py-4 px-4 sm:px-6 space-y-3 bg-white/98 dark:bg-[#0E1017]/98 border-slate-200 dark:border-white/10 backdrop-blur-xl animate-in slide-in-from-top-2 duration-200 text-slate-800 dark:text-slate-200 max-h-[85vh] overflow-y-auto">
+            
+            {/* Mobile City Selector */}
+            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#14161F] border border-slate-200 dark:border-white/10">
+              <button
+                onClick={() => setMobileCityOpen(!mobileCityOpen)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-blue-500" />
+                  <span>City: <span className="text-blue-600 dark:text-blue-400 font-bold">{currentCity.split(',')[0]}</span></span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${mobileCityOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {mobileCityOpen && (
+                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-white/10 grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                  {CITIES.map(city => (
+                    <button
+                      key={city}
+                      onClick={() => {
+                        setCity(city);
+                        setMobileCityOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                        currentCity === city
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#252a3a]'
+                      }`}
+                    >
+                      {city.split(',')[0]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Language & Currency Selector */}
+            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#14161F] border border-slate-200 dark:border-white/10">
+              <button
+                onClick={() => setMobileLangOpen(!mobileLangOpen)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Languages className="w-4 h-4 text-blue-500" />
+                  <span>{currentLangInfo.nativeName} ({currency})</span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${mobileLangOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {mobileLangOpen && (
+                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-white/10 space-y-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Currency:</span>
+                    <div className="flex gap-1">
+                      {currencies.map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setCurrency(c)}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded border ${
+                            currency === c
+                              ? 'bg-blue-600 text-white border-blue-400'
+                              : 'bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto">
+                    {SUPPORTED_LANGUAGES.map(langItem => (
+                      <button
+                        key={langItem.code}
+                        onClick={() => {
+                          setLanguage(langItem.code);
+                          setMobileLangOpen(false);
+                        }}
+                        className={`text-left p-1.5 rounded text-xs truncate ${
+                          language === langItem.code
+                            ? 'bg-blue-600 text-white font-bold'
+                            : 'bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        {langItem.flag} {langItem.nativeName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-100 dark:bg-[#14161F] border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"
             >
-              {t.nav.movies}
-            </Link>
-            <a
-              href="#now-showing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              {t.nav.nowShowing}
-            </a>
-            <a
-              href="#coming-soon"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              {t.nav.comingSoon}
-            </a>
-            <a
-              href="#cinemas-section"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              {t.nav.cinemas}
-            </a>
-            <Link
-              to="/admin"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block py-2 text-sm font-medium text-blue-600 dark:text-blue-400"
-            >
-              {t.nav.admin}
-            </Link>
+              <span className="flex items-center gap-2">
+                {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-600" />}
+                <span>Theme: {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+              </span>
+              <span className="text-[10px] uppercase font-bold text-blue-500">Tap to toggle</span>
+            </button>
+
+            {/* Navigation Links */}
+            <div className="space-y-1 pt-1">
+              <Link
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                {t.nav.movies}
+              </Link>
+              <a
+                href="#now-showing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                {t.nav.nowShowing}
+              </a>
+              <a
+                href="#coming-soon"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                {t.nav.comingSoon}
+              </a>
+              <a
+                href="#cinemas-section"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                {t.nav.cinemas}
+              </a>
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-sm font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1.5"
+              >
+                <ShieldCheck className="w-4 h-4" /> {t.nav.admin}
+              </Link>
+              <Link
+                to="/scanner"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
+              >
+                <Scan className="w-4 h-4" /> Scanner
+              </Link>
+            </div>
+
+            {/* User Account / My Tickets Section */}
             <div className="pt-2 border-t border-slate-200 dark:border-white/10 flex flex-col gap-2">
               <Link
                 to="/my-tickets"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full text-left py-2 text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center justify-between"
+                className="w-full py-2.5 px-3 rounded-xl bg-blue-600 text-white text-sm font-bold flex items-center justify-between shadow-md"
               >
-                <span>{t.nav.myTickets}</span>
-                <span className="px-2 py-0.5 text-xs bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full font-bold">
-                  {activeBookingsCount}
+                <span className="flex items-center gap-2">
+                  <Ticket className="w-4 h-4 fill-white" />
+                  <span>{t.nav.myTickets}</span>
                 </span>
+                {activeBookingsCount > 0 && (
+                  <span className="px-2 py-0.5 text-xs bg-white text-blue-600 rounded-full font-black">
+                    {activeBookingsCount}
+                  </span>
+                )}
               </Link>
+
               {!isAuthenticated ? (
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
                     setIsAuthModalOpen(true);
                   }}
-                  className="w-full text-left py-2 text-sm font-medium text-slate-700 dark:text-slate-300"
+                  className="w-full py-2 px-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-[#1C1F2B] flex items-center gap-2"
                 >
-                  {t.nav.signIn}
+                  <LogIn className="w-4 h-4 text-blue-500" />
+                  <span>{t.nav.signIn}</span>
                 </button>
               ) : (
-                <button
-                  onClick={() => {
-                    logout();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full text-left py-2 text-sm font-medium text-rose-500 dark:text-rose-400"
-                >
-                  {t.nav.signOut} ({user?.name})
-                </button>
+                <div className="p-3 rounded-xl bg-slate-100 dark:bg-[#14161F] border border-slate-200 dark:border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">{user?.name}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">{user?.email}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="px-2.5 py-1 text-xs font-semibold text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>{t.nav.signOut}</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

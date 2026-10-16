@@ -298,35 +298,7 @@ export const SeatSelectionPage: React.FC = () => {
     }));
   }, [baseLayout, backendSeats]);
 
-  // If user navigated directly without selecting a movie or cinema
-  if (!activeBooking.movie || !activeBooking.cinema) {
-    if (queryShowtimeId || isRehydrating) {
-      return (
-        <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
-          <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">Restoring Your Showtime...</h3>
-          <p className="text-sm text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
-        </div>
-      );
-    }
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
-        <Ticket className="w-16 h-16 text-slate-600 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">{t.seats.sessionEmptyTitle}</h2>
-        <p className="text-sm text-slate-400 mb-6 max-w-md">
-          {t.seats.sessionEmptyDesc}
-        </p>
-        <Link
-          to="/"
-          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition-colors"
-        >
-          {t.nav.movies}
-        </Link>
-      </div>
-    );
-  }
-
-  const selectedSeats = activeBooking.seats;
+  const selectedSeats = activeBooking.seats || [];
   const subtotal = selectedSeats.length * 5;
 
   // Accurate seat availability counts for live dashboard
@@ -368,6 +340,34 @@ export const SeatSelectionPage: React.FC = () => {
       selected
     };
   }, [seatLayout, selectedSeats, serverAvailability]);
+
+  // If user navigated directly without selecting a movie or cinema
+  if (!activeBooking.movie || !activeBooking.cinema) {
+    if (queryShowtimeId || isRehydrating) {
+      return (
+        <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">Restoring Your Showtime...</h3>
+          <p className="text-sm text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
+        <Ticket className="w-16 h-16 text-slate-600 mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">{t.seats.sessionEmptyTitle}</h2>
+        <p className="text-sm text-slate-400 mb-6 max-w-md">
+          {t.seats.sessionEmptyDesc}
+        </p>
+        <Link
+          to="/"
+          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition-colors"
+        >
+          {t.nav.movies}
+        </Link>
+      </div>
+    );
+  }
 
   const handleSeatClick = async (seat: Seat) => {
     if (isLoadingSeats) return;

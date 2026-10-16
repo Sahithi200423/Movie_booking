@@ -53,4 +53,4 @@ server/inspect_sqlite.py
 server/*.json.backup
 server/sqlite_export.json
 server/supabase_showtimes_pre_correction.json
-
+scratch/

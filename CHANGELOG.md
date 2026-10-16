@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-10-16
+
+### Fixed
+- **React Hook Order & Direct Navigation (React Error #310)**: Hoisted `dashboardCounts` `useMemo` hook and seat selection calculations unconditionally above conditional returns in `SeatSelectionPage.tsx`, preventing hook count mismatches between unhydrated and hydrated render cycles.
+- **Direct Route State Resilience**: Provided safe defaults (`activeBooking.seats || []`) preventing null dereferencing during direct navigation (`/seat-selection?showtimeId=...`) or page refresh while backend metadata rehydrates.
+
+---
+
 ## [1.0.0] - 2026-10-16
 
 ### Added

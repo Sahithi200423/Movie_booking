@@ -110,12 +110,24 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const formatCinemaDate = (dateStr: string): string => {
     try {
-      const date = new Date(dateStr);
+      if (!dateStr) return '';
+      const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      let date: Date;
+      if (isoMatch) {
+        const year = parseInt(isoMatch[1], 10);
+        const month = parseInt(isoMatch[2], 10) - 1;
+        const day = parseInt(isoMatch[3], 10);
+        // Set at 12:00:00 noon to avoid any timezone boundary offset rollbacks
+        date = new Date(year, month, day, 12, 0, 0);
+      } else {
+        date = new Date(dateStr);
+      }
       if (isNaN(date.getTime())) return dateStr;
       return new Intl.DateTimeFormat(language, {
         weekday: 'short',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
+        timeZone: 'Asia/Kolkata'
       }).format(date);
     } catch {
       return dateStr;

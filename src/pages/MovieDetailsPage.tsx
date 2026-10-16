@@ -53,7 +53,7 @@ const RATING_DESCRIPTIONS: Record<number, string> = {
 export const MovieDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentCity, setActiveMovie, setActiveShowtime } = useBooking();
+  const { currentCity, setActiveMovieAndShowtime } = useBooking();
   const { t, formatTime, isRTL } = useTranslation();
   const { user } = useAuth();
 
@@ -84,7 +84,7 @@ export const MovieDetailsPage: React.FC = () => {
     return dates;
   }, []);
 
-  const [selectedDate, setSelectedDate] = useState(availableDates[0].label);
+  const [selectedDate, setSelectedDate] = useState(availableDates[0].id);
   const [isResolvingShow, setIsResolvingShow] = useState(false);
   const [selectedCinema, setSelectedCinema] = useState<Cinema>(() => cityCinemas[0]);
   const [selectedShowtimeItem, setSelectedShowtimeItem] = useState(SHOWTIMES_SCHEDULE[1]); // Default 01:45 PM
@@ -301,7 +301,7 @@ export const MovieDetailsPage: React.FC = () => {
     setIsResolvingShow(true);
     try {
       // Determine target ISO date
-      const dateObj = availableDates.find(d => d.label === selectedDate || d.id === selectedDate);
+      const dateObj = availableDates.find(d => d.id === selectedDate || d.label === selectedDate);
       const targetIsoDate = dateObj ? dateObj.id : (selectedDate.match(/^\d{4}-\d{2}-\d{2}$/) ? selectedDate : formatToISODate(new Date()));
 
       let showtimeId = generateCanonicalShowtimeId(movie.id, selectedCinema.id, targetIsoDate, selectedShowtimeItem.time);
@@ -328,8 +328,7 @@ export const MovieDetailsPage: React.FC = () => {
         console.warn('Could not resolve showtime via backend API, using structured ID:', resolveErr);
       }
 
-      setActiveMovie(movie);
-      setActiveShowtime({
+      setActiveMovieAndShowtime(movie, {
         cinema: selectedCinema,
         date: targetIsoDate,
         time: selectedShowtimeItem.time,
@@ -635,9 +634,9 @@ export const MovieDetailsPage: React.FC = () => {
               {availableDates.map(date => (
                 <button
                   key={date.id}
-                  onClick={() => setSelectedDate(date.label)}
+                  onClick={() => setSelectedDate(date.id)}
                   className={`flex flex-col items-center justify-center min-w-[105px] py-3 px-4 rounded-xl border transition-all cursor-pointer ${
-                    selectedDate === date.label
+                    selectedDate === date.id || selectedDate === date.label
                       ? 'bg-blue-600 text-white font-bold border-blue-400 shadow-md shadow-blue-600/25 scale-102'
                       : 'bg-white dark:bg-[#1C1F2B] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700'
                   }`}
@@ -650,15 +649,15 @@ export const MovieDetailsPage: React.FC = () => {
           </div>
 
           {/* Personality Empty State if no shows scheduled */}
-          {availableDates.find(d => d.label === selectedDate)?.hasShows === false ? (
+          {availableDates.find(d => d.id === selectedDate || d.label === selectedDate)?.hasShows === false ? (
             <div className="p-12 text-center rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-sm my-6">
               <Calendar className="w-12 h-12 text-blue-500 mx-auto mb-3 opacity-80" />
               <h4 className="text-lg font-bold text-slate-900 dark:text-white">No Screenings Scheduled Yet</h4>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                No screenings scheduled yet for {selectedDate}. Check tomorrow's schedule or explore other theatres nearby in {currentCity}!
+                No screenings scheduled yet for {availableDates.find(d => d.id === selectedDate)?.label || selectedDate}. Check tomorrow's schedule or explore other theatres nearby in {currentCity}!
               </p>
               <button
-                onClick={() => setSelectedDate(availableDates[0].label)}
+                onClick={() => setSelectedDate(availableDates[0].id)}
                 className="mt-5 px-5 py-2.5 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer transition-colors shadow-sm"
               >
                 Switch to Today's Shows
@@ -800,7 +799,7 @@ export const MovieDetailsPage: React.FC = () => {
           )}
 
           {/* Sticky/Fixed Booking Action Bar */}
-          {availableDates.find(d => d.label === selectedDate)?.hasShows !== false && (
+          {availableDates.find(d => d.id === selectedDate || d.label === selectedDate)?.hasShows !== false && (
             <div className="mt-8 p-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
               <div className="space-y-1 text-center sm:text-left">
                 <div className="text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5 justify-center sm:justify-start">
@@ -808,7 +807,7 @@ export const MovieDetailsPage: React.FC = () => {
                   <span>Ready to choose seats</span>
                 </div>
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {selectedCinema.name} • {selectedDate} at {formatTime(selectedShowtimeItem.time)}
+                  {selectedCinema.name} • {availableDates.find(d => d.id === selectedDate)?.label || selectedDate} at {formatTime(selectedShowtimeItem.time)}
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400">
                   Format: <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedShowtimeItem.format}</span> ({selectedShowtimeItem.hall}) • {selectedShowtimeItem.subtitles}

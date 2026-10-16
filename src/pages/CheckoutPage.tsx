@@ -39,7 +39,7 @@ import {
   verifyPaymentApi,
   releaseSeatsHoldApi
 } from '../services/api';
-import { generateCanonicalShowtimeId } from '../utils/dateUtils';
+import { generateCanonicalShowtimeId, formatToISODate } from '../utils/dateUtils';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -236,7 +236,7 @@ export const CheckoutPage: React.FC = () => {
       generateCanonicalShowtimeId(
         activeBooking.movie?.id || '',
         activeBooking.cinema?.id || '',
-        activeBooking.date || '2026-10-15',
+        activeBooking.date || formatToISODate(new Date()),
         activeBooking.time || '04:30 PM'
       );
 
@@ -395,7 +395,7 @@ export const CheckoutPage: React.FC = () => {
       generateCanonicalShowtimeId(
         activeBooking.movie?.id || '',
         activeBooking.cinema?.id || '',
-        activeBooking.date || '2026-10-15',
+        activeBooking.date || formatToISODate(new Date()),
         activeBooking.time || '04:30 PM'
       );
 

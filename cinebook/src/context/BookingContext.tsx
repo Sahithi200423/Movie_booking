@@ -24,6 +24,10 @@ interface BookingContextType {
   activeBooking: ActiveBooking;
   setActiveMovie: (movie: Movie) => void;
   setActiveShowtime: (data: { cinema: Cinema; date: string; time: string; format: string; hall: string; language?: string; showtimeId?: string }) => void;
+  setActiveMovieAndShowtime: (
+    movie: Movie,
+    data: { cinema: Cinema; date: string; time: string; format: string; hall: string; language?: string; showtimeId?: string }
+  ) => void;
   toggleSeat: (seat: Seat) => void;
   setSeats: (seats: Seat[]) => void;
   updateAddonQuantity: (addonId: string, quantity: number) => void;
@@ -182,6 +186,32 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
+  const setActiveMovieAndShowtime = (
+    movie: Movie,
+    data: {
+      cinema: Cinema;
+      date: string;
+      time: string;
+      format: string;
+      hall: string;
+      language?: string;
+      showtimeId?: string;
+    }
+  ) => {
+    setActiveBooking({
+      movie,
+      cinema: data.cinema,
+      date: data.date,
+      time: data.time,
+      format: data.format,
+      hall: data.hall,
+      language: data.language || movie.language || 'English',
+      showtimeId: data.showtimeId,
+      seats: [],
+      addons: {}
+    });
+  };
+
   const toggleSeat = (seat: Seat) => {
     setActiveBooking(prev => {
       const exists = prev.seats.some(s => s.id === seat.id);
@@ -307,6 +337,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         activeBooking,
         setActiveMovie,
         setActiveShowtime,
+        setActiveMovieAndShowtime,
         toggleSeat,
         setSeats,
         updateAddonQuantity,

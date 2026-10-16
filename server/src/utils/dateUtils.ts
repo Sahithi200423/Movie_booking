@@ -107,11 +107,29 @@ export function isPastShowtime(dateStr?: string, timeStr?: string): boolean {
 /**
  * Formats a Date object to YYYY-MM-DD in local/IST calendar date (avoiding UTC offset rollback).
  */
-export function formatToISODate(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+export function formatToISODate(d: Date | string): string {
+  if (typeof d === 'string') {
+    const match = d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) {
+      const pad = (n: string) => n.padStart(2, '0');
+      return `${match[1]}-${pad(match[2])}-${pad(match[3])}`;
+    }
+    d = new Date(d);
+  }
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(d);
+  } catch {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 }
 
 /**

@@ -59,16 +59,22 @@ router.get('/', async (req: Request, res: Response) => {
     }
   } catch (e) {}
 
-  if (showtimes.length === 0) {
+  // Only use general fallback if NO specific date was requested
+  if (showtimes.length === 0 && !date) {
     if (cinemaId) {
       showtimes = db.getShowtimes(undefined, cinemaId as string, undefined);
     }
     if (showtimes.length === 0 && movieId) {
       showtimes = db.getShowtimes(movieId as string, undefined, undefined);
     }
-    if (showtimes.length === 0) {
+    if (showtimes.length === 0 && !movieId && !cinemaId) {
       showtimes = db.getShowtimes();
     }
+  }
+
+  // Ensure that if a date was requested, only shows for that exact date are returned
+  if (date) {
+    showtimes = showtimes.filter(s => s.date === date);
   }
 
   return res.json({

@@ -32,17 +32,17 @@ async function runTestSuite() {
     }
   }
 
-  // TEST 1: Future showtime on October 16, 2026 at 1:45 PM
-  runTest('Future showtime on October 16, 2026 at 1:45 PM is NOT rejected as past', () => {
-    const isPast = isPastShowtime('2026-10-16', '01:45 PM');
-    assert.strictEqual(isPast, false, 'October 16, 2026 at 1:45 PM should be in the future');
-    const parsed = parseShowtimeToISTInstant('2026-10-16', '01:45 PM');
+  // TEST 1: Future showtime on October 19, 2026 at 4:30 PM
+  runTest('Future showtime on October 19, 2026 at 4:30 PM is NOT rejected as past', () => {
+    const isPast = isPastShowtime('2026-10-19', '04:30 PM');
+    assert.strictEqual(isPast, false, 'October 19, 2026 at 4:30 PM should be in the future');
+    const parsed = parseShowtimeToISTInstant('2026-10-19', '04:30 PM');
     assert.ok(parsed, 'Parsed object should exist');
     assert.strictEqual(parsed.year, 2026);
     assert.strictEqual(parsed.month, 10);
-    assert.strictEqual(parsed.day, 16);
-    assert.strictEqual(parsed.hours, 13);
-    assert.strictEqual(parsed.minutes, 45);
+    assert.strictEqual(parsed.day, 19);
+    assert.strictEqual(parsed.hours, 16);
+    assert.strictEqual(parsed.minutes, 30);
     assert.strictEqual(parsed.isPast, false);
   });
 
@@ -363,6 +363,55 @@ async function runTestSuite() {
     assert.strictEqual(totalInPaise, 1500);
     assert.strictEqual(convenienceFee, 0.00);
     assert.strictEqual(tax, 0.00);
+  });
+
+  // TEST 18: October 19, 2026, at 4:30 PM showtime canonical resolution
+  await runAsyncTest('October 19, 2026, at 4:30 PM: canonical resolution produces authoritative showtime', async () => {
+    const { ensurePrismaShowtime } = require('./dist/services/showtimeResolver.js');
+    const showtime = await ensurePrismaShowtime('show-stree-2-pvr-2026-10-19-0430PM');
+    assert.ok(showtime, 'Showtime show-stree-2-pvr-2026-10-19-0430PM must exist');
+    assert.strictEqual(showtime.id, 'show-stree-2-pvr-2026-10-19-0430PM');
+    assert.strictEqual(showtime.date, '2026-10-19', 'Date must be 2026-10-19');
+    assert.strictEqual(showtime.time, '04:30 PM', 'Time must be 04:30 PM');
+    assert.strictEqual(showtime.movieId, 'stree-2', 'Movie must be stree-2');
+  });
+
+  // TEST 19: Date filter strictness: requesting date 2026-10-19 never returns historical shows
+  runTest('Strict date filtering: filtering by 2026-10-19 returns only matching shows, never Oct 4 historical shows', () => {
+    const { db } = require('./dist/db.js');
+    const shows = db.getShowtimes('stree-2', undefined, '2026-10-19');
+    for (const s of shows) {
+      assert.strictEqual(s.date, '2026-10-19', `All returned shows must match date 2026-10-19, got ${s.date}`);
+    }
+  });
+
+  // TEST 20: Asia/Kolkata date boundary formatting preserves 2026-10-19 without UTC offset rollback
+  runTest('Asia/Kolkata date formatting preserves 2026-10-19 across timezones', () => {
+    const formatted = formatToISODate('2026-10-19');
+    assert.strictEqual(formatted, '2026-10-19', 'formatToISODate must preserve 2026-10-19');
+
+    // Test parseShowtimeId extracts correct date and time
+    const parsed = parseShowtimeId('show-stree-2-pvr-2026-10-19-0430PM');
+    assert.strictEqual(parsed.date, '2026-10-19');
+    assert.strictEqual(parsed.time, '04:30 PM');
+    assert.strictEqual(parsed.movieId, 'stree-2');
+    assert.strictEqual(parsed.cinemaSlug, 'pvr');
+    assert.strictEqual(parsed.isCanonical, true);
+  });
+
+  // TEST 21: Full 128 seat availability verification for show-stree-2-pvr-2026-10-19-0430PM
+  await runAsyncTest('Live seat availability for show-stree-2-pvr-2026-10-19-0430PM: returns 128 seats at ₹5', async () => {
+    const { seatReservationService } = require('./dist/services/seatReservationService.js');
+    const liveSeats = await seatReservationService.getLiveSeats('show-stree-2-pvr-2026-10-19-0430PM', 'session-oct19-verify');
+    assert.ok(Array.isArray(liveSeats));
+    assert.strictEqual(liveSeats.length, 128, 'Must have exactly 128 seats');
+    const available = liveSeats.filter(s => s.status === 'available');
+    const booked = liveSeats.filter(s => s.status === 'reserved');
+    const held = liveSeats.filter(s => s.status === 'held');
+    assert.strictEqual(available.length + booked.length + held.length, 128, 'Total must equal available + booked + held');
+    for (const s of liveSeats) {
+      assert.strictEqual(s.price, 5.0, `Each seat must cost exactly ₹5, got ${s.price}`);
+    }
   });
 
   console.log(`\n=== TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED ===`);

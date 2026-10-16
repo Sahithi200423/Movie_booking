@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ChevronLeft,
   Ticket,
@@ -17,10 +17,10 @@ import {
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
-import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS } from '../data/mockData';
+import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS, MOVIES, CINEMAS } from '../data/mockData';
 import type { Seat } from '../types';
 import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl, getShowtimeByIdApi } from '../services/api';
-import { generateCanonicalShowtimeId } from '../utils/dateUtils';
+import { generateCanonicalShowtimeId, parseShowtimeId, formatToISODate } from '../utils/dateUtils';
 import { io } from 'socket.io-client';
 import { FnBUpsellModal } from '../components/FnBUpsellModal';
 
@@ -37,7 +37,8 @@ const PARTY_OPTIONS = [
 
 export const SeatSelectionPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeBooking, toggleSeat, setSeats, sessionId, setActiveMovie, setActiveShowtime } = useBooking();
+  const [searchParams] = useSearchParams();
+  const { activeBooking, toggleSeat, setSeats, sessionId, setActiveMovieAndShowtime } = useBooking();
   const { t, formatPrice, formatTime, isRTL } = useTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [seatFetchError, setSeatFetchError] = useState<string | null>(null);
@@ -54,63 +55,92 @@ export const SeatSelectionPage: React.FC = () => {
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [showFnbModal, setShowFnbModal] = useState<boolean>(false);
 
-  // Party Size State & Popover Modal
+  // Party Size State & Popover Modal - default closed so user immediately sees live seat dashboard
   const [partySize, setPartySize] = useState<number>(() => {
     return activeBooking.seats.length > 0 ? activeBooking.seats.length : 2;
   });
-  const [showPartyModal, setShowPartyModal] = useState<boolean>(() => {
-    return activeBooking.seats.length === 0;
-  });
+  const [showPartyModal, setShowPartyModal] = useState<boolean>(false);
 
   // Extract query parameter if present
-  const queryShowtimeId = useMemo(() => {
-    return new URLSearchParams(window.location.search).get('showtimeId');
-  }, []);
+  const queryShowtimeId = searchParams.get('showtimeId') || '';
 
-  // Rehydration state if activeBooking is empty but showtimeId exists in URL
-  const [isRehydrating, setIsRehydrating] = useState<boolean>(() => {
-    return (!activeBooking.movie || !activeBooking.cinema) && !!queryShowtimeId;
-  });
+  const parsedShowtime = useMemo(() => {
+    return queryShowtimeId ? parseShowtimeId(queryShowtimeId) : null;
+  }, [queryShowtimeId]);
+
+  // Rehydration state if activeBooking does not match queryShowtimeId
+  const needsRehydration = useMemo(() => {
+    if (!queryShowtimeId) return false;
+    return (
+      !activeBooking.movie ||
+      !activeBooking.cinema ||
+      activeBooking.showtimeId !== queryShowtimeId
+    );
+  }, [queryShowtimeId, activeBooking.movie, activeBooking.cinema, activeBooking.showtimeId]);
+
+  const [isRehydrating, setIsRehydrating] = useState<boolean>(needsRehydration);
 
   useEffect(() => {
-    if ((!activeBooking.movie || !activeBooking.cinema) && queryShowtimeId) {
+    if (!queryShowtimeId) return;
+
+    if (!activeBooking.movie || !activeBooking.cinema || activeBooking.showtimeId !== queryShowtimeId) {
       let isMounted = true;
+      setIsRehydrating(true);
+
+      // 1. Immediately sync known data from parsed canonical showtime ID if available
+      const parsed = parseShowtimeId(queryShowtimeId);
+      const immediateMovie = parsed.movieId ? MOVIES.find(m => m.id === parsed.movieId) : null;
+      const immediateCinema = parsed.cinemaSlug ? CINEMAS.find(c => c.id.toLowerCase().includes(parsed.cinemaSlug!)) : null;
+
+      if (immediateMovie && immediateCinema && (!activeBooking.movie || activeBooking.showtimeId !== queryShowtimeId)) {
+        setActiveMovieAndShowtime(immediateMovie, {
+          cinema: immediateCinema,
+          date: parsed.date || formatToISODate(new Date()),
+          time: parsed.time || '04:30 PM',
+          format: 'Standard',
+          hall: 'Screen 1',
+          showtimeId: queryShowtimeId
+        });
+      }
+
+      // 2. Fetch authoritative showtime details from backend
       getShowtimeByIdApi(queryShowtimeId)
         .then(res => {
           if (!isMounted) return;
           const st = res.show || res.showtime;
           if (res.success && st) {
-            const mv = res.movie || st.movie;
+            const mv = res.movie || st.movie || immediateMovie || MOVIES.find(m => m.id === st.movieId);
+            const cin = res.cinema || st.theatre || st.cinema || immediateCinema || {
+              id: st.cinemaId || 'cin-pvr-01',
+              name: st.cinemaName || 'PVR INOX Cinemas',
+              city: st.city || 'Mumbai',
+              address: st.address || 'Central Mall'
+            };
             if (mv) {
-              setActiveMovie(mv);
+              setActiveMovieAndShowtime(mv, {
+                cinema: cin,
+                date: st.date || parsed.date || formatToISODate(new Date()),
+                time: st.time || parsed.time || '04:30 PM',
+                format: st.format || 'Standard',
+                hall: st.hall || st.hallName || 'Screen 1',
+                language: st.language || mv.language || 'Hindi',
+                showtimeId: st.id || queryShowtimeId
+              });
             }
-            const cin = res.cinema || st.theatre || st.cinema;
-            setActiveShowtime({
-              cinema: cin || {
-                id: st.cinemaId || 'cin-pvr-01',
-                name: st.cinemaName || 'PVR INOX Cinemas',
-                city: st.city || 'Mumbai',
-                address: st.address || 'Central Mall'
-              },
-              date: st.date || (st.startTime ? st.startTime.substring(0, 10) : '2026-10-19'),
-              time: st.time || (st.startTime ? new Date(st.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '04:30 PM'),
-              format: st.format || 'Standard',
-              hall: st.hall || 'Audi 1',
-              showtimeId: st.id
-            });
           }
         })
         .catch(err => {
-          console.warn('Rehydration from showtime API failed:', err);
+          console.warn('Authoritative rehydration from backend showtime API notice:', err);
         })
         .finally(() => {
           if (isMounted) setIsRehydrating(false);
         });
+
       return () => {
         isMounted = false;
       };
     }
-  }, [queryShowtimeId, activeBooking.movie, activeBooking.cinema, setActiveMovie, setActiveShowtime]);
+  }, [queryShowtimeId, activeBooking.showtimeId, activeBooking.movie, activeBooking.cinema, setActiveMovieAndShowtime]);
 
   // Derive stable authoritative showtimeId
   const showtimeId = useMemo(() => {
@@ -120,12 +150,12 @@ export const SeatSelectionPage: React.FC = () => {
       return generateCanonicalShowtimeId(
         activeBooking.movie.id,
         activeBooking.cinema.id,
-        activeBooking.date || '2026-10-15',
+        activeBooking.date || formatToISODate(new Date()),
         activeBooking.time || '04:30 PM'
       );
     }
 
-    return 'show-1';
+    return 'show-stree-2-pvr-2026-10-19-0430PM';
   }, [queryShowtimeId, activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id, activeBooking.date, activeBooking.time]);
 
   // Load seats from backend & connect to real-time WebSockets with polling fallback
@@ -176,12 +206,12 @@ export const SeatSelectionPage: React.FC = () => {
 
     loadSeats();
 
-    // 10s polling fallback to ensure live counts remain accurate even if socket drops
+    // 5s polling fallback to ensure live counts remain accurate even if socket drops
     const pollInterval = setInterval(() => {
       if (isMounted) {
         loadSeats();
       }
-    }, 10000);
+    }, 5000);
 
     // Setup Socket.io real-time connection
     let socket: any = null;
@@ -240,10 +270,15 @@ export const SeatSelectionPage: React.FC = () => {
 
   // Generate deterministic seat rows based on movie & cinema & time
   const baseLayout = useMemo(() => {
-    if (!activeBooking.movie || !activeBooking.cinema) return [];
-    const seed = `${activeBooking.movie?.id}-${activeBooking.cinema?.id}-${activeBooking.time}`;
+    const movie = activeBooking.movie;
+    const cinema = activeBooking.cinema;
+    const parsed = queryShowtimeId ? parseShowtimeId(queryShowtimeId) : null;
+    const movieId = movie?.id || parsed?.movieId || 'stree-2';
+    const cinemaId = cinema?.id || parsed?.cinemaSlug || 'pvr';
+    const time = activeBooking.time || parsed?.time || '04:30 PM';
+    const seed = `${movieId}-${cinemaId}-${time}`;
     return generateSeatLayout(seed);
-  }, [activeBooking.movie?.id, activeBooking.cinema?.id, activeBooking.time]);
+  }, [activeBooking.movie?.id, activeBooking.cinema?.id, activeBooking.time, queryShowtimeId]);
 
   // Merge with dynamic backend seat status
   const seatLayout = useMemo(() => {
@@ -263,19 +298,17 @@ export const SeatSelectionPage: React.FC = () => {
     }));
   }, [baseLayout, backendSeats]);
 
-  // Rehydrating showtime if navigating directly with showtimeId
-  if (isRehydrating) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
-        <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-        <h3 className="text-xl font-bold text-white mb-2">Restoring Your Showtime...</h3>
-        <p className="text-sm text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
-      </div>
-    );
-  }
-
   // If user navigated directly without selecting a movie or cinema
   if (!activeBooking.movie || !activeBooking.cinema) {
+    if (queryShowtimeId || isRehydrating) {
+      return (
+        <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">Restoring Your Showtime...</h3>
+          <p className="text-sm text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
+        </div>
+      );
+    }
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
         <Ticket className="w-16 h-16 text-slate-600 mb-4" />
@@ -467,25 +500,25 @@ export const SeatSelectionPage: React.FC = () => {
             </Link>
             <div>
               <h1 className="text-sm sm:text-lg font-black text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <span className="truncate max-w-[170px] sm:max-w-none">{activeBooking.movie.title}</span>
+                <span className="truncate max-w-[170px] sm:max-w-none">{activeBooking.movie?.title || 'Stree 2'}</span>
                 <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shrink-0">
-                  {activeBooking.format}
+                  {activeBooking.format || 'Standard'}
                 </span>
               </h1>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs text-slate-400 mt-0.5">
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-blue-500" />
-                  <span className="truncate max-w-[120px] sm:max-w-none">{activeBooking.cinema.name}</span>
+                  <span className="truncate max-w-[120px] sm:max-w-none">{activeBooking.cinema?.name || 'PVR ICON: Phoenix Palladium, Lower Parel'}</span>
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3 text-blue-400" />
-                  {activeBooking.date}
+                  {activeBooking.date || parsedShowtime?.date || '2026-10-19'}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1 font-semibold text-slate-200">
                   <Clock className="w-3 h-3 text-blue-400" />
-                  {formatTime(activeBooking.time)}
+                  {formatTime(activeBooking.time || parsedShowtime?.time || '04:30 PM')}
                 </span>
               </div>
             </div>

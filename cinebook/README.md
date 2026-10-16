@@ -133,3 +133,31 @@ In the Supabase SQL Editor, run:
 npm run dev
 ```
 Open **`http://localhost:5174`** in your browser.
+
+---
+
+## 📈 Development History & Engineering Insights
+
+CineBook represents an evolution from initial prototype to a production-grade, highly resilient booking platform. Key engineering challenges solved during pre-deployment optimization include:
+
+### 1. Robust Asia/Kolkata Timezone Handling
+- **Problem**: When users selected calendar dates, standard UTC string conversion (`toISOString().split('T')[0]`) occasionally caused date boundary drift (e.g. October 19 rolling backward to October 18 at UTC midnight).
+- **Solution**: Implemented an authoritative timezone formatting utility using `Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' })` and explicit local noon anchoring (`12:00:00`), guaranteeing identical date representations across client devices.
+
+### 2. Live Seat Synchronization & Race-Condition Prevention
+- **Problem**: In-flight rehydration and rapid user navigation could cause stale session data in `sessionStorage` to overwrite active booking state.
+- **Solution**: Designed an atomic state dispatcher (`setActiveMovieAndShowtime`) that synchronizes movie, cinema, date, time, and showtime ID in a single tick. URL query parameters (`?showtimeId=...`) serve as immediate source-of-truth fallbacks while asynchronous backend queries resolve.
+
+### 3. Strict Date Filtering
+- **Problem**: Queries for future unseeded dates previously fell back to historical seed records.
+- **Solution**: Added strict date matching on the Express backend (`GET /api/shows`), ensuring exact calendar queries return only verified showtimes for that specific day.
+
+### 4. Automated 21-Test Pre-Deployment Regression Suite
+- A dedicated end-to-end regression suite (`server/test_suite.cjs`) validates 21 critical vectors prior to production deployment:
+  - Database connectivity and health status.
+  - Showtime identity resolution and canonical ID parsing.
+  - Live seat count validation (128 total, 128 available, 0 booked, 0 held).
+  - Seat collision rejection (preventing duplicate bookings).
+  - Concurrency hold timeout and automatic inventory release.
+  - Consistent ₹5 pricing enforcement.
+

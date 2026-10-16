@@ -8,6 +8,11 @@
 
 A production-oriented cinema ticketing web platform inspired by BookMyShow, featuring an original dark navy and purple cinema aesthetic, real full-stack architecture, 18-language internationalization (including right-to-left Urdu support), international currency conversions, IANA timezones, temporary seat holds with automatic countdown expiration, concurrency-safe atomic booking conflict prevention, coupon promotions, community reviews, gatekeeper QR ticket admission verification, and a comprehensive administration operations portal.
 
+> [!NOTE]
+> **Engineering Demonstration & Simulation**: CineBook is built as an educational full-stack engineering demonstration and booking simulator. All showtimes, cinema layouts, seat inventories, payment orders, and 90% cancellation refunds are simulated in demo mode for evaluation purposes. No real monetary transactions or physical cinema tickets are issued.
+>
+> **Free-Tier Backend Wake-Up Notice**: The backend API is hosted on Render's free tier. If the service has been inactive, please allow approximately 30–45 seconds for the backend instance to spin up on your first visit. Once active, all subsequent requests respond with standard low latency.
+
 ---
 
 ## 🌟 Key Features & Capabilities

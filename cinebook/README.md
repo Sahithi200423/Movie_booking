@@ -4,6 +4,11 @@
 
 CineBook is a production-style movie ticket booking platform built with **React**, **TypeScript**, **Vite**, **Tailwind CSS**, and **Supabase (PostgreSQL, Auth, Realtime)**.
 
+> [!NOTE]
+> **Engineering Demonstration & Simulation**: CineBook is built as an educational full-stack engineering demonstration and booking simulator. All showtimes, cinema layouts, seat inventories, payment orders, and 90% cancellation refunds are simulated in demo mode for evaluation purposes. No real monetary transactions or physical cinema tickets are issued.
+>
+> **Free-Tier Backend Wake-Up Notice**: The backend API is hosted on Render's free tier. If the service has been inactive, please allow approximately 30–45 seconds for the backend instance to spin up on your first visit. Once active, all subsequent requests respond with standard low latency.
+
 ---
 
 ## 🌟 Architecture & Core Principles

@@ -7,6 +7,7 @@ import { prisma } from '../prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { getSocketIO } from '../services/seatReservationService.js';
 import { isPastShowtime } from '../utils/dateUtils.js';
+import { ensurePrismaShowtime } from '../services/showtimeResolver.js';
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_sampleKey';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sampleSecretKey';
@@ -932,7 +933,7 @@ router.post('/lock', (req: Request, res: Response) => {
 });
 
 // POST /api/bookings/confirm (Confirm payment and finalize the booking)
-router.post('/confirm', (req: Request, res: Response) => {
+router.post('/confirm', async (req: Request, res: Response) => {
   try {
     const {
       showtimeId,
@@ -956,18 +957,43 @@ router.post('/confirm', (req: Request, res: Response) => {
       });
     }
 
-    const show = db.getShowtimeById(showtimeId);
+    let show: any = db.getShowtimeById(showtimeId);
+    let movie: any = null;
+    let cinema: any = null;
+
+    if (show) {
+      movie = db.getMovieById(show.movieId);
+      cinema = db.getCinemas().find(c => c.id === show.cinemaId);
+    } else {
+      const prismaShow = await ensurePrismaShowtime(showtimeId);
+      if (prismaShow) {
+        show = {
+          id: prismaShow.id,
+          movieId: prismaShow.movieId,
+          cinemaId: prismaShow.cinemaId,
+          date: prismaShow.date,
+          time: prismaShow.time,
+          format: prismaShow.format,
+          hall: prismaShow.hall || (prismaShow as any).hallName,
+          language: prismaShow.language,
+          priceMultiplier: Number(prismaShow.priceMultiplier) || 1.0
+        };
+        movie = prismaShow.movie || db.getMovieById(show.movieId);
+        cinema = prismaShow.screen?.theatre || db.getCinemas().find(c => c.id === show.cinemaId);
+      }
+    }
+
     if (!show) {
       return res.status(404).json({ success: false, message: 'Showtime not found.' });
     }
 
-    const movie = db.getMovieById(show.movieId) || {
+    movie = movie || {
       title: 'Movie',
       posterUrl: '',
       durationMinutes: 120,
       certification: 'UA'
     };
-    const cinema = db.getCinemas().find(c => c.id === show.cinemaId) || {
+    cinema = cinema || {
       name: 'Cinema Multiplex',
       address: 'Downtown'
     };

@@ -113,3 +113,81 @@ export function formatToISODate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Generates a canonical, deterministic showtime ID.
+ * Example: "show-stree-2-pvr-2026-10-15-0430PM"
+ */
+export function generateCanonicalShowtimeId(
+  movieId: string,
+  cinemaId: string,
+  date: string,
+  time: string
+): string {
+  const movieSlug = movieId.includes('kalki') ? 'kalki' : movieId.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase().substring(0, 12);
+  const rawCin = cinemaId.replace(/^cin-/, '').toLowerCase();
+  const cinemaSlug = rawCin.includes('pvr') ? 'pvr' : rawCin.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 10);
+
+  const parsed = parseShowtimeToISTInstant(date, time);
+  let isoDate = date.trim();
+  let timeSlug = time.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  if (parsed) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    isoDate = `${parsed.year}-${pad(parsed.month)}-${pad(parsed.day)}`;
+    const h = parsed.hours % 12 || 12;
+    const m = pad(parsed.minutes);
+    const ampm = parsed.hours >= 12 ? 'PM' : 'AM';
+    timeSlug = `${pad(h)}${m}${ampm}`;
+  }
+
+  return `show-${movieSlug}-${cinemaSlug}-${isoDate}-${timeSlug}`;
+}
+
+export interface ParsedShowtimeId {
+  movieId?: string;
+  cinemaSlug?: string;
+  date?: string;
+  time?: string;
+  isCanonical: boolean;
+}
+
+export function parseShowtimeId(showtimeId: string): ParsedShowtimeId {
+  if (!showtimeId || typeof showtimeId !== 'string') {
+    return { isCanonical: false };
+  }
+
+  const dateMatch = showtimeId.match(/(\d{4}-\d{2}-\d{2})/);
+  const timeMatch = showtimeId.match(/(1[0-2]|0?[1-9])([0-5][0-9])([AP]M)/i);
+
+  const date = dateMatch ? dateMatch[1] : undefined;
+  let time: string | undefined = undefined;
+  if (timeMatch) {
+    const h = timeMatch[1].padStart(2, '0');
+    const m = timeMatch[2];
+    const ampm = timeMatch[3].toUpperCase();
+    time = `${h}:${m} ${ampm}`;
+  }
+
+  let movieId: string | undefined = undefined;
+  let cinemaSlug: string | undefined = undefined;
+
+  if (showtimeId.startsWith('show-') && dateMatch && dateMatch.index) {
+    const prefix = showtimeId.substring(5, dateMatch.index).replace(/-+$/, '');
+    const parts = prefix.split('-');
+    if (parts.length >= 2) {
+      cinemaSlug = parts[parts.length - 1];
+      movieId = parts.slice(0, -1).join('-');
+    } else if (parts.length === 1) {
+      movieId = parts[0];
+    }
+  }
+
+  return {
+    movieId,
+    cinemaSlug,
+    date,
+    time,
+    isCanonical: !!(date && time)
+  };
+}

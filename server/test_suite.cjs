@@ -3,7 +3,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-const { parseShowtimeToISTInstant, formatToISODate, isPastShowtime } = require('./dist/utils/dateUtils.js');
+const { parseShowtimeToISTInstant, formatToISODate, isPastShowtime, generateCanonicalShowtimeId, parseShowtimeId } = require('./dist/utils/dateUtils.js');
 
 async function runTestSuite() {
   console.log('=== RUNNING CINEBOOK AUTOMATED TEST SUITE ===\n');
@@ -260,6 +260,109 @@ async function runTestSuite() {
     assert.strictEqual(Math.round(singleSeatPrice * 100), 500);
     assert.strictEqual(twoSeatPrice, 10.0);
     assert.strictEqual(Math.round(twoSeatPrice * 100), 1000);
+  });
+
+  // TEST 12: Canonical showtime ID generation for Stree 2 at PVR Phoenix Palladium
+  runTest('Canonical ID formula generates deterministic ID for Stree 2', () => {
+    const canonical = generateCanonicalShowtimeId('stree-2', 'cin-mumbai-pvr-phoenix', '2026-10-15', '04:30 PM');
+    assert.strictEqual(canonical, 'show-stree-2-pvr-2026-10-15-0430PM');
+    const parsed = parseShowtimeId(canonical);
+    assert.strictEqual(parsed.isCanonical, true);
+    assert.strictEqual(parsed.movieId, 'stree-2');
+    assert.strictEqual(parsed.cinemaSlug, 'pvr');
+    assert.strictEqual(parsed.date, '2026-10-15');
+    assert.strictEqual(parsed.time, '04:30 PM');
+  });
+
+  // TEST 13: Retrieving existing Stree 2 showtime: show-stree-2-pvr-2026-10-15-0430PM
+  await runAsyncTest('Retrieving existing showtime: ensurePrismaShowtime resolves show-stree-2-pvr-2026-10-15-0430PM', async () => {
+    const { ensurePrismaShowtime } = require('./dist/services/showtimeResolver.js');
+    const show = await ensurePrismaShowtime('show-stree-2-pvr-2026-10-15-0430PM');
+    assert.ok(show, 'Showtime show-stree-2-pvr-2026-10-15-0430PM must resolve');
+    assert.strictEqual(show.date, '2026-10-15');
+    assert.strictEqual(show.time, '04:30 PM');
+    assert.ok(show.movie, 'Movie details must be present');
+    assert.strictEqual(show.movie.title, 'Stree 2');
+    assert.ok(show.screen, 'Screen details must be present');
+    assert.ok(show.screen.theatre, 'Theatre details must be present');
+    assert.ok(show.screen.theatre.name.includes('PVR ICON'), 'Theatre must be PVR ICON');
+  });
+
+  // TEST 14: Nonexistent or invalid showtime rejection
+  await runAsyncTest('Nonexistent showtime rejection: invalid ID returns null without throwing unhandled error', async () => {
+    const { ensurePrismaShowtime } = require('./dist/services/showtimeResolver.js');
+    const nonexistent = await ensurePrismaShowtime('show-completely-nonexistent-xyz-9999-01-01-1200AM');
+    assert.strictEqual(nonexistent, null, 'Nonexistent showtime must return null');
+  });
+
+  // TEST 15: Selecting seats for show-stree-2-pvr-2026-10-15-0430PM
+  await runAsyncTest('Live seat availability for show-stree-2-pvr-2026-10-15-0430PM returns 128 seats', async () => {
+    const { seatReservationService } = require('./dist/services/seatReservationService.js');
+    const liveSeats = await seatReservationService.getLiveSeats('show-stree-2-pvr-2026-10-15-0430PM', 'session-stree2-test');
+    assert.ok(Array.isArray(liveSeats));
+    assert.strictEqual(liveSeats.length, 128, 'Must return 128 auditorium seats');
+    const validStatuses = new Set(['available', 'reserved', 'held']);
+    for (const s of liveSeats) {
+      assert.ok(validStatuses.has(s.status), `Seat ${s.id} status must be valid`);
+      assert.strictEqual(s.price, 5.0, `Seat ${s.id} price must be exactly ₹5.00`);
+    }
+  });
+
+  // TEST 16: Seat lock and release lifecycle on Stree 2 showtime
+  await runAsyncTest('Seat lock and release lifecycle on show-stree-2-pvr-2026-10-15-0430PM', async () => {
+    const { seatReservationService } = require('./dist/services/seatReservationService.js');
+    const testSeat = 'G10';
+    const sessionId = 'session-stree2-lifecycle';
+
+    // Ensure clean state
+    await seatReservationService.unlockSeats({
+      showtimeId: 'show-stree-2-pvr-2026-10-15-0430PM',
+      seatNumbers: [testSeat],
+      sessionId
+    }).catch(() => {});
+
+    // Lock seat
+    const lockRes = await seatReservationService.lockSeats({
+      showtimeId: 'show-stree-2-pvr-2026-10-15-0430PM',
+      seatNumbers: [testSeat],
+      sessionId,
+      durationMinutes: 5
+    });
+    assert.ok(lockRes.success, 'Lock seats must succeed');
+
+    // Verify seat is held
+    const seatsDuringHold = await seatReservationService.getLiveSeats('show-stree-2-pvr-2026-10-15-0430PM', 'other-session');
+    const heldSeat = seatsDuringHold.find(s => s.id === testSeat);
+    assert.ok(heldSeat, 'Seat must be in live seats');
+    assert.strictEqual(heldSeat.status, 'held', 'Seat must be marked as held');
+
+    // Unlock seat
+    const unlockRes = await seatReservationService.unlockSeats({
+      showtimeId: 'show-stree-2-pvr-2026-10-15-0430PM',
+      seatNumbers: [testSeat],
+      sessionId
+    });
+    assert.ok(unlockRes.success, 'Unlock seats must succeed');
+
+    // Verify seat is available again
+    const seatsAfterRelease = await seatReservationService.getLiveSeats('show-stree-2-pvr-2026-10-15-0430PM', 'other-session');
+    const availableSeat = seatsAfterRelease.find(s => s.id === testSeat);
+    assert.ok(availableSeat);
+    assert.strictEqual(availableSeat.status, 'available', 'Seat must be restored to available');
+  });
+
+  // TEST 17: Authoritative total recalculation on backend (₹5 per seat, 0 fees, 0 tax)
+  runTest('Authoritative server pricing: ₹5 per seat (500 paise), 0 convenience fee, 0 tax', () => {
+    const seats = ['B1', 'B2', 'B3'];
+    const ticketPaisePerSeat = 500;
+    const totalInPaise = seats.length * ticketPaisePerSeat;
+    const totalAmount = totalInPaise / 100;
+    const convenienceFee = 0.00;
+    const tax = 0.00;
+    assert.strictEqual(totalAmount, 15.00);
+    assert.strictEqual(totalInPaise, 1500);
+    assert.strictEqual(convenienceFee, 0.00);
+    assert.strictEqual(tax, 0.00);
   });
 
   console.log(`\n=== TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED ===`);

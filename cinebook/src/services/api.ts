@@ -150,6 +150,7 @@ export async function getCinemas(city?: string): Promise<Cinema[]> {
 
 // ----------------- SHOWTIMES RESOLVER API -----------------
 export async function resolveShowtimeApi(payload: {
+  requestedId?: string;
   movieId: string;
   movieTitle?: string;
   cinemaId: string;

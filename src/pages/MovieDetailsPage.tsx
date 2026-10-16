@@ -35,7 +35,7 @@ import {
   toggleFavoriteApi,
   resolveShowtimeApi
 } from '../services/api';
-import { formatToISODate } from '../utils/dateUtils';
+import { formatToISODate, generateCanonicalShowtimeId } from '../utils/dateUtils';
 
 const RATING_DESCRIPTIONS: Record<number, string> = {
   1: 'Disappointing (1/10)',
@@ -300,17 +300,15 @@ export const MovieDetailsPage: React.FC = () => {
   const handleProceedToSeats = async () => {
     setIsResolvingShow(true);
     try {
-      const movieSlug = movie.id.includes('kalki') ? 'kalki' : movie.id.substring(0, 8);
-      const cinemaSlug = selectedCinema.id.includes('pvr') ? 'pvr' : selectedCinema.id.replace('cin-', '').substring(0, 8);
-      
       // Determine target ISO date
       const dateObj = availableDates.find(d => d.label === selectedDate || d.id === selectedDate);
       const targetIsoDate = dateObj ? dateObj.id : (selectedDate.match(/^\d{4}-\d{2}-\d{2}$/) ? selectedDate : formatToISODate(new Date()));
 
-      let showtimeId = `show-${movieSlug}-${cinemaSlug}-${targetIsoDate}-${selectedShowtimeItem.time.replace(/[^a-zA-Z0-9]/g, '')}`;
+      let showtimeId = generateCanonicalShowtimeId(movie.id, selectedCinema.id, targetIsoDate, selectedShowtimeItem.time);
 
       try {
         const resolved = await resolveShowtimeApi({
+          requestedId: showtimeId,
           movieId: movie.id,
           movieTitle: movie.title,
           cinemaId: selectedCinema.id,

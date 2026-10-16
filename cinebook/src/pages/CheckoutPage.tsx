@@ -39,6 +39,7 @@ import {
   verifyPaymentApi,
   releaseSeatsHoldApi
 } from '../services/api';
+import { generateCanonicalShowtimeId } from '../utils/dateUtils';
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -232,7 +233,12 @@ export const CheckoutPage: React.FC = () => {
   const handleCompletePayment = async (statusChoice: 'success' | 'decline', methodUsed?: string) => {
     const showtimeId =
       activeBooking.showtimeId ||
-      `show-${activeBooking.movie!.id.substring(0, 8)}-${activeBooking.cinema!.id.substring(0, 8)}-1`;
+      generateCanonicalShowtimeId(
+        activeBooking.movie?.id || '',
+        activeBooking.cinema?.id || '',
+        activeBooking.date || '2026-10-15',
+        activeBooking.time || '04:30 PM'
+      );
 
     const selectedSeatNumbers = activeBooking.seats.map(s => s.id);
 
@@ -384,11 +390,14 @@ export const CheckoutPage: React.FC = () => {
       };
     });
 
-    const movieSlug = activeBooking.movie?.id.includes('kalki') ? 'kalki' : (activeBooking.movie?.id || '').substring(0, 8);
-    const cinemaSlug = activeBooking.cinema?.id.includes('pvr') ? 'pvr' : (activeBooking.cinema?.id || '').replace('cin-', '').substring(0, 8);
     const showtimeId =
       activeBooking.showtimeId ||
-      `show-${movieSlug}--${cinemaSlug}--1`;
+      generateCanonicalShowtimeId(
+        activeBooking.movie?.id || '',
+        activeBooking.cinema?.id || '',
+        activeBooking.date || '2026-10-15',
+        activeBooking.time || '04:30 PM'
+      );
 
     const selectedSeatNumbers = activeBooking.seats.map(s => s.id);
 

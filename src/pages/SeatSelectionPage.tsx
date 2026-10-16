@@ -20,6 +20,7 @@ import { useTranslation } from '../context/LanguageContext';
 import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS } from '../data/mockData';
 import type { Seat } from '../types';
 import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl, getShowtimeByIdApi } from '../services/api';
+import { generateCanonicalShowtimeId } from '../utils/dateUtils';
 import { io } from 'socket.io-client';
 import { FnBUpsellModal } from '../components/FnBUpsellModal';
 
@@ -116,13 +117,16 @@ export const SeatSelectionPage: React.FC = () => {
     if (queryShowtimeId) return queryShowtimeId;
     if (activeBooking.showtimeId) return activeBooking.showtimeId;
     if (activeBooking.movie && activeBooking.cinema) {
-      const movieSlug = activeBooking.movie.id.includes('kalki') ? 'kalki' : activeBooking.movie.id.substring(0, 8);
-      const cinemaSlug = activeBooking.cinema.id.includes('pvr') ? 'pvr' : activeBooking.cinema.id.replace('cin-', '').substring(0, 8);
-      return `show-${movieSlug}-${cinemaSlug}-${activeBooking.date || '2026-10-19'}-1`;
+      return generateCanonicalShowtimeId(
+        activeBooking.movie.id,
+        activeBooking.cinema.id,
+        activeBooking.date || '2026-10-15',
+        activeBooking.time || '04:30 PM'
+      );
     }
 
     return 'show-1';
-  }, [queryShowtimeId, activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id, activeBooking.date]);
+  }, [queryShowtimeId, activeBooking.showtimeId, activeBooking.movie?.id, activeBooking.cinema?.id, activeBooking.date, activeBooking.time]);
 
   // Load seats from backend & connect to real-time WebSockets with polling fallback
   useEffect(() => {

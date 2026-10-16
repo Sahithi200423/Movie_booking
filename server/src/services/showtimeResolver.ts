@@ -1,6 +1,12 @@
 import { prisma } from '../prisma.js';
 import { db } from '../db.js';
-import { parseShowtimeToISTInstant, formatToISODate, isPastShowtime } from '../utils/dateUtils.js';
+import {
+  parseShowtimeToISTInstant,
+  formatToISODate,
+  isPastShowtime,
+  generateCanonicalShowtimeId,
+  parseShowtimeId
+} from '../utils/dateUtils.js';
 
 /**
  * Resolves the showtime the customer actually picked (movie + theatre + date + time)
@@ -32,6 +38,7 @@ export interface ResolveShowtimeInput {
   format?: string;
   hall?: string;
   language?: string;
+  requestedId?: string;
 }
 
 async function ensureMovie(input: ResolveShowtimeInput) {
@@ -141,19 +148,51 @@ export async function resolveShowtime(input: ResolveShowtimeInput) {
   const movie = await ensureMovie(input);
   const screen = await ensureScreen(input);
 
-  const existing = await prisma.showtime.findFirst({
-    where: { movieId: movie.id, screenId: screen.id, date: normalizedDate, time: normalizedTime },
+  const canonicalId = generateCanonicalShowtimeId(movie.id, screen.theatreId || input.cinemaId || 'cin', normalizedDate, normalizedTime);
+  const targetId = input.requestedId || canonicalId;
+
+  // 1. Check if showtime already exists by exact targetId
+  let existing = await prisma.showtime.findUnique({
+    where: { id: targetId },
     include: { movie: true, screen: { include: { theatre: true, seats: true } } }
   });
   if (existing) return existing;
 
-  const cinSlug = input.cinemaId.replace('cin-', '');
-  const movieSlug = movie.id.substring(0, 6);
-  const showId = `show-${movieSlug}-${cinSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+  // 2. Check if showtime exists by canonicalId
+  if (targetId !== canonicalId) {
+    existing = await prisma.showtime.findUnique({
+      where: { id: canonicalId },
+      include: { movie: true, screen: { include: { theatre: true, seats: true } } }
+    });
+    if (existing) return existing;
+  }
 
-  return prisma.showtime.create({
+  // 3. Check if showtime exists by screen, date, time
+  existing = await prisma.showtime.findFirst({
+    where: { movieId: movie.id, screenId: screen.id, date: normalizedDate, time: normalizedTime },
+    include: { movie: true, screen: { include: { theatre: true, seats: true } } }
+  });
+  if (existing) {
+    // If it has an old non-canonical ID, update its ID to targetId if feasible
+    if (existing.id !== targetId && existing.id.startsWith('show-') && targetId.startsWith('show-')) {
+      try {
+        const updated = await prisma.showtime.update({
+          where: { id: existing.id },
+          data: { id: targetId },
+          include: { movie: true, screen: { include: { theatre: true, seats: true } } }
+        });
+        return updated;
+      } catch (e) {
+        return existing;
+      }
+    }
+    return existing;
+  }
+
+  // 4. Create new showtime with deterministic targetId
+  const created = await prisma.showtime.create({
     data: {
-      id: showId,
+      id: targetId,
       movieId: movie.id,
       cinemaId: screen.theatreId,
       screenId: screen.id,
@@ -167,6 +206,27 @@ export async function resolveShowtime(input: ResolveShowtimeInput) {
     },
     include: { movie: true, screen: { include: { theatre: true, seats: true } } }
   });
+
+  // Also register in memory db so sync functions find it immediately
+  try {
+    const existingDb = db.getShowtimeById(created.id);
+    if (!existingDb) {
+      db.addShowtime?.({
+        id: created.id,
+        movieId: created.movieId!,
+        cinemaId: created.cinemaId!,
+        screenId: created.screenId!,
+        date: created.date,
+        time: created.time,
+        format: created.format,
+        hall: created.hall || created.hallName,
+        language: created.language,
+        priceMultiplier: 1.0
+      });
+    }
+  } catch (e) {}
+
+  return created;
 }
 
 /** Strict lookup: returns the Prisma showtime with seats, or throws 404. Never falls back. */
@@ -192,6 +252,9 @@ export interface EnsureShowtimeHint {
 
 /** Resolves any showtimeId (from db.ts or custom) to an active Prisma showtime with seats */
 export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShowtimeHint) {
+  if (!showtimeId || typeof showtimeId !== 'string') return null;
+
+  // 1. Direct Prisma primary-key lookup
   let showtime = await prisma.showtime.findUnique({
     where: { id: showtimeId },
     include: { movie: true, screen: { include: { theatre: true, seats: true } } }
@@ -224,15 +287,11 @@ export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShow
     return showtime;
   }
 
+  // 2. Check in-memory store
   const dbShow = db.getShowtimeById(showtimeId);
   if (dbShow) {
     const movie = db.getMovieById(dbShow.movieId);
     const cinema = db.getCinemas().find(c => c.id === dbShow.cinemaId);
-    
-    // Determine target date (prefer hint date if provided)
-    const targetDate = hint?.date || dbShow.date;
-    const targetTime = hint?.time || dbShow.time;
-
     return await resolveShowtime({
       movieId: dbShow.movieId,
       movieTitle: movie?.title,
@@ -243,12 +302,94 @@ export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShow
       hall: dbShow.hall,
       format: dbShow.format,
       language: dbShow.language,
-      date: targetDate,
-      time: targetTime
+      date: hint?.date || dbShow.date,
+      time: hint?.time || dbShow.time,
+      requestedId: showtimeId
     });
   }
 
-  // Fallback match: if frontend generated a synthetic ID (e.g. show-kalki--pvr--1 or show-rudra-phoenix-2026-10-19-0430PM)
+  // 3. Parse showtimeId structure & merge with hint
+  const parsed = parseShowtimeId(showtimeId);
+  const targetDate = hint?.date || parsed.date;
+  const targetTime = hint?.time || parsed.time;
+  const targetMovieId = hint?.movieId || parsed.movieId;
+
+  if (targetDate && targetTime) {
+    // Search Prisma showtimes for matching date & time
+    const showsOnDate = await prisma.showtime.findMany({
+      where: {
+        date: targetDate,
+        time: targetTime
+      },
+      include: { movie: true, screen: { include: { theatre: true, seats: true } } }
+    });
+
+    if (showsOnDate.length > 0) {
+      let matched = showsOnDate.find(s => {
+        const mMatch = !targetMovieId || s.movieId === targetMovieId || s.movieId?.includes(targetMovieId) || targetMovieId.includes(s.movieId || '');
+        const cMatch = !hint?.cinemaId || s.cinemaId === hint.cinemaId || s.screen?.theatreId === hint.cinemaId;
+        return mMatch && cMatch;
+      });
+
+      if (!matched && targetMovieId) {
+        matched = showsOnDate.find(s => s.movieId === targetMovieId || s.movieId?.includes(targetMovieId) || targetMovieId.includes(s.movieId || ''));
+      }
+
+      if (matched) {
+        // If matched has a different ID, try to update its ID to showtimeId
+        if (matched.id !== showtimeId && showtimeId.startsWith('show-')) {
+          try {
+            const updated = await prisma.showtime.update({
+              where: { id: matched.id },
+              data: { id: showtimeId },
+              include: { movie: true, screen: { include: { theatre: true, seats: true } } }
+            });
+            return updated;
+          } catch (e) {
+            return matched;
+          }
+        }
+        return matched;
+      }
+    }
+
+    // If not yet in Prisma, resolve with known movie & cinema
+    const knownMovies = db.getMovies();
+    const movieObj = targetMovieId
+      ? (knownMovies.find(m => m.id === targetMovieId || m.id.includes(targetMovieId) || targetMovieId.includes(m.id)) ||
+         await prisma.movie.findFirst({ where: { OR: [{ id: targetMovieId }, { title: { contains: targetMovieId, mode: 'insensitive' } }] } }))
+      : null;
+
+    const knownCinemas = db.getCinemas();
+    let cinemaObj = hint?.cinemaId
+      ? (knownCinemas.find(c => c.id === hint.cinemaId) || await prisma.theatre.findFirst({ where: { id: hint.cinemaId } }))
+      : null;
+
+    if (!cinemaObj && parsed.cinemaSlug) {
+      cinemaObj = knownCinemas.find(c => c.id.includes(parsed.cinemaSlug!) || c.name.toLowerCase().includes(parsed.cinemaSlug!)) ||
+                  await prisma.theatre.findFirst({ where: { OR: [{ id: { contains: parsed.cinemaSlug } }, { name: { contains: parsed.cinemaSlug, mode: 'insensitive' } }] } });
+    }
+
+    if (!cinemaObj) {
+      cinemaObj = knownCinemas[0] || (await prisma.theatre.findFirst());
+    }
+
+    if (movieObj && cinemaObj) {
+      return await resolveShowtime({
+        movieId: movieObj.id,
+        movieTitle: movieObj.title,
+        cinemaId: cinemaObj.id,
+        cinemaName: cinemaObj.name,
+        city: cinemaObj.city,
+        address: cinemaObj.address,
+        date: targetDate,
+        time: targetTime,
+        requestedId: showtimeId
+      });
+    }
+  }
+
+  // 4. Fallback match for legacy candidate IDs
   const candidate = db.getShowtimes().find(s =>
     showtimeId.includes(s.movieId.substring(0, 5)) &&
     (showtimeId.includes(s.cinemaId.substring(0, 5)) || showtimeId.includes(s.cinemaId.replace('cin-', '').substring(0, 5)))
@@ -258,19 +399,17 @@ export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShow
     const movie = db.getMovieById(candidate.movieId);
     const cinema = db.getCinemas().find(c => c.id === candidate.cinemaId);
 
-    // Extract embedded ISO date if present in showtimeId (e.g. 2026-10-19)
     const dateMatch = showtimeId.match(/(\d{4}-\d{2}-\d{2})/);
     const timeMatch = showtimeId.match(/(1[0-2]|0?[1-9])([0-5][0-9])([AP]M)/i);
 
-    let targetDate = hint?.date || (dateMatch ? dateMatch[1] : undefined);
-    let targetTime = hint?.time || (timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]} ${timeMatch[3].toUpperCase()}` : candidate.time);
+    let resolvedDate = hint?.date || (dateMatch ? dateMatch[1] : undefined);
+    let resolvedTime = hint?.time || (timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]} ${timeMatch[3].toUpperCase()}` : candidate.time);
 
-    if (!targetDate) {
-      if (isPastShowtime(candidate.date, targetTime)) {
-        // Candidate was an old seeded past date (e.g. Oct 4, 2026); resolve for current IST date
-        targetDate = formatToISODate(new Date());
+    if (!resolvedDate) {
+      if (isPastShowtime(candidate.date, resolvedTime)) {
+        resolvedDate = formatToISODate(new Date());
       } else {
-        targetDate = candidate.date;
+        resolvedDate = candidate.date;
       }
     }
 
@@ -284,8 +423,9 @@ export async function ensurePrismaShowtime(showtimeId: string, hint?: EnsureShow
       hall: candidate.hall,
       format: candidate.format,
       language: candidate.language,
-      date: targetDate,
-      time: targetTime
+      date: resolvedDate,
+      time: resolvedTime,
+      requestedId: showtimeId
     });
   }
 

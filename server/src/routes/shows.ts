@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db.js';
 import { prisma } from '../prisma.js';
-import { resolveShowtime } from '../services/showtimeResolver.js';
+import { resolveShowtime, ensurePrismaShowtime } from '../services/showtimeResolver.js';
 import { seatReservationService } from '../services/seatReservationService.js';
 
 const router = Router();
@@ -17,13 +17,47 @@ router.post('/resolve', async (req: Request, res: Response) => {
 });
 
 // GET /api/shows
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   const { movieId, cinemaId, date } = req.query;
   let showtimes = db.getShowtimes(
     movieId as string,
     cinemaId as string,
     date as string
   );
+
+  // Augment with showtimes from Prisma if available
+  try {
+    const where: any = {};
+    if (movieId) where.movieId = movieId as string;
+    if (cinemaId) where.cinemaId = cinemaId as string;
+    if (date) where.date = date as string;
+
+    const prismaShows = await prisma.showtime.findMany({
+      where,
+      include: { movie: true, screen: { include: { theatre: true } } }
+    });
+
+    if (prismaShows.length > 0) {
+      const existingIds = new Set(showtimes.map(s => s.id));
+      for (const ps of prismaShows) {
+        if (!existingIds.has(ps.id)) {
+          showtimes.push({
+            id: ps.id,
+            movieId: ps.movieId!,
+            cinemaId: ps.cinemaId!,
+            screenId: ps.screenId!,
+            date: ps.date,
+            time: ps.time,
+            format: ps.format,
+            hall: ps.hall || ps.hallName,
+            language: ps.language,
+            priceMultiplier: Number(ps.priceMultiplier) || 1.0
+          });
+          existingIds.add(ps.id);
+        }
+      }
+    }
+  } catch (e) {}
 
   if (showtimes.length === 0) {
     if (cinemaId) {
@@ -47,11 +81,8 @@ router.get('/', (req: Request, res: Response) => {
 // GET /api/shows/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    // 1. Primary check: Prisma Supabase database
-    const prismaShow = await prisma.showtime.findUnique({
-      where: { id: req.params.id },
-      include: { movie: true, screen: { include: { theatre: true } } }
-    });
+    // 1. Primary check: Prisma Supabase database via canonical resolver
+    const prismaShow = await ensurePrismaShowtime(req.params.id);
 
     if (prismaShow) {
       const showData = {

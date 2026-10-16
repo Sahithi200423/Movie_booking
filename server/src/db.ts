@@ -34,10 +34,12 @@ export interface ShowtimeEntity {
   id: string;
   movieId: string;
   cinemaId: string;
+  screenId?: string;
   date: string;
   time: string;
   format: string;
   hall: string;
+  hallName?: string;
   language: string;
   priceMultiplier: number;
 }
@@ -669,7 +671,7 @@ class Database {
     city?: string;
     status?: string;
     search?: string;
-  }): MovieSeed[] {
+  } = {}): MovieSeed[] {
     return this.movies.filter(movie => {
       // Language filter
       if (filters.language && filters.language !== 'All Languages') {
@@ -1195,7 +1197,12 @@ class Database {
       const movieSlug = (show.movieId || 'mov').substring(0, 6);
       show.id = `show-${movieSlug}-${cinSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
     }
-    this.showtimes.push(show);
+    const existingIndex = this.showtimes.findIndex(s => s.id === show.id);
+    if (existingIndex >= 0) {
+      this.showtimes[existingIndex] = show;
+    } else {
+      this.showtimes.push(show);
+    }
     this.saveToDisk();
 
     if (this.isPostgres && this.pgPool) {

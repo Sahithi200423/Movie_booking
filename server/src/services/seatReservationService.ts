@@ -140,15 +140,11 @@ export class SeatReservationService {
   }) {
     const { showtimeId, seatNumbers, sessionId } = params;
 
-    const showtime = await prisma.showtime.findUnique({
-      where: { id: showtimeId },
-      include: { screen: { include: { seats: true } } }
-    });
-
-    const targetShowtimeId = showtimeId;
+    const showtime = await ensurePrismaShowtime(showtimeId);
+    const targetShowtimeId = showtime ? showtime.id : showtimeId;
 
     let whereClause: any = {
-      showtimeId: targetShowtimeId,
+      showtimeId: { in: [targetShowtimeId, showtimeId] },
       heldBy: sessionId,
       status: { in: ['HELD', 'LOCKED'] }
     };

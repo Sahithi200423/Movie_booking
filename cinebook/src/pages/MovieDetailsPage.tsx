@@ -36,8 +36,8 @@ import {
   resolveShowtimeApi
 } from '../services/api';
 import { formatToISODate, generateCanonicalShowtimeId } from '../utils/dateUtils';
-import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { useMovieBackdropColor } from '../hooks/useMovieBackdropColor';
+import { use3DTilt } from '../hooks/use3DTilt';
 
 const RATING_DESCRIPTIONS: Record<number, string> = {
   1: 'Disappointing (1/10)',
@@ -67,6 +67,56 @@ export const MovieDetailsPage: React.FC = () => {
 
   // Dynamic movie-adaptive color extraction
   const { colors } = useMovieBackdropColor(movie);
+
+  // 3D Perspective Tilt on Movie Poster Card
+  const {
+    cardRef: posterCardRef,
+    glareRef: posterGlareRef,
+    onMouseMove: onPosterMouseMove,
+    onMouseEnter: onPosterMouseEnter,
+    onMouseLeave: onPosterMouseLeave,
+    onFocus: onPosterFocus,
+    onBlur: onPosterBlur,
+  } = use3DTilt({
+    maxTiltDeg: 6,
+    perspective: 1000,
+    scale: 1.025,
+    glare: true,
+    returnSpeed: 450,
+  });
+
+  // Parallax depth on hero backdrop (automatically disabled on mobile / touch / prefers-reduced-motion)
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const isTouch = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = window.innerWidth < 768;
+
+    if (isTouch || prefersReduced || isMobile) {
+      return;
+    }
+
+    let rafId: number | null = null;
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        if (currentY <= 700) {
+          setScrollY(currentY);
+        }
+        rafId = null;
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   // Generate rolling dates for upcoming week (All scheduled dates have active shows)
   const availableDates = useMemo(() => {
@@ -349,240 +399,326 @@ export const MovieDetailsPage: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen pb-20 bg-[var(--cinema-bg-base)] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen pb-20 bg-[var(--cinema-bg-base)] text-slate-900 dark:text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
       
-      {/* 1. HERO BACKDROP BANNER WITH DYNAMIC AMBIENT LIGHTING */}
-      <div className="relative w-full h-[360px] sm:h-[460px] overflow-hidden bg-[var(--cinema-bg-base)] border-b border-white/10">
-        <AmbientBackdrop
-          colors={colors}
-          backdropUrl={movie.backdropUrl}
-          intensity="intense"
-        />
+      {/* 1. CINEMATIC HERO SECTION WITH DYNAMIC PARALLAX & AMBIENT BACKDROP */}
+      <section className="relative w-full overflow-hidden border-b border-slate-200/60 dark:border-white/10 pt-4 sm:pt-6 pb-10 sm:pb-14 transition-colors duration-500">
         
-        {/* Back navigation button */}
-        <div className="absolute top-6 left-4 sm:left-8 z-10 flex items-center gap-3">
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl backdrop-blur-md bg-[#1C1F2B]/90 border border-white/10 text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#222634] transition-colors shadow-md"
-          >
-            <ChevronLeft className="w-4 h-4 text-blue-400" />
-            <span>{t.nav.movies}</span>
-          </Link>
-        </div>
-
-        {/* Watch Trailer CTA in Hero Banner */}
-        <div className="absolute bottom-6 right-4 sm:right-8 z-10">
-          <button
-            onClick={() => setShowTrailerModal(true)}
-            className="flex items-center gap-2.5 px-5 py-3 rounded-2xl backdrop-blur-md bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-xl hover:scale-105 transition-all cursor-pointer border border-white/20"
+        {/* Layer A: Authentic Movie Backdrop with Parallax Depth & Multi-Layer Gradients */}
+        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden z-0" aria-hidden="true">
+          
+          {/* A1. High-Resolution Cinematic Backdrop Image with Subtle Parallax Depth */}
+          <div
+            className="absolute -top-12 -bottom-12 -left-4 -right-4 transition-transform duration-100 ease-out transform-gpu"
             style={{
-              boxShadow: `0 12px 30px -4px ${colors.glow}`,
+              transform: scrollY > 0 ? `translate3d(0, ${Math.round(scrollY * 0.22)}px, 0)` : 'none',
+              willChange: scrollY > 0 ? 'transform' : 'auto',
             }}
           >
-            <Play className="w-4 h-4 fill-white text-white" />
-            <span>Watch Trailer</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. MOVIE MAIN INFO CONTAINER */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-36 sm:-mt-52 relative z-10">
-        <div className="flex flex-col md:flex-row gap-8 items-start">
-          
-          {/* Movie Poster */}
-          <div className="w-48 sm:w-64 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-[#14161F] shrink-0 mx-auto md:mx-0 relative group">
             <img
-              src={movie.posterUrl}
-              alt={movie.title}
-              className="w-full h-full object-cover"
+              src={movie.backdropUrl || movie.posterUrl}
+              alt=""
+              loading="eager"
+              decoding="async"
+              className="w-full h-full object-cover object-top md:object-[center_20%] opacity-30 dark:opacity-50 brightness-95 dark:brightness-85 contrast-105 saturate-125 filter blur-[0.5px] scale-105"
             />
-            {/* Play Trailer Overlay on Poster */}
+          </div>
+
+          {/* A2. Dynamic Movie-Adaptive Ambient Mesh Spotlight */}
+          <div
+            className="absolute inset-0 opacity-60 dark:opacity-85 transition-all duration-700 transform-gpu"
+            style={{
+              background:
+                colors?.meshGradient ||
+                `radial-gradient(ellipse 90% 60% at 50% -10%, ${colors?.glow || 'rgba(59, 130, 246, 0.25)'} 0%, transparent 75%)`,
+            }}
+          />
+
+          {/* A3. Off-Axis Secondary Atmospheric Aura */}
+          <div
+            className="absolute -top-24 -right-24 w-[32rem] h-[32rem] rounded-full blur-[120px] opacity-25 dark:opacity-40 transition-all duration-700 pointer-events-none"
+            style={{
+              backgroundColor: colors?.secondary || '#8B5CF6',
+            }}
+          />
+
+          {/* A4. Directional Horizontal Fade (Guarantees 100% WCAG AAA Text Contrast in Both Dark & Light) */}
+          <div className="hidden md:block absolute inset-0 bg-gradient-to-r from-[var(--cinema-bg-base)] via-[var(--cinema-bg-base)]/90 via-55% to-transparent" />
+          
+          {/* Mobile Overlay: Solid contrast gradient for compact viewports */}
+          <div className="md:hidden absolute inset-0 bg-gradient-to-b from-[var(--cinema-bg-base)]/80 via-[var(--cinema-bg-base)]/95 to-[var(--cinema-bg-base)]" />
+
+          {/* A5. Top and Bottom Seamless Vignettes */}
+          <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[var(--cinema-bg-base)]/90 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[var(--cinema-bg-base)] via-[var(--cinema-bg-base)]/80 to-transparent" />
+        </div>
+
+        {/* Layer B: Main Hero Content */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Top Navigation & Action Row */}
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl backdrop-blur-md bg-white/80 dark:bg-[#1C1F2B]/90 border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:border-blue-500/50 transition-all shadow-sm cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+              <span>{t.nav.movies}</span>
+            </Link>
+
             <button
               onClick={() => setShowTrailerModal(true)}
-              className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all cursor-pointer backdrop-blur-[2px]"
-              title="Watch Trailer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md bg-blue-600/90 hover:bg-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-600/25 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-white/20"
+              style={{
+                boxShadow: `0 8px 24px -4px ${colors.glow}`,
+              }}
             >
-              <div className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl shadow-blue-600/50 group-hover:scale-110 transition-transform">
-                <Play className="w-6 h-6 fill-white text-white ml-0.5" />
-              </div>
-            </button>
-            {/* Watchlist toggle overlay */}
-            <button
-              onClick={handleToggleFavorite}
-              className={`absolute top-3 right-3 p-2.5 rounded-full backdrop-blur-md transition-all cursor-pointer shadow-lg ${
-                isFavorite
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-[#090A0F]/80 text-slate-300 hover:text-rose-400 hover:bg-[#090A0F]'
-              }`}
-              title={isFavorite ? 'Remove from Watchlist' : 'Add to Watchlist'}
-            >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+              <Play className="w-3.5 h-3.5 fill-white text-white" />
+              <span>Watch Trailer</span>
             </button>
           </div>
 
-          {/* Details Column */}
-          <div className="flex-1 space-y-4 text-center md:text-left">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-              <span className="px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider bg-blue-600 text-white shadow-sm">
-                {movie.status === 'now_showing' ? t.nav.nowShowing : t.nav.comingSoon}
-              </span>
-              <span className="px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#1C1F2B] border border-white/10 text-slate-200">
-                {movie.ageRating}
-              </span>
-              <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-blue-600/15 text-blue-300 border border-blue-500/30">
-                Original: {movie.language}
-              </span>
-            </div>
+          {/* Movie Presentation Grid (3D Poster + Details Column) */}
+          <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-start">
+            
+            {/* Left: 3D Perspective Tilt Movie Poster Card */}
+            <div className="perspective-1000 w-52 sm:w-64 lg:w-72 shrink-0 mx-auto md:mx-0 relative select-none">
+              
+              {/* Dynamic Back-Glow Halo matching movie ambient palette */}
+              <div
+                className="absolute -inset-3 rounded-3xl opacity-35 dark:opacity-50 blur-2xl transition-all duration-700 pointer-events-none"
+                style={{
+                  background: `radial-gradient(circle, ${colors.primary} 0%, ${colors.glow} 50%, transparent 80%)`,
+                }}
+                aria-hidden="true"
+              />
 
-            {/* Audio Dub Language Selector */}
-            {movie.languages && movie.languages.length > 0 && (
-              <div className="pt-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-                  Available Audio Tracks ({movie.languages.length}):
-                </span>
-                <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
-                  {movie.languages.map(lang => (
-                    <button
-                      key={lang}
-                      onClick={() => setSelectedAudioLanguage(lang)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                        selectedAudioLanguage === lang
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-102 font-bold'
-                          : 'bg-[#1C1F2B] border border-white/10 text-slate-300 hover:border-slate-700'
-                      }`}
-                    >
-                      {lang} {lang === movie.language && '(Original)'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-              {movie.title}
-            </h1>
-
-            <p className="text-base text-blue-300 font-medium italic">
-              "{movie.tagline}"
-            </p>
-
-            {/* Ratings & Metadata Bar */}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm text-slate-300 pt-1">
-              <div className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3.5 py-1.5 rounded-xl border border-white/10 shadow-sm">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                <span>{averageRating.toFixed(1)}</span>
-                <span className="text-xs text-slate-400 font-normal">({displayVotesCount})</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-[#1C1F2B] px-3.5 py-1.5 rounded-xl border border-white/10 text-slate-200">
-                <Clock className="w-4 h-4 text-blue-400" />
-                <span>{movie.duration}</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-[#1C1F2B] px-3.5 py-1.5 rounded-xl border border-white/10 text-slate-200">
-                <Calendar className="w-4 h-4 text-blue-400" />
-                <span>Released {movie.releaseDate}</span>
-              </div>
-              <button
-                onClick={() => setShowTrailerModal(true)}
-                className="flex items-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white px-3.5 py-1.5 rounded-xl border border-blue-500/30 text-sm font-semibold transition-colors cursor-pointer shadow-sm"
+              {/* 3D Tilt Card */}
+              <div
+                ref={posterCardRef}
+                onMouseMove={onPosterMouseMove}
+                onMouseEnter={onPosterMouseEnter}
+                onMouseLeave={onPosterMouseLeave}
+                onFocus={onPosterFocus}
+                onBlur={onPosterBlur}
+                className="relative aspect-[2/3] w-full rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-200 dark:border-white/15 bg-white dark:bg-[#14161F] group cursor-pointer preserve-3d transition-colors duration-300"
+                style={{ transformStyle: 'preserve-3d' }}
               >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Watch Trailer</span>
-              </button>
-            </div>
+                <img
+                  src={movie.posterUrl}
+                  alt={movie.title}
+                  loading="eager"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                />
 
-            {/* Genres */}
-            <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
-              {movie.genre.map(g => (
-                <span
-                  key={g}
-                  className="px-3.5 py-1 rounded-full text-xs font-semibold bg-[#1C1F2B] border border-white/10 text-slate-300"
+                {/* Subtle Cinematic Vignette */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-60 group-hover:opacity-40 transition-opacity pointer-events-none" />
+
+                {/* Specular Glare Reflection */}
+                <div
+                  ref={posterGlareRef}
+                  className="absolute inset-0 pointer-events-none opacity-0 z-20 transition-opacity"
+                  aria-hidden="true"
+                />
+
+                {/* Play Trailer Overlay on Poster */}
+                <button
+                  onClick={() => setShowTrailerModal(true)}
+                  className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all cursor-pointer backdrop-blur-[2px] z-20"
+                  title="Watch Official Trailer"
+                  style={{ transform: 'translateZ(20px)' }}
                 >
-                  {g}
-                </span>
-              ))}
-            </div>
-
-            {/* Storyline Synopsis */}
-            <div className="pt-2">
-              <h3 className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-1">
-                {t.movie.synopsis}
-              </h3>
-              <p className="text-sm leading-relaxed text-zinc-300 max-w-3xl">
-                {movie.synopsis}
-              </p>
-            </div>
-
-            {/* Director */}
-            <div className="text-xs text-slate-400">
-              <span className="font-semibold text-slate-200">Directed by:</span> {movie.director}
-            </div>
-
-            {/* Audience Reaction Metrics */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-950/40 via-[#14161F] to-emerald-950/30 border border-white/10 shadow-lg mt-4 text-left">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
-                    <ThumbsUp className="w-6 h-6" />
+                  <div className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl shadow-blue-600/50 group-hover:scale-110 transition-transform">
+                    <Play className="w-6 h-6 fill-white text-white ml-0.5" />
                   </div>
-                  <div>
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                        {movie.recommendPercent || 89}%
-                      </span>
-                      <span className="text-sm font-bold text-emerald-400">
-                        would recommend
-                      </span>
-                      <span className="text-xs text-slate-400 font-normal">
-                        ({movie.recommendVotes || '52,400+ votes'})
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Verified audience sentiment from real cinema ticket holders
-                    </p>
+                </button>
+
+                {/* Watchlist toggle overlay */}
+                <button
+                  onClick={handleToggleFavorite}
+                  className={`absolute top-3 right-3 z-30 p-2.5 rounded-full backdrop-blur-md transition-all cursor-pointer shadow-lg ${
+                    isFavorite
+                      ? 'bg-rose-500 text-white'
+                      : 'bg-black/70 text-slate-200 hover:text-rose-400 hover:bg-black/90'
+                  }`}
+                  style={{ transform: 'translateZ(24px)' }}
+                  title={isFavorite ? 'Remove from Watchlist' : 'Add to Watchlist'}
+                >
+                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Details Column with Adaptive Dark/Light Typography */}
+            <div className="flex-1 space-y-4 text-center md:text-left">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <span className="px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider bg-blue-600 text-white shadow-sm">
+                  {movie.status === 'now_showing' ? t.nav.nowShowing : t.nav.comingSoon}
+                </span>
+                <span className="px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 shadow-sm dark:shadow-none">
+                  {movie.ageRating}
+                </span>
+                <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-300 border border-blue-500/20">
+                  Original: {movie.language}
+                </span>
+              </div>
+
+              {/* Audio Dub Language Selector */}
+              {movie.languages && movie.languages.length > 0 && (
+                <div className="pt-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5">
+                    Available Audio Tracks ({movie.languages.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+                    {movie.languages.map(lang => (
+                      <button
+                        key={lang}
+                        onClick={() => setSelectedAudioLanguage(lang)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          selectedAudioLanguage === lang
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-102 font-bold'
+                            : 'bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-700 shadow-sm dark:shadow-none'
+                        }`}
+                      >
+                        {lang} {lang === movie.language && '(Original)'}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                {/* Sentiment tags */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 font-medium">
-                    🍿 Visual Spectacle
+              {/* Movie Title */}
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                {movie.title}
+              </h1>
+
+              {/* Tagline */}
+              <p className="text-base text-blue-600 dark:text-blue-300 font-semibold italic">
+                "{movie.tagline}"
+              </p>
+
+              {/* Ratings & Metadata Bar */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm pt-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-500 dark:text-amber-400 bg-white dark:bg-[#14161F] px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+                  <Star className="w-4 h-4 fill-amber-500 dark:fill-amber-400 text-amber-500 dark:text-amber-400" />
+                  <span>{averageRating.toFixed(1)}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">({displayVotesCount})</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white dark:bg-[#1C1F2B] px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 shadow-sm dark:shadow-none">
+                  <Clock className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                  <span>{movie.duration}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white dark:bg-[#1C1F2B] px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 shadow-sm dark:shadow-none">
+                  <Calendar className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                  <span>Released {movie.releaseDate}</span>
+                </div>
+                <button
+                  onClick={() => setShowTrailerModal(true)}
+                  className="flex items-center gap-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-white px-3.5 py-1.5 rounded-xl border border-blue-500/30 text-sm font-semibold transition-colors cursor-pointer shadow-sm"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Watch Trailer</span>
+                </button>
+              </div>
+
+              {/* Genres */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
+                {movie.genre.map(g => (
+                  <span
+                    key={g}
+                    className="px-3.5 py-1 rounded-full text-xs font-semibold bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 shadow-sm dark:shadow-none"
+                  >
+                    {g}
                   </span>
-                  <span className="text-[11px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 font-medium">
-                    ⚡ Edge-of-the-seat
-                  </span>
-                  <span className="text-[11px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 font-medium">
-                    🎶 Stellar BGM
-                  </span>
+                ))}
+              </div>
+
+              {/* Storyline Synopsis */}
+              <div className="pt-2">
+                <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  {t.movie.synopsis}
+                </h3>
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-zinc-300 max-w-3xl">
+                  {movie.synopsis}
+                </p>
+              </div>
+
+              {/* Director */}
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">Directed by:</span> {movie.director}
+              </div>
+
+              {/* Audience Reaction Metrics */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white/80 dark:bg-gradient-to-r dark:from-blue-950/40 dark:via-[#14161F] dark:to-emerald-950/30 border border-slate-200 dark:border-white/10 shadow-lg mt-4 text-left backdrop-blur-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 shadow-inner">
+                      <ThumbsUp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                          {movie.recommendPercent || 89}%
+                        </span>
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                          would recommend
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
+                          ({movie.recommendVotes || '52,400+ votes'})
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Verified audience sentiment from real cinema ticket holders
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sentiment tags */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-medium">
+                      🍿 Visual Spectacle
+                    </span>
+                    <span className="text-[11px] px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-medium">
+                      ⚡ Edge-of-the-seat
+                    </span>
+                    <span className="text-[11px] px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-medium">
+                      🎶 Stellar BGM
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </section>
+
+      {/* 2. MAIN CONTENT CONTAINER (Cast, Showtimes & Reviews) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* 3. CAST & CREW (Horizontal Scrolling Carousel) */}
-        <section className="mt-14 pt-8 border-t border-white/10">
+        <section className="pt-10 sm:pt-14 pb-8 border-b border-slate-200/60 dark:border-white/10">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-400" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                 <span>Cast & Crew</span>
-                <span className="text-xs text-slate-400 font-normal">({movie.cast.length})</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">({movie.cast.length})</span>
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Actors and technical crew behind the production</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Actors and technical crew behind the production</p>
             </div>
 
             {/* Carousel navigation buttons */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => scrollCast('left')}
-                className="w-9 h-9 rounded-full bg-[#1C1F2B] border border-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:border-blue-500 transition-colors cursor-pointer shadow-sm"
+                className="w-9 h-9 rounded-full bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-blue-500 transition-colors cursor-pointer shadow-sm"
                 title="Scroll left"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => scrollCast('right')}
-                className="w-9 h-9 rounded-full bg-[#1C1F2B] border border-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:border-blue-500 transition-colors cursor-pointer shadow-sm"
+                className="w-9 h-9 rounded-full bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-blue-500 transition-colors cursor-pointer shadow-sm"
                 title="Scroll right"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -597,19 +733,19 @@ export const MovieDetailsPage: React.FC = () => {
             {movie.cast.map(c => (
               <div
                 key={c.name}
-                className="min-w-[170px] sm:min-w-[190px] max-w-[190px] flex flex-col items-center text-center p-4 rounded-2xl border border-white/10 bg-[#14161F] shadow-md hover:border-blue-500/40 hover:-translate-y-1 transition-all group shrink-0"
+                className="min-w-[170px] sm:min-w-[190px] max-w-[190px] flex flex-col items-center text-center p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-sm hover:border-blue-500/40 hover:-translate-y-1 transition-all group shrink-0"
               >
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-white/15 group-hover:border-blue-500 transition-colors shadow-lg mb-3">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-slate-200 dark:border-white/15 group-hover:border-blue-500 transition-colors shadow-md mb-3">
                   <img
                     src={c.avatar}
                     alt={c.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
-                <h4 className="font-bold text-sm text-white truncate w-full" title={c.name}>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate w-full" title={c.name}>
                   {c.name}
                 </h4>
-                <p className="text-xs text-blue-400 truncate w-full mt-0.5" title={c.role}>
+                <p className="text-xs text-blue-600 dark:text-blue-400 truncate w-full mt-0.5" title={c.role}>
                   {c.role}
                 </p>
               </div>
@@ -618,14 +754,14 @@ export const MovieDetailsPage: React.FC = () => {
         </section>
 
         {/* 4. SHOWTIMES & THEATRE BOOKING PANEL */}
-        <section id="showtimes" className="mt-14 pt-8 border-t border-white/10 scroll-mt-24">
+        <section id="showtimes" className="pt-10 sm:pt-14 scroll-mt-24">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-2xl font-black text-white flex items-center gap-2">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Ticket className="w-6 h-6 text-blue-500" />
                 <span>Select Cinema & Showtimes</span>
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Showing auditoriums and available sessions in {currentCity}
               </p>
             </div>
@@ -842,54 +978,54 @@ export const MovieDetailsPage: React.FC = () => {
         </section>
 
         {/* 5. AUDIENCE REVIEWS & RATINGS */}
-        <section className="mt-14 pt-8 border-t border-white/10">
+        <section className="mt-14 pt-8 border-t border-slate-200/60 dark:border-white/10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-2xl font-black text-white flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-amber-400" />
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                 <span>{t.movie.reviewsTitle} ({reviews.length})</span>
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Verified cinema audience feedback, genuine critical scores, and community impressions
               </p>
             </div>
           </div>
 
           {/* Reviews Rating Overview Banner */}
-          <div className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[#14161F] via-[#161925] to-[#1A1D2B] mb-8 shadow-xl">
+          <div className="p-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-gradient-to-br dark:from-[#14161F] dark:via-[#161925] dark:to-[#1A1D2B] mb-8 shadow-sm dark:shadow-xl">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
               {/* Average Score */}
-              <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-6">
-                <div className="w-16 h-16 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex flex-col items-center justify-center shadow-lg shadow-amber-400/10 shrink-0">
-                  <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
-                  <span className="font-black text-amber-400 text-base leading-none mt-1 font-mono">
+              <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 pb-4 md:pb-0 md:pr-6">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex flex-col items-center justify-center shadow-md shadow-amber-500/10 shrink-0">
+                  <Star className="w-6 h-6 fill-amber-500 text-amber-500" />
+                  <span className="font-black text-amber-600 dark:text-amber-400 text-base leading-none mt-1 font-mono">
                     {averageRating.toFixed(1)}
                   </span>
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-base">Audience Score</span>
-                    <span className="text-xs text-amber-400 font-bold px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
+                    <span className="font-bold text-slate-900 dark:text-white text-base">Audience Score</span>
+                    <span className="text-xs text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
                       / 10
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Based on {reviews.length} audience reviews
                   </p>
                 </div>
               </div>
 
               {/* Recommendation Rate */}
-              <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-6">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex flex-col items-center justify-center shadow-lg shadow-emerald-500/10 text-emerald-400 shrink-0">
+              <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 pb-4 md:pb-0 md:pr-6">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex flex-col items-center justify-center shadow-md shadow-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
                   <ThumbsUp className="w-6 h-6" />
-                  <span className="font-black text-emerald-400 text-base leading-none mt-1 font-mono">
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-base leading-none mt-1 font-mono">
                     {recommendationRate}%
                   </span>
                 </div>
                 <div>
-                  <span className="font-bold text-white text-base">Recommended</span>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <span className="font-bold text-slate-900 dark:text-white text-base">Recommended</span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {recommendationRate}% of viewers rated this film 7 or higher
                   </p>
                 </div>
@@ -897,15 +1033,15 @@ export const MovieDetailsPage: React.FC = () => {
 
               {/* Live Realtime Sync */}
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex flex-col items-center justify-center shadow-lg shadow-blue-500/10 text-blue-400 shrink-0">
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex flex-col items-center justify-center shadow-md shadow-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                   <CheckCircle2 className="w-6 h-6" />
-                  <span className="font-black text-blue-400 text-[10px] leading-none mt-1 uppercase tracking-wider font-mono">
+                  <span className="font-black text-blue-600 dark:text-blue-400 text-[10px] leading-none mt-1 uppercase tracking-wider font-mono">
                     LIVE
                   </span>
                 </div>
                 <div>
-                  <span className="font-bold text-white text-base">Instant Feedback</span>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <span className="font-bold text-slate-900 dark:text-white text-base">Instant Feedback</span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Your rating immediately updates the live movie score
                   </p>
                 </div>
@@ -916,13 +1052,13 @@ export const MovieDetailsPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left 5 Cols: Submit Review Form */}
-            <div className="lg:col-span-5 p-6 rounded-2xl border border-white/10 bg-[#14161F] space-y-5 shadow-xl">
-              <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-blue-400" />
+            <div className="lg:col-span-5 p-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] space-y-5 shadow-sm dark:shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-3">
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-500" />
                   <span>Write a Movie Review</span>
                 </h4>
-                <span className="text-[11px] font-semibold text-slate-400">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   Scale: 1 – 10
                 </span>
               </div>
@@ -931,14 +1067,14 @@ export const MovieDetailsPage: React.FC = () => {
                 <div
                   className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs transition-all ${
                     reviewFeedbackType === 'success'
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-300'
                   }`}
                 >
                   {reviewFeedbackType === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                   )}
                   <span>{reviewFeedback}</span>
                 </div>
@@ -946,7 +1082,7 @@ export const MovieDetailsPage: React.FC = () => {
 
               <form onSubmit={handleReviewSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Your Name
                   </label>
                   <input
@@ -955,23 +1091,23 @@ export const MovieDetailsPage: React.FC = () => {
                     value={reviewName}
                     onChange={(e) => setReviewName(e.target.value)}
                     placeholder="Enter your name"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1F2B] border border-white/10 text-slate-200 text-xs outline-none focus:border-blue-500 transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 text-xs outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>
 
                 {/* Interactive 1 to 10 Star Rating Selector */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-semibold text-slate-300">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Rating (1 to 10 Stars)
                     </label>
-                    <span className="font-bold text-amber-400 text-xs px-2.5 py-0.5 rounded-lg bg-amber-400/10 border border-amber-400/20 font-mono">
+                    <span className="font-bold text-amber-500 dark:text-amber-400 text-xs px-2.5 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 font-mono">
                       ★ {(reviewHoverRating ?? reviewRating).toFixed(1)} / 10
                     </span>
                   </div>
 
                   {/* 10 Interactive Star Buttons */}
-                  <div className="grid grid-cols-10 gap-1 p-2 rounded-xl bg-[#1C1F2B] border border-white/10">
+                  <div className="grid grid-cols-10 gap-1 p-2 rounded-xl bg-slate-50 dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((starVal) => {
                       const activeScore = reviewHoverRating ?? reviewRating;
                       const isHighlighted = starVal <= activeScore;
@@ -984,16 +1120,16 @@ export const MovieDetailsPage: React.FC = () => {
                           onMouseLeave={() => setReviewHoverRating(null)}
                           className={`py-2 px-0.5 flex flex-col items-center justify-center rounded-lg transition-all duration-150 cursor-pointer ${
                             isHighlighted
-                              ? 'bg-amber-400/20 text-amber-400 scale-105 shadow-sm shadow-amber-400/10'
-                              : 'text-slate-600 hover:text-slate-300 hover:bg-white/5'
+                              ? 'bg-amber-400/20 text-amber-500 dark:text-amber-400 scale-105 shadow-sm shadow-amber-400/10'
+                              : 'text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5'
                           }`}
                           title={`${starVal}/10: ${RATING_DESCRIPTIONS[starVal]}`}
                         >
                           <Star
                             className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform ${
                               isHighlighted
-                                ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]'
-                                : 'text-slate-600'
+                                ? 'fill-amber-400 text-amber-500 dark:text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]'
+                                : 'text-slate-400 dark:text-slate-600'
                             }`}
                           />
                           <span className="text-[10px] font-mono font-bold mt-1">
@@ -1005,11 +1141,11 @@ export const MovieDetailsPage: React.FC = () => {
                   </div>
 
                   {/* Rating Description Label */}
-                  <div className="text-[11px] text-slate-400 mt-1.5 flex items-center justify-between px-1">
-                    <span className="text-amber-300/90 font-medium">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center justify-between px-1">
+                    <span className="text-amber-600 dark:text-amber-300/90 font-medium">
                       {RATING_DESCRIPTIONS[Math.round(reviewHoverRating ?? reviewRating)]}
                     </span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
                       Tap any star to rate
                     </span>
                   </div>
@@ -1018,7 +1154,7 @@ export const MovieDetailsPage: React.FC = () => {
                 {/* Review Text */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-300">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Written Review / Feedback
                     </label>
                     <span className="text-[10px] text-slate-400">
@@ -1031,7 +1167,7 @@ export const MovieDetailsPage: React.FC = () => {
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
                     placeholder="Share your thoughts on the story, acting, direction, cinematography, and overall cinema experience..."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#1C1F2B] border border-white/10 text-slate-200 text-xs outline-none focus:border-blue-500 resize-none transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 text-xs outline-none focus:border-blue-500 resize-none transition-colors"
                   />
                 </div>
 
@@ -1049,20 +1185,20 @@ export const MovieDetailsPage: React.FC = () => {
             {/* Right 7 Cols: Reviews List */}
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Audience Feedback ({reviews.length})
                 </span>
-                <span className="text-xs text-amber-400 font-semibold flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 fill-amber-400" />
+                <span className="text-xs text-amber-500 dark:text-amber-400 font-semibold flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-amber-500" />
                   Average: {averageRating.toFixed(1)} / 10
                 </span>
               </div>
 
               {reviews.length === 0 ? (
-                <div className="p-8 rounded-2xl border border-white/10 bg-[#14161F] text-center space-y-2">
-                  <MessageSquare className="w-8 h-8 text-slate-600 mx-auto" />
-                  <p className="text-sm font-semibold text-white">No reviews yet</p>
-                  <p className="text-xs text-slate-400">
+                <div className="p-8 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] text-center space-y-2 shadow-sm">
+                  <MessageSquare className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto" />
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No reviews yet</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Be the first verified moviegoer to leave a review and rating for {movie.title}!
                   </p>
                 </div>
@@ -1070,7 +1206,7 @@ export const MovieDetailsPage: React.FC = () => {
                 reviews.map(r => (
                   <div
                     key={r.id}
-                    className="p-5 rounded-2xl border border-white/10 bg-[#14161F] space-y-3 hover:border-white/20 transition-all shadow-lg"
+                    className="p-5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] space-y-3 hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-sm dark:shadow-lg"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -1079,24 +1215,24 @@ export const MovieDetailsPage: React.FC = () => {
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-sm text-white">{r.userName}</span>
-                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded font-medium">
+                            <span className="font-bold text-sm text-slate-900 dark:text-white">{r.userName}</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded font-medium">
                               Verified
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 block">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
                             {r.createdAt}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs bg-[#1C1F2B] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm font-mono">
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400 font-bold text-xs bg-slate-50 dark:bg-[#1C1F2B] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm font-mono">
+                        <Star className="w-3.5 h-3.5 fill-amber-500" />
                         <span>{r.rating.toFixed(1)} / 10</span>
                       </div>
                     </div>
 
-                    <p className="text-xs text-zinc-300 leading-relaxed italic bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                    <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed italic bg-slate-50 dark:bg-white/[0.02] p-3 rounded-xl border border-slate-200 dark:border-white/5">
                       "{r.comment}"
                     </p>
                   </div>

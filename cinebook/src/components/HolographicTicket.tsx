@@ -440,7 +440,7 @@ export const HolographicTicket: React.FC<HolographicTicketProps> = ({
         <div className="w-full flex items-center justify-between gap-3 pt-1 no-print">
           <Link
             to={`/scanner?ref=${bookingRef}`}
-            className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+            className="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
           >
             <span>Open Gate Scanner</span>
             <ExternalLink className="w-3 h-3" />
@@ -449,7 +449,7 @@ export const HolographicTicket: React.FC<HolographicTicketProps> = ({
           <button
             type="button"
             onClick={() => handleFlip(false)}
-            className="py-2.5 px-4 rounded-xl border border-white/10 bg-[#1C202F] hover:bg-[#252B3E] text-white text-xs font-bold transition-all cursor-pointer"
+            className="min-h-[44px] py-2.5 px-4 rounded-xl border border-white/10 bg-[#1C202F] hover:bg-[#252B3E] text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center"
           >
             Flip to Front ↺
           </button>
@@ -472,7 +472,7 @@ export const HolographicTicket: React.FC<HolographicTicketProps> = ({
           <button
             type="button"
             onClick={() => handleFlip(false)}
-            className={`px-3 py-1.5 rounded-full font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`min-h-[44px] px-3.5 py-2 rounded-full font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               !isFlipped
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'text-slate-400 hover:text-white'
@@ -484,7 +484,7 @@ export const HolographicTicket: React.FC<HolographicTicketProps> = ({
           <button
             type="button"
             onClick={() => handleFlip(true)}
-            className={`px-3 py-1.5 rounded-full font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`min-h-[44px] px-3.5 py-2 rounded-full font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
               isFlipped
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'text-slate-400 hover:text-white'
@@ -499,7 +499,7 @@ export const HolographicTicket: React.FC<HolographicTicketProps> = ({
           type="button"
           onClick={() => handleFlip(!isFlipped)}
           aria-label={isFlipped ? 'Flip back to movie details' : 'Flip to view QR code gatepass'}
-          className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer py-1 px-2.5 rounded-lg hover:bg-white/5"
+          className="min-h-[44px] flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer py-1.5 px-3 rounded-lg hover:bg-white/5"
         >
           <RotateCw className="w-3.5 h-3.5" />
           <span>{isFlipped ? 'Show Front' : 'Flip Ticket ↻'}</span>

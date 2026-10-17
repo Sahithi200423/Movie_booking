@@ -76,6 +76,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
             src={movie.posterUrl}
             alt={movie.title}
             loading={priority ? 'eager' : 'lazy'}
+            decoding="async"
             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
           />
 

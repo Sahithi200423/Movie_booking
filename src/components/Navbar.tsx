@@ -134,7 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
             {/* Search Trigger */}
             <button
               onClick={onOpenSearch}
-              className="min-w-[38px] sm:min-w-[44px] min-h-[38px] sm:min-h-[44px] flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
+              className="min-w-[36px] sm:min-w-[40px] md:min-w-[44px] min-h-[36px] sm:min-h-[40px] md:min-h-[44px] flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
               aria-label={t.nav.searchPlaceholder}
               title={`${t.nav.searchPlaceholder} (Press /)`}
             >
@@ -279,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
             {/* My Tickets Button */}
             <Link
               to="/my-tickets"
-              className="relative min-w-[38px] sm:min-w-[44px] min-h-[38px] sm:min-h-[44px] flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-full bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-md shadow-blue-600/25 cursor-pointer shrink-0"
+              className="relative min-w-[36px] sm:min-w-[40px] md:min-w-[44px] min-h-[36px] sm:min-h-[40px] md:min-h-[44px] flex items-center justify-center gap-1.5 p-2 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-full bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-md shadow-blue-600/25 cursor-pointer shrink-0"
               aria-label={t.nav.myTickets}
             >
               <Ticket className="w-4 h-4 fill-white" />
@@ -291,12 +291,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               )}
             </Link>
 
+            {/* Theme Toggle Button (Inward, right before Sign In / Profile dropdown) */}
+            <button
+              onClick={toggleTheme}
+              className="flex min-w-[36px] sm:min-w-[40px] md:min-w-[44px] min-h-[36px] sm:min-h-[40px] md:min-h-[44px] items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer shrink-0"
+              data-testid="theme-toggle"
+              aria-label={`Switch theme to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch theme to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400 transition-transform hover:rotate-45" />
+              ) : (
+                <Moon className="w-4 h-4 text-blue-600 transition-transform hover:-rotate-12" />
+              )}
+            </button>
+
             {/* Auth / Account Profile Dropdown (sm+) */}
             <div className="relative hidden sm:block">
               {isAuthenticated ? (
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="min-h-[44px] flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-colors cursor-pointer"
+                  className="min-h-[40px] md:min-h-[44px] flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-colors cursor-pointer"
                 >
                   <User className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                   <span className="hidden sm:inline max-w-[80px] truncate text-slate-900 dark:text-white font-semibold">{user?.name.split(' ')[0]}</span>
@@ -305,7 +320,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               ) : (
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="min-h-[44px] flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-colors cursor-pointer"
+                  className="min-h-[40px] md:min-h-[44px] flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-[#222634] shadow-sm dark:shadow-none transition-colors cursor-pointer"
                 >
                   <LogIn className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                   <span className="hidden sm:inline font-semibold">{t.nav.signIn}</span>
@@ -356,25 +371,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               )}
             </div>
 
-            {/* Theme Toggle Button (Visible on all screen sizes) */}
-            <button
-              onClick={toggleTheme}
-              className="flex min-w-[38px] sm:min-w-[44px] min-h-[38px] sm:min-h-[44px] items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer shrink-0"
-              data-testid="theme-toggle"
-              aria-label={`Switch theme to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              title={`Switch theme to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400 transition-transform hover:rotate-45" />
-              ) : (
-                <Moon className="w-4 h-4 text-blue-600 transition-transform hover:-rotate-12" />
-              )}
-            </button>
-
             {/* Mobile / Tablet Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="xl:hidden min-w-[38px] sm:min-w-[44px] min-h-[38px] sm:min-h-[44px] flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-sm dark:shadow-none"
+              className="xl:hidden min-w-[36px] sm:min-w-[40px] md:min-w-[44px] min-h-[36px] sm:min-h-[40px] md:min-h-[44px] flex items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-sm dark:shadow-none"
               aria-label="Toggle mobile menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

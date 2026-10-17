@@ -1,8 +1,13 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ==========================================================================
+   CineBook Version 2.0 — Premium Cinematic Design System Tokens
+   ========================================================================== */
+
 @layer base {
   :root {
+    /* Existing typography & base tokens (preserved for backward compatibility) */
     --font-sans: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --app-bg: #F8FAFC;
     --surface-card: #FFFFFF;
@@ -12,14 +17,78 @@
     --accent-blue: #2563EB;
     --accent-blue-light: #3B82F6;
     --accent-ice: #60A5FA;
+
+    /* Version 2.0 Light Palette */
+    --cinema-bg-base: #F8FAFC;
+    --cinema-surface-1: #FFFFFF;
+    --cinema-surface-2: #F1F5F9;
+    --cinema-surface-3: #E2E8F0;
+    --cinema-surface-4: #CBD5E1;
+    --cinema-border-subtle: #E2E8F0;
+    --cinema-border-card: #CBD5E1;
+    --cinema-border-glow: rgba(37, 99, 235, 0.25);
+
+    /* Cinematic Accents */
+    --cinema-primary: #2563EB;
+    --cinema-primary-light: #3B82F6;
+    --cinema-primary-glow: rgba(37, 99, 235, 0.25);
+    --cinema-cyan: #0284C7;
+    --cinema-cyan-glow: rgba(2, 132, 199, 0.25);
+    --cinema-gold: #D97706;
+    --cinema-gold-glow: rgba(217, 119, 6, 0.25);
+    --cinema-ruby: #E11D48;
+    --cinema-ruby-glow: rgba(225, 29, 72, 0.25);
+    --cinema-emerald: #059669;
+    --cinema-emerald-glow: rgba(5, 150, 105, 0.25);
+
+    /* Movie-Adaptive Ambient Defaults (Fallback) */
+    --movie-ambient-primary: #2563EB;
+    --movie-ambient-secondary: #7C3AED;
+    --movie-ambient-glow: rgba(37, 99, 235, 0.15);
+    --movie-ambient-mesh: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.15), transparent 70%);
+
+    /* 3D & Elevation Defaults */
+    --cinema-perspective: 1000px;
+    --cinema-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --cinema-ease-cinematic: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   html.dark, :root.dark {
-    --app-bg: #0B0C0E;
-    --surface-card: #14161F;
-    --surface-pill: #1C1F2B;
-    --border-subtle: rgba(255, 255, 255, 0.1);
-    --border-card: #222634;
+    /* Existing dark mode tokens (preserved for backward compatibility) */
+    --app-bg: #07080B;
+    --surface-card: #0E1017;
+    --surface-pill: #141722;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-card: #1C202F;
+
+    /* Version 2.0 Deep Obsidian & Charcoal Surfaces */
+    --cinema-bg-base: #07080B;
+    --cinema-surface-1: #0E1017;
+    --cinema-surface-2: #141722;
+    --cinema-surface-3: #1C202F;
+    --cinema-surface-4: #252B3E;
+    --cinema-border-subtle: rgba(255, 255, 255, 0.08);
+    --cinema-border-card: rgba(255, 255, 255, 0.12);
+    --cinema-border-glow: rgba(59, 130, 246, 0.35);
+
+    /* Cinematic Electric Accents */
+    --cinema-primary: #3B82F6;
+    --cinema-primary-light: #60A5FA;
+    --cinema-primary-glow: rgba(59, 130, 246, 0.35);
+    --cinema-cyan: #06B6D4;
+    --cinema-cyan-glow: rgba(6, 182, 212, 0.35);
+    --cinema-gold: #F59E0B;
+    --cinema-gold-glow: rgba(245, 158, 11, 0.35);
+    --cinema-ruby: #F43F5E;
+    --cinema-ruby-glow: rgba(244, 63, 94, 0.35);
+    --cinema-emerald: #10B981;
+    --cinema-emerald-glow: rgba(16, 185, 129, 0.35);
+
+    /* Movie-Adaptive Ambient Defaults (Fallback) */
+    --movie-ambient-primary: #3B82F6;
+    --movie-ambient-secondary: #8B5CF6;
+    --movie-ambient-glow: rgba(59, 130, 246, 0.25);
+    --movie-ambient-mesh: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.25), transparent 70%);
   }
 
   html {
@@ -35,6 +104,7 @@
     overflow-x: hidden;
     max-width: 100vw;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: var(--cinema-bg-base);
   }
 
   /* High contrast headings: white in dark mode, slate-900 in light mode */
@@ -50,34 +120,57 @@
   html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3, html:not(.dark) h4, html:not(.dark) h5, html:not(.dark) h6 {
     color: #0F172A;
   }
+
+  /* Universal Accessible Focus Rings */
+  :focus-visible {
+    outline: 2px solid var(--cinema-primary);
+    outline-offset: 2px;
+  }
 }
 
-/* Dark mode cinema screen glow effect */
-.cinema-screen-glow {
-  box-shadow: 0 10px 45px -5px rgba(37, 99, 235, 0.35), 0 0 30px rgba(96, 165, 250, 0.2);
+/* ==========================================================================
+   Refined Glassmorphism Utilities
+   ========================================================================== */
+
+.cinema-glass {
+  background: rgba(14, 16, 23, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.cinema-screen-curve {
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+html:not(.dark) .cinema-glass {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-/* Custom sleek subtle scrollbar */
-::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-::-webkit-scrollbar-track {
-  background: #090A0F;
-}
-::-webkit-scrollbar-thumb {
-  background: #222634;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3B82F6;
+.cinema-glass-card {
+  background: rgba(20, 23, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 16px 36px -10px rgba(0, 0, 0, 0.6);
 }
 
-/* Glassmorphism helpers */
+html:not(.dark) .cinema-glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 12px 30px -8px rgba(0, 0, 0, 0.08);
+}
+
+.cinema-glass-nav {
+  background: rgba(10, 12, 17, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html:not(.dark) .cinema-glass-nav {
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Backward compatibility aliases */
 .glass-panel {
   background: rgba(20, 22, 31, 0.85);
   backdrop-filter: blur(16px);
@@ -92,7 +185,158 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Print styles for digital ticket */
+/* ==========================================================================
+   CSS 3D Perspective & Transform Utilities
+   ========================================================================== */
+
+.perspective-500 {
+  perspective: 500px;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-2000 {
+  perspective: 2000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.flat-3d {
+  transform-style: flat;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.backface-visible {
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
+/* 3D Hardware Accelerated Card Base */
+.cinema-card-3d {
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+  transition: transform 300ms var(--cinema-ease-cinematic), box-shadow 300ms ease;
+}
+
+/* 3D Amphitheater Auditorium Perspective */
+.cinema-amphitheater-3d {
+  perspective: 1000px;
+  transform: rotateX(20deg);
+  transform-origin: center bottom;
+  transform-style: preserve-3d;
+}
+
+/* ==========================================================================
+   Atmospheric Depth & Glow Utilities
+   ========================================================================== */
+
+.cinema-depth-1 {
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+}
+
+.cinema-depth-2 {
+  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.55), 0 4px 8px -2px rgba(0, 0, 0, 0.4);
+}
+
+.cinema-depth-3 {
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.7), 0 8px 16px -4px rgba(0, 0, 0, 0.5);
+}
+
+.cinema-glow-primary {
+  box-shadow: 0 0 30px -4px var(--cinema-primary-glow);
+}
+
+.cinema-glow-cyan {
+  box-shadow: 0 0 30px -4px var(--cinema-cyan-glow);
+}
+
+.cinema-glow-gold {
+  box-shadow: 0 0 30px -4px var(--cinema-gold-glow);
+}
+
+.cinema-glow-ruby {
+  box-shadow: 0 0 30px -4px var(--cinema-ruby-glow);
+}
+
+.cinema-glow-emerald {
+  box-shadow: 0 0 30px -4px var(--cinema-emerald-glow);
+}
+
+/* Cinema Curved Screen Glow & Curve */
+.cinema-screen-glow {
+  box-shadow: 0 10px 45px -5px rgba(37, 99, 235, 0.35), 0 0 30px rgba(96, 165, 250, 0.2);
+}
+
+.cinema-screen-glow-v2 {
+  box-shadow: 0 12px 50px -4px rgba(6, 182, 212, 0.4), 0 0 35px rgba(59, 130, 246, 0.25);
+}
+
+.cinema-screen-curve {
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+
+/* Movie-Adaptive Ambient Mesh Canvas Layer */
+.cinema-ambient-mesh {
+  background: var(--movie-ambient-mesh);
+  transition: background 600ms ease;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Metallic Foil & Tier Accents
+   ========================================================================== */
+
+.cinema-gold-gradient {
+  background: linear-gradient(135deg, #FDE68A 0%, #D97706 50%, #78350F 100%);
+}
+
+.cinema-silver-gradient {
+  background: linear-gradient(135deg, #FFFFFF 0%, #94A3B8 50%, #334155 100%);
+}
+
+.cinema-gold-badge {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #FBBF24;
+}
+
+.cinema-silver-badge {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.15) 0%, rgba(71, 85, 105, 0.05) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #E2E8F0;
+}
+
+/* ==========================================================================
+   Subtle Sleek Scrollbar
+   ========================================================================== */
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #07080B;
+}
+::-webkit-scrollbar-thumb {
+  background: #1C202F;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3B82F6;
+}
+
+/* ==========================================================================
+   Print Styles for Digital Ticket
+   ========================================================================== */
+
 @media print {
   body * {
     visibility: hidden;
@@ -117,7 +361,10 @@
   }
 }
 
-/* Mobile and Touch scrolling utilities */
+/* ==========================================================================
+   Mobile & Touch Utilities
+   ========================================================================== */
+
 .touch-pan-x {
   touch-action: pan-x;
   -webkit-overflow-scrolling: touch;
@@ -132,3 +379,23 @@
   scrollbar-width: none;
 }
 
+/* ==========================================================================
+   Accessibility: Reduced Motion Protection
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .cinema-card-3d,
+  .cinema-amphitheater-3d {
+    transform: none !important;
+    perspective: none !important;
+  }
+}

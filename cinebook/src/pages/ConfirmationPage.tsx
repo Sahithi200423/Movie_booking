@@ -2,23 +2,16 @@ import React, { useState, useEffect, useMemo, Component, type ErrorInfo, type Re
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   CheckCircle2,
-  MapPin,
-  Film,
   Home,
-  ShieldCheck,
-  Tag,
   Ticket,
   AlertTriangle,
   Scan,
-  RefreshCw,
-  ExternalLink,
   Calendar,
   Share2,
   Download,
-  Popcorn,
   Check
 } from 'lucide-react';
-import QRCode from 'qrcode';
+import { HolographicTicket } from '../components/HolographicTicket';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
 import { getBookingByIdApi } from '../services/api';
@@ -80,7 +73,7 @@ class ConfirmationErrorBoundary extends Component<ErrorBoundaryProps, ErrorBound
 const ConfirmationContent: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { myBookings } = useBooking();
-  const { formatPrice, formatTime, isRTL } = useTranslation();
+  const { isRTL } = useTranslation();
 
   const rawId = searchParams.get('id');
   const isInvalidId = !rawId || rawId === 'undefined' || rawId === 'null' || rawId.trim() === '';
@@ -88,7 +81,6 @@ const ConfirmationContent: React.FC = () => {
 
   const [dbBooking, setDbBooking] = useState<any | null>(null);
   const [isLoadingDb, setIsLoadingDb] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
 
   // 1. Fetch real saved booking from Prisma SQLite Database via /api/bookings/:id
   useEffect(() => {
@@ -148,32 +140,6 @@ const ConfirmationContent: React.FC = () => {
 
     return null;
   }, [dbBooking, cleanId, myBookings]);
-
-  // Generate real scannable QR Code using qrcode
-  useEffect(() => {
-    if (!booking) return;
-
-    const bookingRef = booking.bookingRef || booking.bookingId || booking.id || 'BMS-DEMO';
-    const payload = booking.qrCodeData || booking.qrToken || JSON.stringify({
-      ref: bookingRef,
-      id: booking.id || cleanId,
-      movie: booking.movieTitle,
-      seats: (booking.seats || []).map((s: any) => s.id || s).join(', '),
-      date: booking.date,
-      time: booking.time
-    });
-
-    QRCode.toDataURL(typeof payload === 'string' ? payload : JSON.stringify(payload), {
-      width: 200,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    })
-      .then(url => setQrCodeDataUrl(url))
-      .catch(err => console.warn('QR code generation error:', err));
-  }, [booking, cleanId]);
 
   const [calendarSyncFeedback, setCalendarSyncFeedback] = useState<string | null>(null);
 
@@ -323,9 +289,6 @@ const ConfirmationContent: React.FC = () => {
 
   // Safe data extraction
   const movieTitle = booking?.movieTitle || booking?.movie?.title || 'Kalki 2898 AD';
-  const moviePoster = booking?.moviePoster || booking?.movie?.posterUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=800';
-  const movieDuration = booking?.movieDuration || '3h 01m';
-  const movieAgeRating = booking?.movieAgeRating || 'UA';
   const cinemaName = booking?.cinemaName || 'PVR ICON: Phoenix Palladium, Lower Parel';
   const cinemaAddress = booking?.cinemaAddress || '462, Senapati Bapat Marg, Lower Parel, Mumbai';
   const format = booking?.format || 'IMAX Laser 3D';
@@ -333,42 +296,8 @@ const ConfirmationContent: React.FC = () => {
   const time = booking?.time || '07:30 PM';
   const hall = booking?.hall || 'Audi 1 - IMAX Laser 3D';
   const seatsList = (booking?.seats || []).map((s: any) => (typeof s === 'string' ? s : s?.id || ''));
-  const customerName = booking?.customer?.name || booking?.customerName || 'Alex Rivera';
-  const customerEmail = booking?.customer?.email || booking?.customerEmail || 'alex@example.com';
-  const paymentMethod = booking?.paymentMethod || 'Instant UPI';
-  const totalAmount = booking?.totalAmount ?? booking?.subtotal ?? 0;
   const bookingRef = booking?.bookingRef || booking?.bookingId || booking?.id || 'BMS-849204-KL';
   const isCheckedIn = booking?.status === 'checked_in' || booking?.checkedIn;
-
-  // Food & Beverages extraction
-  const addonsList = useMemo(() => {
-    if (booking?.addons && Array.isArray(booking.addons) && booking.addons.length > 0) {
-      return booking.addons;
-    }
-    if (booking?.foodItems && Array.isArray(booking.foodItems) && booking.foodItems.length > 0) {
-      return booking.foodItems;
-    }
-    if (booking?.seatDetails) {
-      try {
-        const parsed = JSON.parse(booking.seatDetails);
-        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.addons)) {
-          return parsed.addons;
-        }
-      } catch (e) {}
-    }
-    return [];
-  }, [booking]);
-
-  const deliveryPref = useMemo(() => {
-    if (booking?.deliveryPreference) return booking.deliveryPreference;
-    if (booking?.seatDetails) {
-      try {
-        const parsed = JSON.parse(booking.seatDetails);
-        if (parsed && parsed.deliveryPreference) return parsed.deliveryPreference;
-      } catch (e) {}
-    }
-    return 'seat';
-  }, [booking]);
 
   return (
     <div className={`min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
@@ -392,223 +321,8 @@ const ConfirmationContent: React.FC = () => {
           </p>
         </div>
 
-        {/* PRINTABLE DIGITAL CINEMA TICKET */}
-        <div
-          id="printable-ticket"
-          className="rounded-3xl border border-white/10 bg-[#14161F] text-slate-100 shadow-2xl overflow-hidden relative"
-        >
-          {/* Top Brand Banner */}
-          <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center shadow backdrop-blur-md">
-                <Film className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="font-bold text-xl tracking-tight text-white">
-                  BOOKMYSHOW M-TICKET PASS
-                </span>
-                <div className="text-[10px] uppercase font-bold tracking-widest text-blue-200">
-                  Verified Electronic Admission Pass
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-blue-200">Booking Ref</div>
-              <div className="text-lg font-mono font-black text-white tracking-wider">
-                {bookingRef}
-              </div>
-            </div>
-          </div>
-
-          {/* Ticket Body */}
-          <div className="p-6 sm:p-8 space-y-6">
-            
-            {/* Movie Title & Format */}
-            <div className="flex flex-col sm:flex-row gap-6 items-start">
-              <img
-                src={moviePoster}
-                alt={movieTitle}
-                className="w-24 sm:w-28 aspect-[2/3] rounded-2xl object-cover shadow-lg bg-[#090A0F] shrink-0 border border-white/10"
-              />
-
-              <div className="flex-1 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-600 text-white">
-                    {format}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#1C1F2B] border border-white/10 text-slate-300">
-                    {movieAgeRating}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {movieDuration}
-                  </span>
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                  {movieTitle}
-                </h2>
-
-                <div className="text-xs sm:text-sm text-slate-300 flex items-center gap-1.5 pt-1">
-                  <MapPin className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span className="font-semibold text-white">{cinemaName}</span>
-                </div>
-                <div className="text-xs text-slate-400 pl-5">
-                  {cinemaAddress}
-                </div>
-              </div>
-            </div>
-
-            {/* Perforated Ticket Divider */}
-            <div className="relative py-2">
-              <div className="border-t-2 border-dashed border-white/15 w-full" />
-              <div className="absolute -left-10 top-0 w-8 h-8 rounded-full bg-[#090A0F]" />
-              <div className="absolute -right-10 top-0 w-8 h-8 rounded-full bg-[#090A0F]" />
-            </div>
-
-            {/* Session Specifications Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-2xl bg-[#1C1F2B] border border-white/10 text-xs">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Date</span>
-                <span className="text-sm font-bold text-white mt-0.5 block">{date}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Showtime</span>
-                <span className="text-sm font-bold text-blue-400 mt-0.5 block">{formatTime(time)}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Auditorium</span>
-                <span className="text-sm font-bold text-white mt-0.5 block">{hall}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Seats</span>
-                <span className="text-sm font-mono font-black text-emerald-400 mt-0.5 block">
-                  {seatsList.length > 0 ? seatsList.join(', ') : 'Assigned at Gate'}
-                </span>
-              </div>
-            </div>
-
-            {/* Food & Beverages Refreshments block if ordered */}
-            {addonsList.length > 0 && (
-              <div className="p-4 rounded-2xl bg-[#1C1F2B] border border-white/10 space-y-2.5 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
-                  <div className="flex items-center gap-2 font-bold text-white">
-                    <Popcorn className="w-4 h-4 text-amber-400" />
-                    <span>Concession Refreshments ({addonsList.reduce((acc: number, a: any) => acc + (a.quantity || 1), 0)} items)</span>
-                  </div>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    {deliveryPref === 'counter' ? 'Concession Counter Pickup' : 'Deliver to Seat at Interval'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                  {addonsList.map((item: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center p-2.5 rounded-xl bg-[#14161F] border border-white/5 text-[11px]"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-md bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-[10px]">
-                          {item.quantity || 1}x
-                        </span>
-                        <span className="font-semibold text-white truncate max-w-[160px]">{item.name}</span>
-                      </div>
-                      <span className="text-slate-300 font-mono font-medium">
-                        {formatPrice((item.price || 0) * (item.quantity || 1))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-400 italic pt-0.5">
-                  {deliveryPref === 'counter'
-                    ? 'Present booking reference at the Concession Express Counter for instant pickup.'
-                    : 'Show your M-Ticket to the auditorium service usher during intermission for hot seat delivery.'}
-                </p>
-              </div>
-            )}
-
-            {/* Customer & Payment details */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2 text-xs text-slate-400">
-              <div>
-                <div>Ticket Holder: <strong className="text-white">{customerName}</strong></div>
-                <div>Contact: <span className="text-slate-300">{customerEmail}</span></div>
-                {booking?.couponCode && (
-                  <div className="text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-                    <Tag className="w-3 h-3" /> Coupon: {booking.couponCode} (-{formatPrice(booking.discountAmount || 0)})
-                  </div>
-                )}
-              </div>
-
-              <div className="sm:text-right">
-                <div>Payment Method: <span className="text-slate-200">{paymentMethod}</span></div>
-                <div className="text-sm font-bold text-blue-400 mt-0.5">
-                  Total Paid: {formatPrice(totalAmount)}
-                </div>
-              </div>
-            </div>
-
-            {/* Live Generated QR Code for M-Ticket Scanning */}
-            <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                {/* Real Scannable QR Code */}
-                <div className="p-2.5 rounded-2xl bg-white shadow-xl shrink-0">
-                  {qrCodeDataUrl ? (
-                    <img
-                      src={qrCodeDataUrl}
-                      alt={`M-Ticket QR Code for ${bookingRef}`}
-                      className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 flex items-center justify-center text-slate-400">
-                      <RefreshCw className="w-6 h-6 animate-spin" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Optical Turnstile Admission</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Direct entry pass with replay prevention encryption. Present screen at gate or barcode reader.
-                  </p>
-                  <div className="pt-1">
-                    <Link
-                      to={`/scanner?ref=${bookingRef}`}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-300 underline"
-                    >
-                      <span>Open Gatekeeper Scanner</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              {/* Barcode representation */}
-              <div className="flex flex-col items-center">
-                <div className="flex items-end gap-1 h-8 px-3 bg-[#090A0F] py-1 rounded-lg border border-white/10">
-                  {[4, 2, 5, 1, 3, 6, 2, 4, 1, 5, 3, 2, 6, 1, 4, 3, 5, 2].map((height, i) => (
-                    <div
-                      key={i}
-                      className="bg-blue-400 w-1 rounded-sm"
-                      style={{ height: `${height * 4 + 4}px` }}
-                    />
-                  ))}
-                </div>
-                <span className="font-mono text-[9px] text-slate-400 tracking-widest mt-1">
-                  *{bookingRef}*
-                </span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Ticket Footer */}
-          <div className="px-6 py-3.5 bg-[#0E1017] border-t border-white/10 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Verified M-Ticket pass stored in SQLite registry</span>
-            <span>Non-transferable</span>
-          </div>
-        </div>
+        {/* PREMIUM HOLOGRAPHIC DIGITAL TICKET */}
+        <HolographicTicket booking={booking} id="printable-ticket" />
 
         {/* ACTION BUTTONS TOOLBAR (Hidden during print) */}
         <div className="space-y-4 no-print">

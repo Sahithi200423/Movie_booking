@@ -5,13 +5,11 @@ import {
   Calendar,
   Clock,
   MapPin,
-  QrCode,
   ArrowLeft,
   XCircle,
   Sparkles,
   Printer,
   CheckCircle2,
-  Tag,
   Share2,
   CalendarPlus,
   Search,
@@ -22,6 +20,7 @@ import {
   History
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
+import { HolographicTicket } from '../components/HolographicTicket';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import { cancelBookingApi, fetchMyBookingsApi, getCancelQuoteApi, getBookingAuditTrailApi, type CancelQuoteResponse } from '../services/api';
@@ -550,146 +549,14 @@ export const MyTicketsPage: React.FC = () => {
             {selectedBooking ? (
               <div
                 id="digital-ticket-pass-print"
-                className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-xl p-6 relative overflow-hidden"
+                className="space-y-4"
               >
-                {/* Decorative glow */}
-                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-600/30">
-                      CB
-                    </div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                      {t.tickets.digitalBoardingPass}
-                    </span>
-                  </div>
-                  <span
-                    className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
-                      selectedBooking.checkedIn
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                        : selectedBooking.status === 'confirmed'
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
-                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                    }`}
-                  >
-                    {selectedBooking.checkedIn
-                      ? 'Admitted'
-                      : selectedBooking.status === 'confirmed'
-                      ? t.tickets.validPass
-                      : t.tickets.cancelledPass}
-                  </span>
-                </div>
-
-                {/* Movie Header */}
-                <div className="py-4">
-                  <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {selectedBooking.movieTitle}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 rounded-md font-semibold text-slate-700 dark:text-slate-300">
-                      {selectedBooking.movieAgeRating}
-                    </span>
-                    <span>•</span>
-                    <span>{selectedBooking.movieDuration}</span>
-                    <span>•</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">
-                      {selectedBooking.format}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Details Grid */}
-                <div className="grid grid-cols-2 gap-3 py-4 border-y border-slate-200 dark:border-white/10 text-xs">
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">
-                      {t.tickets.cinemaAndHall}
-                    </span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
-                      {selectedBooking.cinemaName}
-                    </span>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {selectedBooking.hall}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">
-                      {t.tickets.dateTime}
-                    </span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
-                      {selectedBooking.date}
-                    </span>
-                    <p className="text-[11px] text-blue-600 dark:text-blue-400 font-bold mt-0.5">
-                      {formatTime(selectedBooking.time)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">
-                      {t.tickets.seatsLabel}
-                    </span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400 font-mono text-sm mt-0.5 block">
-                      {(selectedBooking.seats || [])
-                        .map(s => (typeof s === 'string' ? s : s?.id || ''))
-                        .join(', ') || '-'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">
-                      Customer
-                    </span>
-                    <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
-                      {selectedBooking.customer?.name || (selectedBooking as any).customerName || 'Moviegoer'}
-                    </span>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate mt-0.5">
-                      {selectedBooking.customer?.email || (selectedBooking as any).customerEmail || ''}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Addons if any */}
-                {selectedBooking.addons && selectedBooking.addons.length > 0 && (
-                  <div className="py-3 border-b border-slate-200 dark:border-white/10 text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 block text-[11px] mb-1 font-semibold">
-                      Concessions & F&B
-                    </span>
-                    {selectedBooking.addons.map(a => (
-                      <div
-                        key={a.id}
-                        className="flex justify-between text-slate-700 dark:text-slate-300"
-                      >
-                        <span>
-                          {a.quantity}x {a.name}
-                        </span>
-                        <span className="font-medium">
-                          {formatPrice(a.price * a.quantity)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Coupon discount if applied */}
-                {selectedBooking.couponCode && (
-                  <div className="py-2.5 border-b border-slate-200 dark:border-white/10 text-xs flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <span className="flex items-center gap-1">
-                      <Tag className="w-3.5 h-3.5" />
-                      <span>Coupon {selectedBooking.couponCode}</span>
-                    </span>
-                    <span>-{formatPrice(selectedBooking.discountAmount || 0)}</span>
-                  </div>
-                )}
-
-                {/* Price Summary */}
-                <div className="py-3 flex justify-between items-center text-sm font-bold">
-                  <span className="text-slate-500 dark:text-slate-400">Total Amount</span>
-                  <span className="text-lg text-blue-600 dark:text-blue-400 font-black">
-                    {formatPrice(selectedBooking.totalAmount)}
-                  </span>
-                </div>
+                {/* Premium 3D Holographic Ticket with Flip & Scannable QR */}
+                <HolographicTicket booking={selectedBooking} id="holographic-pass-card" />
 
                 {/* Refund Status & Audit Log Card if Cancelled */}
                 {selectedBooking.status === 'cancelled' && (
-                  <div className="my-3 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-3">
+                  <div className="p-4 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-3 shadow-lg">
                     <div className="flex items-center justify-between font-bold text-rose-600 dark:text-rose-400">
                       <span className="flex items-center gap-1.5">
                         <RotateCcw className="w-4 h-4" />
@@ -785,21 +652,8 @@ export const MyTicketsPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* QR Code Barcode section */}
-                <div className="pt-4 flex flex-col items-center justify-center border-t border-dashed border-slate-200 dark:border-white/10 text-center">
-                  <div className="p-3 bg-white rounded-2xl shadow-md border border-slate-200 dark:border-white/10 mb-2">
-                    <QrCode className="w-24 h-24 text-slate-950" />
-                  </div>
-                  <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300 tracking-wider">
-                    {selectedBooking.bookingRef || selectedBooking.bookingId}
-                  </span>
-                  <span className="text-[10px] text-slate-500 mt-0.5">
-                    {t.tickets.scanInstructions}
-                  </span>
-                </div>
-
                 {/* Interactive Action Toolbar with prominent Cancel Ticket button */}
-                <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/10 space-y-2.5">
+                <div className="p-5 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-xl space-y-2.5">
                   <div className="grid grid-cols-2 gap-2">
                     {/* 1. Download PDF Pass */}
                     <button

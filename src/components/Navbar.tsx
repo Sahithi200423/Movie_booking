@@ -356,12 +356,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch }) => {
               )}
             </div>
 
-            {/* Theme Toggle Button (sm+) */}
+            {/* Theme Toggle Button (Visible on all screen sizes) */}
             <button
               onClick={toggleTheme}
-              className="hidden sm:flex min-w-[44px] min-h-[44px] items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer"
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              className="flex min-w-[38px] sm:min-w-[44px] min-h-[38px] sm:min-h-[44px] items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 shadow-sm dark:shadow-none transition-all duration-200 cursor-pointer shrink-0"
+              data-testid="theme-toggle"
+              aria-label={`Switch theme to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch theme to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400 transition-transform hover:rotate-45" />

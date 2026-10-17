@@ -360,18 +360,18 @@ export const SeatSelectionPage: React.FC = () => {
   if (!activeBooking.movie || !activeBooking.cinema) {
     if (queryShowtimeId || isRehydrating) {
       return (
-        <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
+        <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors">
           <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">Restoring Your Showtime...</h3>
-          <p className="text-sm text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Restoring Your Showtime...</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Loading movie, cinema, and auditorium details from database.</p>
         </div>
       );
     }
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
-        <Ticket className="w-16 h-16 text-slate-600 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">{t.seats.sessionEmptyTitle}</h2>
-        <p className="text-sm text-slate-400 mb-6 max-w-md">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors">
+        <Ticket className="w-16 h-16 text-slate-400 dark:text-slate-600 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t.seats.sessionEmptyTitle}</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md">
           {t.seats.sessionEmptyDesc}
         </p>
         <Link
@@ -499,24 +499,24 @@ export const SeatSelectionPage: React.FC = () => {
   const currentPartyOption = PARTY_OPTIONS.find(p => p.count === partySize) || PARTY_OPTIONS[1];
 
   return (
-    <div className={`min-h-screen pb-32 bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen pb-32 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors duration-200 ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* 1. TOP SESSION BAR */}
-      <div className="border-b border-white/10 bg-[#0E1017]/95 backdrop-blur-md sticky top-16 sm:top-18 z-20">
+      <div className="border-b border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0E1017]/95 backdrop-blur-md sticky top-16 sm:top-18 z-20">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
           
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               to={`/movie/${activeBooking.movie.id}`}
-              className="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-[#1C1F2B] text-slate-200 hover:text-white hover:bg-[#222634] transition-colors shrink-0"
+              className="p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222634] transition-colors shrink-0"
               title="Back to showtimes"
             >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 dark:text-blue-400" />
             </Link>
             <div>
-              <h1 className="text-sm sm:text-lg font-black text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <span className="truncate max-w-[170px] sm:max-w-none">{activeBooking.movie?.title || 'Stree 2'}</span>
-                <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shrink-0">
+                <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-slate-100 dark:bg-[#1C1F2B] text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-white/10 shrink-0">
                   {activeBooking.format || 'Standard'}
                 </span>
               </h1>

@@ -105,43 +105,43 @@ export const HomePage: React.FC = () => {
                 <span>{t.home.trending} • {currentCity.split(',')[0]}</span>
               </div>
 
-              {/* Title - Pure High-Contrast White */}
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.1] transition-all duration-300">
+              {/* Title - Pure High-Contrast */}
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1] transition-all duration-300">
                 {activeHeroMovie.title}
               </h1>
 
               {/* Metadata Pills */}
-              <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
-                <span className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
+                <span className="flex items-center gap-1.5 font-bold text-amber-500 dark:text-amber-400 bg-white dark:bg-[#14161F] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+                  <Star className="w-4 h-4 fill-amber-500 dark:fill-amber-400 text-amber-500 dark:text-amber-400" />
                   {activeHeroMovie.rating.toFixed(1)} / 10
                 </span>
-                <span className="flex items-center gap-1.5 bg-[#1C1F2B] border border-white/10 px-3 py-1.5 rounded-xl text-slate-300">
-                  <Clock className="w-4 h-4 text-blue-400" />
+                <span className="flex items-center gap-1.5 bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-300 shadow-sm dark:shadow-none">
+                  <Clock className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                   {activeHeroMovie.duration}
                 </span>
                 {activeHeroMovie.ageRating && (
-                  <span className="px-2.5 py-1 rounded-xl bg-[#1C1F2B] border border-white/10 font-bold uppercase text-[11px] text-slate-200">
+                  <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 font-bold uppercase text-[11px] text-slate-700 dark:text-slate-200 shadow-sm dark:shadow-none">
                     {activeHeroMovie.ageRating}
                   </span>
                 )}
-                <span className="text-blue-400 font-semibold px-1">
+                <span className="text-blue-600 dark:text-blue-400 font-semibold px-1">
                   {activeHeroMovie.genre.join(', ')}
                 </span>
               </div>
 
-              {/* Synopsis - High Contrast Light Slate */}
-              <p className="text-sm sm:text-base text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
+              {/* Synopsis - High Contrast */}
+              <p className="text-sm sm:text-base text-slate-600 dark:text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
                 {activeHeroMovie.synopsis}
               </p>
 
               {/* Formats - Crisp Pill Badges */}
               {activeHeroMovie.formats && activeHeroMovie.formats.length > 0 && (
                 <div className="flex items-center gap-2.5 pt-1">
-                  <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
                   <div className="flex flex-wrap gap-1.5">
                     {activeHeroMovie.formats.map(fmt => (
-                      <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shadow-sm">
+                      <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-white dark:bg-[#1C1F2B] text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-white/10 shadow-sm">
                         {fmt}
                       </span>
                     ))}
@@ -169,25 +169,25 @@ export const HomePage: React.FC = () => {
                     setActiveMovie(activeHeroMovie);
                     navigate(`/movie/${activeHeroMovie.id}`);
                   }}
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-white/15 bg-[#1C1F2B]/90 hover:bg-[#222634] text-white transition-all backdrop-blur-md cursor-pointer hover:border-white/30 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-slate-300 dark:border-white/15 bg-white/90 dark:bg-[#1C1F2B]/90 hover:bg-slate-100 dark:hover:bg-[#222634] text-slate-900 dark:text-white transition-all backdrop-blur-md cursor-pointer hover:border-slate-400 dark:hover:border-white/30 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none shadow-sm"
                 >
-                  <Eye className="w-4 h-4 text-blue-400" />
+                  <Eye className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                   <span>{t.home.viewDetails}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setTrailerModalMovie(activeHeroMovie.title)}
-                  className="flex items-center gap-2 px-5 py-3.5 rounded-full font-semibold text-sm border border-white/10 bg-transparent hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                  className="flex items-center gap-2 px-5 py-3.5 rounded-full font-semibold text-sm border border-slate-300 dark:border-white/10 bg-transparent hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
                 >
-                  <Play className="w-3.5 h-3.5 text-blue-400 fill-blue-400" />
+                  <Play className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 fill-blue-500 dark:fill-blue-400" />
                   <span>Teaser</span>
                 </button>
               </div>
 
               {/* Ambient Hero Spotlight Switcher (Quick Movie Switcher) */}
               <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
-                <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
                 {MOVIES.slice(0, 4).map((m) => {
                   const isSelected = m.id === activeHeroMovie.id;
                   return (
@@ -197,8 +197,8 @@ export const HomePage: React.FC = () => {
                       onClick={() => setActiveHeroMovie(m)}
                       className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer shrink-0 border ${
                         isSelected
-                          ? 'bg-white/15 text-white border-white/30 shadow-md backdrop-blur-md scale-105'
-                          : 'bg-[#14161F]/80 text-slate-400 border-white/5 hover:text-white hover:bg-white/10'
+                          ? 'bg-slate-900 text-white dark:bg-white/15 dark:text-white border-slate-900 dark:border-white/30 shadow-md backdrop-blur-md scale-105'
+                          : 'bg-white/80 dark:bg-[#14161F]/80 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:border-blue-500/30'
                       }`}
                     >
                       <span

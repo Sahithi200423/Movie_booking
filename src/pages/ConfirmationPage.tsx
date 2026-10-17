@@ -300,7 +300,7 @@ const ConfirmationContent: React.FC = () => {
   const isCheckedIn = booking?.status === 'checked_in' || booking?.checkedIn;
 
   return (
-    <div className={`min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors ${isRTL ? 'rtl' : 'ltr'}`}>
       <div className="max-w-3xl mx-auto space-y-8">
         
         {/* Success Header (Hidden during print) */}

@@ -13,10 +13,13 @@ import {
   X,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Box,
+  LayoutGrid
 } from 'lucide-react';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
+import { useMovieBackdropColor } from '../hooks/useMovieBackdropColor';
 import { generateSeatLayout, SEAT_PRICING, SEAT_TIER_LABELS, MOVIES, CINEMAS } from '../data/mockData';
 import type { Seat } from '../types';
 import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocketBaseUrl, getShowtimeByIdApi } from '../services/api';
@@ -54,6 +57,18 @@ export const SeatSelectionPage: React.FC = () => {
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [showFnbModal, setShowFnbModal] = useState<boolean>(false);
+
+  // 2D / 3D Auditorium View Mode State
+  // Default to 2D on narrow mobile screens (<768px) or when prefers-reduced-motion is active
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>(() => {
+    if (typeof window === 'undefined') return '2d';
+    const isMobile = window.innerWidth < 768 || !window.matchMedia('(hover: hover)').matches;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return (isMobile || prefersReduced) ? '2d' : '3d';
+  });
+
+  // Movie-adaptive ambient lighting for auditorium projector beam
+  const { colors } = useMovieBackdropColor(activeBooking.movie);
 
   // Party Size State & Popover Modal - default closed so user immediately sees live seat dashboard
   const [partySize, setPartySize] = useState<number>(() => {
@@ -524,8 +539,46 @@ export const SeatSelectionPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Party Size & Live Hold Timer Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* View Mode, Party Size & Live Hold Timer Controls */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+            {/* Accessible 2D / 3D Auditorium View Toggle */}
+            <div
+              className="flex items-center p-0.5 sm:p-1 rounded-xl bg-[#1C1F2B] border border-white/10 text-xs shadow-sm"
+              role="radiogroup"
+              aria-label="Auditorium View Mode"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={viewMode === '3d'}
+                onClick={() => setViewMode('3d')}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                  viewMode === '3d'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+                title="Switch to 3D Cinematic Auditorium view"
+              >
+                <Box className="w-3.5 h-3.5 text-blue-300" />
+                <span>3D View</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={viewMode === '2d'}
+                onClick={() => setViewMode('2d')}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                  viewMode === '2d'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+                title="Switch to 2D Classic Grid view"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-slate-300" />
+                <span>2D Grid</span>
+              </button>
+            </div>
+
             {/* Party Size Selector Trigger */}
             <button
               type="button"
@@ -806,119 +859,204 @@ export const SeatSelectionPage: React.FC = () => {
           <span>⇄ Swipe sideways to view all 16 seats in each row</span>
         </div>
 
-        {/* 3. CINEMA AUDITORIUM SEATING GRID */}
-        <div className="overflow-x-auto touch-pan-x no-scrollbar pb-6 overscroll-x-contain">
+        {/* 3. CURVED CINEMA SCREEN WITH PROJECTOR BEAM & ATMOSPHERIC DEPTH */}
+        <div className="relative w-full max-w-2xl mx-auto my-6 sm:my-8 text-center select-none">
+          {/* Movie-Adaptive Projector Light Beam Fan */}
           <div
-            className="min-w-[620px] sm:min-w-[680px] flex flex-col items-center space-y-2.5 sm:space-y-3"
-            role="grid"
-            aria-label="Cinema auditorium seating arrangement"
-          >
-            {seatLayout.map((row, rowIndex) => {
-              const prevRow = rowIndex > 0 ? seatLayout[rowIndex - 1] : null;
-              const isFirstOfTier = !prevRow || prevRow.tier !== row.tier;
-              const tierLabel = SEAT_TIER_LABELS[row.tier] || row.tier;
-              const tierPrice = SEAT_PRICING[row.tier] || 5;
-              const isVIP = row.tier === 'VIP';
+            className="absolute left-1/2 -translate-x-1/2 top-0 w-full max-w-xl h-24 sm:h-32 opacity-35 pointer-events-none blur-2xl transition-all duration-700"
+            style={{
+              background: `radial-gradient(ellipse 65% 55% at 50% 0%, ${colors.primary} 0%, ${colors.glow} 40%, transparent 80%)`,
+            }}
+            aria-hidden="true"
+          />
 
-              return (
-                <React.Fragment key={row.rowLetter}>
-                  {/* Tier Separator Header */}
-                  {isFirstOfTier && (
-                    <div className="w-full max-w-2xl flex items-center justify-between pt-5 pb-2 border-b border-white/10 text-xs">
-                      <span className="font-bold text-slate-300 tracking-wider uppercase flex items-center gap-2">
-                        {isVIP && <Armchair className="w-3.5 h-3.5 text-blue-400" />}
-                        {tierLabel}
-                      </span>
-                      <span className="font-semibold text-blue-400">
-                        {formatPrice(tierPrice)}
-                      </span>
-                    </div>
-                  )}
+          {/* Curved Screen Architectural Arc */}
+          <div className="relative px-4">
+            <svg
+              viewBox="0 0 500 50"
+              className="w-full max-w-lg mx-auto h-8 sm:h-12 overflow-visible drop-shadow-[0_4px_16px_rgba(255,255,255,0.25)]"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <defs>
+                <linearGradient id="screenCurvedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
+                  <stop offset="20%" stopColor="rgba(255,255,255,0.85)" />
+                  <stop offset="50%" stopColor="#FFFFFF" />
+                  <stop offset="80%" stopColor="rgba(255,255,255,0.85)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0.15)" />
+                </linearGradient>
+                <filter id="screenGlow">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <path
+                d="M 15,40 Q 250,5 485,40"
+                fill="none"
+                stroke="url(#screenCurvedGrad)"
+                strokeWidth="4"
+                strokeLinecap="round"
+                filter="url(#screenGlow)"
+              />
+            </svg>
 
-                  {/* Seat Row */}
-                  <div className="flex items-center gap-3" role="row">
-                    {/* Left Row Letter */}
-                    <span className="w-5 text-center font-bold text-xs text-slate-400 select-none">
-                      {row.rowLetter}
-                    </span>
-
-                    {/* Seats with central aisle gap */}
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      {row.seats.map(seat => {
-                        const isSelected = selectedSeats.some(s => s.id === seat.id);
-                        const isReserved = seat.status === 'reserved';
-                        const isHeld = seat.status === 'held' && !isSelected;
-
-                        let seatClass = '';
-                        if (isSelected) {
-                          // Bright blue with checkmark
-                          seatClass =
-                            'bg-blue-600 text-white font-bold border-blue-400 shadow-lg shadow-blue-500/50 scale-105 ring-2 ring-blue-400/60';
-                        } else if (isReserved) {
-                          // Booked / Sold: Red, disabled
-                          seatClass =
-                            'bg-rose-950/60 text-rose-300 border-rose-700/60 cursor-not-allowed opacity-90 shadow-sm shadow-rose-950/40';
-                        } else if (isHeld) {
-                          // Temporarily Held: Amber / yellow with lock icon, disabled
-                          seatClass =
-                            'bg-amber-950/60 text-amber-300 border-amber-500/70 cursor-not-allowed opacity-90 shadow-sm shadow-amber-950/40';
-                        } else {
-                          // Available: Light blue / outlined blue
-                          seatClass =
-                            'bg-blue-950/25 text-blue-200 border-blue-500/40 hover:border-blue-400 hover:bg-blue-600/25 hover:scale-105 focus:ring-2 focus:ring-blue-400 shadow-sm';
-                        }
-
-                        return (
-                          <React.Fragment key={seat.id}>
-                            {/* Realistic Central Walking Aisle gap between seat 8 and 9 */}
-                            {seat.number === 9 && (
-                              <div className="w-6 sm:w-10 text-center select-none" aria-hidden="true">
-                                <span className="text-[9px] text-slate-600 font-mono tracking-widest hidden sm:inline">AISLE</span>
-                              </div>
-                            )}
-
-                            <button
-                              type="button"
-                              role="gridcell"
-                              disabled={isLoadingSeats || isReserved || isHeld || isHolding}
-                              onClick={() => handleSeatClick(seat)}
-                              className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 ${seatClass}`}
-                              aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${formatPrice(seat.price)}, ${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
-                              aria-selected={isSelected}
-                              title={`${seat.id} (${tierLabel}) - ${formatPrice(seat.price)} [${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
-                            >
-                              {isSelected ? (
-                                '✓'
-                              ) : isReserved ? (
-                                <span className="text-[10px] text-rose-300 font-black">✕</span>
-                              ) : isHeld ? (
-                                <Lock className="w-2.5 h-2.5 text-amber-300" />
-                              ) : (
-                                seat.number
-                              )}
-                            </button>
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-
-                    {/* Right Row Letter */}
-                    <span className="w-5 text-center font-bold text-xs text-slate-400 select-none">
-                      {row.rowLetter}
-                    </span>
-                  </div>
-                </React.Fragment>
-              );
-            })}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <span className="text-[10px] sm:text-[11px] font-black tracking-[0.25em] uppercase text-slate-300 drop-shadow-sm">
+                CINEMA SCREEN
+              </span>
+              <span className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase hidden sm:inline">
+                • Front of Auditorium
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Authentic Screen Indicator */}
-        <div className="mt-14 mb-8 text-center">
-          <div className="w-3/4 max-w-lg mx-auto h-1.5 rounded-full bg-gradient-to-r from-transparent via-blue-500/30 to-transparent border-t border-blue-400/30 shadow-[0_-4px_16px_rgba(59,130,246,0.15)]" />
-          <p className="text-[11px] font-medium tracking-[0.25em] text-slate-400 uppercase mt-3">
-            All eyes this way please
-          </p>
+        {/* 4. CINEMA AUDITORIUM SEATING GRID (3D CINEMATIC OR 2D CLASSIC) */}
+        <div className="overflow-x-auto touch-pan-x no-scrollbar pb-8 overscroll-x-contain">
+          <div
+            className={`mx-auto flex flex-col items-center transition-all duration-500 ease-out ${
+              viewMode === '3d' ? 'perspective-1000' : ''
+            }`}
+          >
+            <div
+              className={`min-w-[620px] sm:min-w-[680px] flex flex-col items-center space-y-2.5 sm:space-y-3.5 transition-all duration-500 ease-out ${
+                viewMode === '3d' ? 'origin-top preserve-3d' : ''
+              }`}
+              style={
+                viewMode === '3d'
+                  ? {
+                      transform: 'rotateX(14deg) scale(0.97)',
+                      transformStyle: 'preserve-3d',
+                    }
+                  : undefined
+              }
+              role="grid"
+              aria-label={`Cinema auditorium seating arrangement (${viewMode === '3d' ? '3D Cinematic View' : '2D Classic Grid'})`}
+            >
+              {seatLayout.map((row, rowIndex) => {
+                const prevRow = rowIndex > 0 ? seatLayout[rowIndex - 1] : null;
+                const isFirstOfTier = !prevRow || prevRow.tier !== row.tier;
+                const tierLabel = SEAT_TIER_LABELS[row.tier] || row.tier;
+                const tierPrice = SEAT_PRICING[row.tier] || 5;
+                const isVIP = row.tier === 'VIP';
+
+                return (
+                  <React.Fragment key={row.rowLetter}>
+                    {/* Tier Separator Header */}
+                    {isFirstOfTier && (
+                      <div className="w-full max-w-2xl flex items-center justify-between pt-5 pb-2 border-b border-white/10 text-xs">
+                        <span className="font-bold text-slate-300 tracking-wider uppercase flex items-center gap-2">
+                          {isVIP && <Armchair className="w-3.5 h-3.5 text-amber-400" />}
+                          {tierLabel}
+                        </span>
+                        <span className="font-semibold text-blue-400">
+                          {formatPrice(tierPrice)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Seat Row */}
+                    <div className="flex items-center gap-3" role="row">
+                      {/* Left Row Letter */}
+                      <span className="w-5 text-center font-bold text-xs text-slate-400 select-none">
+                        {row.rowLetter}
+                      </span>
+
+                      {/* Seats with central aisle gap */}
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        {row.seats.map(seat => {
+                          const isSelected = selectedSeats.some(s => s.id === seat.id);
+                          const isReserved = seat.status === 'reserved';
+                          const isHeld = seat.status === 'held' && !isSelected;
+
+                          let seatClass = '';
+                          if (isSelected) {
+                            // Electric Cobalt blue with glow and pop
+                            seatClass =
+                              'bg-blue-600 text-white font-bold border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.65)] scale-105 ring-2 ring-blue-400/80';
+                          } else if (isReserved) {
+                            // Booked / Sold: Red/ruby, disabled
+                            seatClass =
+                              'bg-rose-950/60 text-rose-300 border-rose-700/60 cursor-not-allowed opacity-90 shadow-sm shadow-rose-950/40';
+                          } else if (isHeld) {
+                            // Temporarily Held: Amber / yellow with lock icon, disabled
+                            seatClass =
+                              'bg-amber-950/60 text-amber-300 border-amber-500/70 cursor-not-allowed opacity-90 shadow-sm shadow-amber-950/40';
+                          } else {
+                            // Available: Tier-differentiated styling with subtle metallic/border highlights
+                            if (seat.tier === 'VIP') {
+                              seatClass =
+                                'bg-amber-950/20 text-amber-200 border-amber-500/40 hover:border-amber-400 hover:bg-amber-600/25 hover:scale-105 focus-visible:ring-2 focus-visible:ring-amber-400 shadow-sm';
+                            } else if (seat.tier === 'PREMIUM') {
+                              seatClass =
+                                'bg-blue-950/25 text-blue-200 border-blue-500/40 hover:border-blue-400 hover:bg-blue-600/25 hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-400 shadow-sm';
+                            } else {
+                              seatClass =
+                                'bg-slate-900/40 text-slate-300 border-white/10 hover:border-slate-400 hover:bg-slate-800/40 hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-400 shadow-sm';
+                            }
+                          }
+
+                          return (
+                            <React.Fragment key={seat.id}>
+                              {/* Realistic Central Walking Aisle gap between seat 8 and 9 */}
+                              {seat.number === 9 && (
+                                <div className="w-6 sm:w-10 text-center select-none" aria-hidden="true">
+                                  <span className="text-[9px] text-slate-600 font-mono tracking-widest hidden sm:inline">AISLE</span>
+                                </div>
+                              )}
+
+                              <button
+                                type="button"
+                                role="gridcell"
+                                disabled={isLoadingSeats || isReserved || isHeld || isHolding}
+                                onClick={() => handleSeatClick(seat)}
+                                className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 ${seatClass}`}
+                                style={
+                                  viewMode === '3d'
+                                    ? {
+                                        transform: isSelected ? 'translateZ(14px)' : 'translateZ(3px)',
+                                        transformStyle: 'preserve-3d',
+                                      }
+                                    : undefined
+                                }
+                                aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${formatPrice(seat.price)}, ${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
+                                aria-selected={isSelected}
+                                title={`${seat.id} (${tierLabel}) - ${formatPrice(seat.price)} [${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
+                              >
+                                {isSelected ? (
+                                  '✓'
+                                ) : isReserved ? (
+                                  <span className="text-[10px] text-rose-300 font-black">✕</span>
+                                ) : isHeld ? (
+                                  <Lock className="w-2.5 h-2.5 text-amber-300" />
+                                ) : (
+                                  seat.number
+                                )}
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+
+                      {/* Right Row Letter */}
+                      <span className="w-5 text-center font-bold text-xs text-slate-400 select-none">
+                        {row.rowLetter}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Rear Auditorium Floor Ambient Guide */}
+        <div className="mt-8 mb-6 text-center">
+          <div className="w-3/4 max-w-lg mx-auto h-1 rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
 
       </main>

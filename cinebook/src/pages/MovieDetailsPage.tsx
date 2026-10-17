@@ -36,6 +36,8 @@ import {
   resolveShowtimeApi
 } from '../services/api';
 import { formatToISODate, generateCanonicalShowtimeId } from '../utils/dateUtils';
+import { AmbientBackdrop } from '../components/AmbientBackdrop';
+import { useMovieBackdropColor } from '../hooks/useMovieBackdropColor';
 
 const RATING_DESCRIPTIONS: Record<number, string> = {
   1: 'Disappointing (1/10)',
@@ -62,6 +64,9 @@ export const MovieDetailsPage: React.FC = () => {
   const movie = useMemo(() => {
     return MOVIES.find(m => m.id === id) || null;
   }, [id]);
+
+  // Dynamic movie-adaptive color extraction
+  const { colors } = useMovieBackdropColor(movie);
 
   // Generate rolling dates for upcoming week (All scheduled dates have active shows)
   const availableDates = useMemo(() => {
@@ -344,17 +349,15 @@ export const MovieDetailsPage: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen pb-20 bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen pb-20 bg-[var(--cinema-bg-base)] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
       
-      {/* 1. HERO BACKDROP BANNER */}
-      <div className="relative w-full h-[360px] sm:h-[460px] overflow-hidden bg-[#090A0F] border-b border-white/10">
-        <img
-          src={movie.backdropUrl}
-          alt={movie.title}
-          className="w-full h-full object-cover filter brightness-45"
+      {/* 1. HERO BACKDROP BANNER WITH DYNAMIC AMBIENT LIGHTING */}
+      <div className="relative w-full h-[360px] sm:h-[460px] overflow-hidden bg-[var(--cinema-bg-base)] border-b border-white/10">
+        <AmbientBackdrop
+          colors={colors}
+          backdropUrl={movie.backdropUrl}
+          intensity="intense"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-[#090A0F]/60 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-[#090A0F]/50 to-[#090A0F]" />
         
         {/* Back navigation button */}
         <div className="absolute top-6 left-4 sm:left-8 z-10 flex items-center gap-3">
@@ -371,7 +374,10 @@ export const MovieDetailsPage: React.FC = () => {
         <div className="absolute bottom-6 right-4 sm:right-8 z-10">
           <button
             onClick={() => setShowTrailerModal(true)}
-            className="flex items-center gap-2.5 px-5 py-3 rounded-2xl backdrop-blur-md bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-xl shadow-blue-900/40 hover:scale-105 transition-all cursor-pointer border border-white/20"
+            className="flex items-center gap-2.5 px-5 py-3 rounded-2xl backdrop-blur-md bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-xl hover:scale-105 transition-all cursor-pointer border border-white/20"
+            style={{
+              boxShadow: `0 12px 30px -4px ${colors.glow}`,
+            }}
           >
             <Play className="w-4 h-4 fill-white text-white" />
             <span>Watch Trailer</span>

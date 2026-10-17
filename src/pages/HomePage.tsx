@@ -14,8 +14,10 @@ import {
 
 import { MOVIES, GENRES, LANGUAGES, getCinemasForCity } from '../data/mockData';
 import { MovieCard } from '../components/MovieCard';
+import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
+import { useMovieBackdropColor } from '../hooks/useMovieBackdropColor';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,8 +32,12 @@ export const HomePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [trailerModalMovie, setTrailerModalMovie] = useState<string | null>(null);
 
-  // Featured Hero movie (e.g. Dune)
+  // Featured Hero movie (e.g. Kalki)
   const featuredMovie = useMemo(() => MOVIES.find(m => m.featured) || MOVIES[0], []);
+  const [activeHeroMovie, setActiveHeroMovie] = useState(featuredMovie);
+
+  // Dynamic movie-adaptive color extraction
+  const { colors } = useMovieBackdropColor(activeHeroMovie);
 
   // Filtered movies
   const filteredMovies = useMemo(() => {
@@ -68,27 +74,22 @@ export const HomePage: React.FC = () => {
   const comingSoonMovies = useMemo(() => filteredMovies.filter(m => m.status === 'coming_soon'), [filteredMovies]);
 
   const handleHeroBookNow = () => {
-    setActiveMovie(featuredMovie);
-    navigate(`/movie/${featuredMovie.id}`);
+    setActiveMovie(activeHeroMovie);
+    navigate(`/movie/${activeHeroMovie.id}`);
   };
 
   return (
-    <div className={`min-h-screen bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen bg-[var(--cinema-bg-base)] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
       
-      {/* 1. HERO SPOTLIGHT BANNER */}
+      {/* 1. HERO SPOTLIGHT BANNER WITH DYNAMIC AMBIENT BACKDROP */}
       <section className="relative overflow-hidden pt-4 pb-14 sm:pb-24 border-b border-white/10">
         
-        {/* Background Backdrop Image with Ambient Radial & Gradient Blending */}
-        <div className="absolute inset-0 z-0">
-          <img
-            src={featuredMovie.backdropUrl}
-            alt={featuredMovie.title}
-            className="w-full h-full object-cover object-center filter brightness-45 scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-[#090A0F]/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#090A0F] via-[#090A0F]/80 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/25 via-[#090A0F]/50 to-[#090A0F]" />
-        </div>
+        {/* Cinematic Ambient Backdrop */}
+        <AmbientBackdrop
+          colors={colors}
+          backdropUrl={activeHeroMovie.backdropUrl}
+          intensity="vibrant"
+        />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-16">
           <div className="max-w-2xl space-y-4">
@@ -101,37 +102,37 @@ export const HomePage: React.FC = () => {
 
             {/* Title - Pure High-Contrast White */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
-              {featuredMovie.title}
+              {activeHeroMovie.title}
             </h1>
 
             {/* Metadata Pills */}
             <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
               <span className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                {featuredMovie.rating.toFixed(1)} / 10
+                {activeHeroMovie.rating.toFixed(1)} / 10
               </span>
               <span className="flex items-center gap-1.5 bg-[#1C1F2B] border border-white/10 px-3 py-1.5 rounded-xl text-slate-300">
                 <Clock className="w-4 h-4 text-blue-400" />
-                {featuredMovie.duration}
+                {activeHeroMovie.duration}
               </span>
               <span className="px-2.5 py-1 rounded-xl bg-[#1C1F2B] border border-white/10 font-bold uppercase text-[11px] text-slate-200">
-                {featuredMovie.ageRating}
+                {activeHeroMovie.ageRating}
               </span>
               <span className="text-blue-400 font-semibold px-1">
-                {featuredMovie.genre.join(', ')}
+                {activeHeroMovie.genre.join(', ')}
               </span>
             </div>
 
             {/* Synopsis - High Contrast Light Slate */}
             <p className="text-sm sm:text-base text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
-              {featuredMovie.synopsis}
+              {activeHeroMovie.synopsis}
             </p>
 
             {/* Formats - Crisp Pill Badges */}
             <div className="flex items-center gap-2.5 pt-1">
               <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
               <div className="flex flex-wrap gap-1.5">
-                {featuredMovie.formats.map(fmt => (
+                {activeHeroMovie.formats.map(fmt => (
                   <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shadow-sm">
                     {fmt}
                   </span>
@@ -144,18 +145,48 @@ export const HomePage: React.FC = () => {
               <button
                 onClick={handleHeroBookNow}
                 className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 cursor-pointer"
+                style={{
+                  boxShadow: `0 10px 25px -4px ${colors.glow}`,
+                }}
               >
                 <Ticket className="w-4 h-4 fill-white" />
                 <span>{t.home.bookNow}</span>
               </button>
 
               <button
-                onClick={() => setTrailerModalMovie(featuredMovie.title)}
+                onClick={() => setTrailerModalMovie(activeHeroMovie.title)}
                 className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-white/10 bg-[#1C1F2B] hover:bg-[#222634] text-slate-200 transition-colors backdrop-blur-md cursor-pointer"
               >
                 <Play className="w-4 h-4 text-blue-400 fill-blue-400" />
                 <span>{t.home.viewDetails}</span>
               </button>
+            </div>
+
+            {/* Ambient Hero Spotlight Switcher (Quick Movie Switcher) */}
+            <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
+              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
+              {MOVIES.slice(0, 4).map((m) => {
+                const isSelected = m.id === activeHeroMovie.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setActiveHeroMovie(m)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer shrink-0 border ${
+                      isSelected
+                        ? 'bg-white/15 text-white border-white/30 shadow-md backdrop-blur-md scale-105'
+                        : 'bg-[#14161F]/80 text-slate-400 border-white/5 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: isSelected ? colors.primary : 'rgba(255,255,255,0.3)',
+                      }}
+                    />
+                    <span>{m.title}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

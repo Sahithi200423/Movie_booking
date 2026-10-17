@@ -9,11 +9,13 @@ import {
   MapPin,
   Flame,
   CheckCircle2,
-  Tv
+  Tv,
+  Eye
 } from 'lucide-react';
 
 import { MOVIES, GENRES, LANGUAGES, getCinemasForCity } from '../data/mockData';
 import { MovieCard } from '../components/MovieCard';
+import { HeroPoster3D } from '../components/HeroPoster3D';
 import { AmbientBackdrop } from '../components/AmbientBackdrop';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -92,102 +94,135 @@ export const HomePage: React.FC = () => {
         />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-16">
-          <div className="max-w-2xl space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             
-            {/* Spotlight Tag */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-[#1C1F2B]/90 text-blue-300 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/10">
-              <Flame className="w-3.5 h-3.5 text-blue-400" />
-              <span>{t.home.trending} • {currentCity.split(',')[0]}</span>
-            </div>
+            {/* Left Column: Spotlight Typography & Metadata */}
+            <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+              
+              {/* Spotlight Tag */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-[#1C1F2B]/90 text-blue-300 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/10">
+                <Flame className="w-3.5 h-3.5 text-blue-400" />
+                <span>{t.home.trending} • {currentCity.split(',')[0]}</span>
+              </div>
 
-            {/* Title - Pure High-Contrast White */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
-              {activeHeroMovie.title}
-            </h1>
+              {/* Title - Pure High-Contrast White */}
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.1] transition-all duration-300">
+                {activeHeroMovie.title}
+              </h1>
 
-            {/* Metadata Pills */}
-            <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
-              <span className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                {activeHeroMovie.rating.toFixed(1)} / 10
-              </span>
-              <span className="flex items-center gap-1.5 bg-[#1C1F2B] border border-white/10 px-3 py-1.5 rounded-xl text-slate-300">
-                <Clock className="w-4 h-4 text-blue-400" />
-                {activeHeroMovie.duration}
-              </span>
-              <span className="px-2.5 py-1 rounded-xl bg-[#1C1F2B] border border-white/10 font-bold uppercase text-[11px] text-slate-200">
-                {activeHeroMovie.ageRating}
-              </span>
-              <span className="text-blue-400 font-semibold px-1">
-                {activeHeroMovie.genre.join(', ')}
-              </span>
-            </div>
-
-            {/* Synopsis - High Contrast Light Slate */}
-            <p className="text-sm sm:text-base text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
-              {activeHeroMovie.synopsis}
-            </p>
-
-            {/* Formats - Crisp Pill Badges */}
-            <div className="flex items-center gap-2.5 pt-1">
-              <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
-              <div className="flex flex-wrap gap-1.5">
-                {activeHeroMovie.formats.map(fmt => (
-                  <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shadow-sm">
-                    {fmt}
+              {/* Metadata Pills */}
+              <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-300">
+                <span className="flex items-center gap-1.5 font-bold text-amber-400 bg-[#14161F] px-3 py-1.5 rounded-xl border border-white/10 shadow-sm">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  {activeHeroMovie.rating.toFixed(1)} / 10
+                </span>
+                <span className="flex items-center gap-1.5 bg-[#1C1F2B] border border-white/10 px-3 py-1.5 rounded-xl text-slate-300">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  {activeHeroMovie.duration}
+                </span>
+                {activeHeroMovie.ageRating && (
+                  <span className="px-2.5 py-1 rounded-xl bg-[#1C1F2B] border border-white/10 font-bold uppercase text-[11px] text-slate-200">
+                    {activeHeroMovie.ageRating}
                   </span>
-                ))}
+                )}
+                <span className="text-blue-400 font-semibold px-1">
+                  {activeHeroMovie.genre.join(', ')}
+                </span>
+              </div>
+
+              {/* Synopsis - High Contrast Light Slate */}
+              <p className="text-sm sm:text-base text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
+                {activeHeroMovie.synopsis}
+              </p>
+
+              {/* Formats - Crisp Pill Badges */}
+              {activeHeroMovie.formats && activeHeroMovie.formats.length > 0 && (
+                <div className="flex items-center gap-2.5 pt-1">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeHeroMovie.formats.map(fmt => (
+                      <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-[#1C1F2B] text-blue-300 border border-white/10 shadow-sm">
+                        {fmt}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Call to Actions */}
+              <div className="flex flex-wrap items-center gap-3.5 pt-3">
+                <button
+                  type="button"
+                  onClick={handleHeroBookNow}
+                  className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                  style={{
+                    boxShadow: `0 10px 25px -4px ${colors.glow}`,
+                  }}
+                >
+                  <Ticket className="w-4 h-4 fill-white" />
+                  <span>{t.home.bookNow}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMovie(activeHeroMovie);
+                    navigate(`/movie/${activeHeroMovie.id}`);
+                  }}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-white/15 bg-[#1C1F2B]/90 hover:bg-[#222634] text-white transition-all backdrop-blur-md cursor-pointer hover:border-white/30 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                >
+                  <Eye className="w-4 h-4 text-blue-400" />
+                  <span>{t.home.viewDetails}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTrailerModalMovie(activeHeroMovie.title)}
+                  className="flex items-center gap-2 px-5 py-3.5 rounded-full font-semibold text-sm border border-white/10 bg-transparent hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                >
+                  <Play className="w-3.5 h-3.5 text-blue-400 fill-blue-400" />
+                  <span>Teaser</span>
+                </button>
+              </div>
+
+              {/* Ambient Hero Spotlight Switcher (Quick Movie Switcher) */}
+              <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
+                <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
+                {MOVIES.slice(0, 4).map((m) => {
+                  const isSelected = m.id === activeHeroMovie.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setActiveHeroMovie(m)}
+                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer shrink-0 border ${
+                        isSelected
+                          ? 'bg-white/15 text-white border-white/30 shadow-md backdrop-blur-md scale-105'
+                          : 'bg-[#14161F]/80 text-slate-400 border-white/5 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full transition-colors duration-500"
+                        style={{
+                          backgroundColor: isSelected ? colors.primary : 'rgba(255,255,255,0.3)',
+                        }}
+                      />
+                      <span>{m.title}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Call to Actions */}
-            <div className="flex flex-wrap items-center gap-3.5 pt-3">
-              <button
-                onClick={handleHeroBookNow}
-                className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 cursor-pointer"
-                style={{
-                  boxShadow: `0 10px 25px -4px ${colors.glow}`,
-                }}
-              >
-                <Ticket className="w-4 h-4 fill-white" />
-                <span>{t.home.bookNow}</span>
-              </button>
-
-              <button
-                onClick={() => setTrailerModalMovie(activeHeroMovie.title)}
-                className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-white/10 bg-[#1C1F2B] hover:bg-[#222634] text-slate-200 transition-colors backdrop-blur-md cursor-pointer"
-              >
-                <Play className="w-4 h-4 text-blue-400 fill-blue-400" />
-                <span>{t.home.viewDetails}</span>
-              </button>
+            {/* Right Column: Featured 3D Hero Poster with Ambient Parallax (Desktop) */}
+            <div className="hidden lg:flex lg:col-span-5 xl:col-span-4 justify-center items-center">
+              <HeroPoster3D
+                movie={activeHeroMovie}
+                ambientColor={colors.primary}
+                ambientGlow={colors.glow}
+              />
             </div>
 
-            {/* Ambient Hero Spotlight Switcher (Quick Movie Switcher) */}
-            <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
-              {MOVIES.slice(0, 4).map((m) => {
-                const isSelected = m.id === activeHeroMovie.id;
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setActiveHeroMovie(m)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer shrink-0 border ${
-                      isSelected
-                        ? 'bg-white/15 text-white border-white/30 shadow-md backdrop-blur-md scale-105'
-                        : 'bg-[#14161F]/80 text-slate-400 border-white/5 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor: isSelected ? colors.primary : 'rgba(255,255,255,0.3)',
-                      }}
-                    />
-                    <span>{m.title}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
       </section>

@@ -81,7 +81,7 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-[var(--cinema-bg-base)] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen overflow-x-hidden bg-[var(--cinema-bg-base)] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* 1. HERO SPOTLIGHT BANNER WITH DYNAMIC AMBIENT BACKDROP */}
       <section className="relative overflow-hidden pt-4 pb-14 sm:pb-24 border-b border-white/10">
@@ -97,7 +97,7 @@ export const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             
             {/* Left Column: Spotlight Typography & Metadata */}
-            <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+            <div className="lg:col-span-7 xl:col-span-8 space-y-4 min-w-0 w-full max-w-full">
               
               {/* Spotlight Tag */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-[#1C1F2B]/90 text-blue-300 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/10">
@@ -186,7 +186,7 @@ export const HomePage: React.FC = () => {
               </div>
 
               {/* Ambient Hero Spotlight Switcher (Quick Movie Switcher) */}
-              <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
+              <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 w-full max-w-full">
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
                 {MOVIES.slice(0, 4).map((m) => {
                   const isSelected = m.id === activeHeroMovie.id;

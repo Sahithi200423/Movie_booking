@@ -461,3 +461,36 @@ html:not(.dark) .cinema-glass-nav {
     perspective: none !important;
   }
 }
+
+/* ==========================================================================
+   CineBook 3D Hero Animations & Fallbacks
+   ========================================================================== */
+
+@keyframes cinebookFloat {
+  0%, 100% {
+    transform: perspective(1000px) translateY(0px) rotateX(4deg) rotateY(-6deg);
+  }
+  50% {
+    transform: perspective(1000px) translateY(-12px) rotateX(-3deg) rotateY(6deg);
+  }
+}
+
+@keyframes cinebookDrift {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-8px) translateX(6px);
+    opacity: 0.4;
+  }
+}
+
+.animate-float-card {
+  animation: cinebookFloat 5s ease-in-out infinite;
+}
+
+.animate-drift-slow {
+  animation: cinebookDrift 7s ease-in-out infinite;
+}
+

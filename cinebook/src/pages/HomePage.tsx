@@ -1,29 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  Ticket,
-  Star,
-  Clock,
   Play,
   Filter,
   MapPin,
-  Flame,
   CheckCircle2,
-  Tv,
-  Eye
+  Tv
 } from 'lucide-react';
 
 import { MOVIES, GENRES, LANGUAGES, getCinemasForCity } from '../data/mockData';
 import { MovieCard } from '../components/MovieCard';
-import { HeroPoster3D } from '../components/HeroPoster3D';
-import { AmbientBackdrop } from '../components/AmbientBackdrop';
+import { Floating3DHero } from '../components/Floating3DHero';
 import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
-import { useMovieBackdropColor } from '../hooks/useMovieBackdropColor';
 
 export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
-  const { currentCity, setActiveMovie } = useBooking();
+  const { currentCity } = useBooking();
   const { t, isRTL } = useTranslation();
 
   const cityCinemas = useMemo(() => getCinemasForCity(currentCity), [currentCity]);
@@ -37,9 +28,6 @@ export const HomePage: React.FC = () => {
   // Featured Hero movie (e.g. Kalki)
   const featuredMovie = useMemo(() => MOVIES.find(m => m.featured) || MOVIES[0], []);
   const [activeHeroMovie, setActiveHeroMovie] = useState(featuredMovie);
-
-  // Dynamic movie-adaptive color extraction
-  const { colors } = useMovieBackdropColor(activeHeroMovie);
 
   // Filtered movies
   const filteredMovies = useMemo(() => {
@@ -75,160 +63,21 @@ export const HomePage: React.FC = () => {
   const nowShowingMovies = useMemo(() => filteredMovies.filter(m => m.status === 'now_showing'), [filteredMovies]);
   const comingSoonMovies = useMemo(() => filteredMovies.filter(m => m.status === 'coming_soon'), [filteredMovies]);
 
-  const handleHeroBookNow = () => {
-    setActiveMovie(activeHeroMovie);
-    navigate(`/movie/${activeHeroMovie.id}`);
-  };
-
   return (
     <div className={`min-h-screen overflow-x-hidden bg-[var(--cinema-bg-base)] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
       
-      {/* 1. HERO SPOTLIGHT BANNER WITH DYNAMIC AMBIENT BACKDROP */}
-      <section className="relative overflow-hidden pt-4 pb-14 sm:pb-24 border-b border-white/10">
-        
-        {/* Cinematic Ambient Backdrop */}
-        <AmbientBackdrop
-          colors={colors}
-          backdropUrl={activeHeroMovie.backdropUrl}
-          intensity="vibrant"
+      {/* 1. CINEBOOK V3 SIGNATURE FLOATING 3D HERO (AURAL LUXURY HARDWARE INSPIRED) */}
+      <section className="relative border-b border-white/10">
+        <Floating3DHero
+          movies={MOVIES}
+          activeMovie={activeHeroMovie}
+          onSelectMovie={setActiveHeroMovie}
+          onOpenTrailer={setTrailerModalMovie}
         />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-16">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            
-            {/* Left Column: Spotlight Typography & Metadata */}
-            <div className="lg:col-span-7 xl:col-span-8 space-y-4 min-w-0 w-full max-w-full">
-              
-              {/* Spotlight Tag */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-[#1C1F2B]/90 text-blue-300 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/10">
-                <Flame className="w-3.5 h-3.5 text-blue-400" />
-                <span>{t.home.trending} • {currentCity.split(',')[0]}</span>
-              </div>
-
-              {/* Title - Pure High-Contrast */}
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1] transition-all duration-300">
-                {activeHeroMovie.title}
-              </h1>
-
-              {/* Metadata Pills */}
-              <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
-                <span className="flex items-center gap-1.5 font-bold text-amber-500 dark:text-amber-400 bg-white dark:bg-[#14161F] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
-                  <Star className="w-4 h-4 fill-amber-500 dark:fill-amber-400 text-amber-500 dark:text-amber-400" />
-                  {activeHeroMovie.rating.toFixed(1)} / 10
-                </span>
-                <span className="flex items-center gap-1.5 bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-xl text-slate-700 dark:text-slate-300 shadow-sm dark:shadow-none">
-                  <Clock className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                  {activeHeroMovie.duration}
-                </span>
-                {activeHeroMovie.ageRating && (
-                  <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#1C1F2B] border border-slate-200 dark:border-white/10 font-bold uppercase text-[11px] text-slate-700 dark:text-slate-200 shadow-sm dark:shadow-none">
-                    {activeHeroMovie.ageRating}
-                  </span>
-                )}
-                <span className="text-blue-600 dark:text-blue-400 font-semibold px-1">
-                  {activeHeroMovie.genre.join(', ')}
-                </span>
-              </div>
-
-              {/* Synopsis - High Contrast */}
-              <p className="text-sm sm:text-base text-slate-600 dark:text-zinc-300 line-clamp-3 leading-relaxed max-w-xl">
-                {activeHeroMovie.synopsis}
-              </p>
-
-              {/* Formats - Crisp Pill Badges */}
-              {activeHeroMovie.formats && activeHeroMovie.formats.length > 0 && (
-                <div className="flex items-center gap-2.5 pt-1">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Available in:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {activeHeroMovie.formats.map(fmt => (
-                      <span key={fmt} className="text-xs px-3 py-1 rounded-full font-bold bg-white dark:bg-[#1C1F2B] text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-white/10 shadow-sm">
-                        {fmt}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Call to Actions */}
-              <div className="flex flex-wrap items-center gap-3.5 pt-3">
-                <button
-                  type="button"
-                  onClick={handleHeroBookNow}
-                  className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white active:scale-95 transition-all shadow-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
-                  style={{
-                    boxShadow: `0 10px 25px -4px ${colors.glow}`,
-                  }}
-                >
-                  <Ticket className="w-4 h-4 fill-white" />
-                  <span>{t.home.bookNow}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveMovie(activeHeroMovie);
-                    navigate(`/movie/${activeHeroMovie.id}`);
-                  }}
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm border border-slate-300 dark:border-white/15 bg-white/90 dark:bg-[#1C1F2B]/90 hover:bg-slate-100 dark:hover:bg-[#222634] text-slate-900 dark:text-white transition-all backdrop-blur-md cursor-pointer hover:border-slate-400 dark:hover:border-white/30 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none shadow-sm"
-                >
-                  <Eye className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                  <span>{t.home.viewDetails}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTrailerModalMovie(activeHeroMovie.title)}
-                  className="flex items-center gap-2 px-5 py-3.5 rounded-full font-semibold text-sm border border-slate-300 dark:border-white/10 bg-transparent hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
-                >
-                  <Play className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 fill-blue-500 dark:fill-blue-400" />
-                  <span>Teaser</span>
-                </button>
-              </div>
-
-              {/* Ambient Hero Spotlight Switcher (Quick Movie Switcher) */}
-              <div className="pt-4 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 w-full max-w-full">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold mr-1">Trending:</span>
-                {MOVIES.slice(0, 4).map((m) => {
-                  const isSelected = m.id === activeHeroMovie.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setActiveHeroMovie(m)}
-                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer shrink-0 border ${
-                        isSelected
-                          ? 'bg-slate-900 text-white dark:bg-white/15 dark:text-white border-slate-900 dark:border-white/30 shadow-md backdrop-blur-md scale-105'
-                          : 'bg-white/80 dark:bg-[#14161F]/80 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:border-blue-500/30'
-                      }`}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full transition-colors duration-500"
-                        style={{
-                          backgroundColor: isSelected ? colors.primary : 'rgba(255,255,255,0.3)',
-                        }}
-                      />
-                      <span>{m.title}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right Column: Featured 3D Hero Poster with Ambient Parallax (Desktop) */}
-            <div className="hidden lg:flex lg:col-span-5 xl:col-span-4 justify-center items-center">
-              <HeroPoster3D
-                movie={activeHeroMovie}
-                ambientColor={colors.primary}
-                ambientGlow={colors.glow}
-              />
-            </div>
-
-          </div>
-        </div>
       </section>
 
       {/* 2. FILTER & SEARCH CONTROL BAR */}
-      <section className="sticky top-18 z-30 bg-slate-50/95 dark:bg-[#090A0F]/90 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 py-4 transition-colors">
+      <section id="explore-movies-grid" className="sticky top-18 z-30 bg-slate-50/95 dark:bg-[#090A0F]/90 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 py-4 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           
           {/* Main Category Tabs */}

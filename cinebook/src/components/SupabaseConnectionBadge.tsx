@@ -12,7 +12,11 @@ interface ConnectionState {
   isWakingUp?: boolean;
 }
 
-export const SupabaseConnectionBadge: React.FC = () => {
+interface SupabaseConnectionBadgeProps {
+  compact?: boolean;
+}
+
+export const SupabaseConnectionBadge: React.FC<SupabaseConnectionBadgeProps> = ({ compact = false }) => {
   const [state, setState] = useState<ConnectionState>({
     status: 'loading',
     message: 'Testing connection...',
@@ -108,46 +112,81 @@ export const SupabaseConnectionBadge: React.FC = () => {
 
   return (
     <div className="relative inline-flex items-center">
-      {state.status === 'loading' && (
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 animate-pulse">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
-          <span>{state.message}</span>
-        </div>
-      )}
-
-      {state.status === 'connected' && (
-        <button
-          type="button"
-          onClick={() => setShowConfigHelp(!showConfigHelp)}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 shadow-xs transition-colors cursor-pointer"
-          title="Click to view connection info"
-        >
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-          <span>{state.message}</span>
-        </button>
-      )}
-
-      {state.status === 'failed' && (
-        <div className="inline-flex items-center gap-1.5">
+      {compact ? (
+        state.status === 'loading' ? (
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-500 animate-pulse"
+            title="Checking database connection..."
+          >
+            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+          </div>
+        ) : state.status === 'connected' ? (
           <button
             type="button"
             onClick={() => setShowConfigHelp(!showConfigHelp)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/25 shadow-xs transition-colors cursor-pointer"
-            title="Click for connection diagnostics"
+            className="w-10 h-10 rounded-xl flex items-center justify-center relative border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
+            title="Database Connected ✓ (Click for details)"
+            aria-label="Database Connected"
           >
-            <XCircle className="w-3.5 h-3.5 text-red-500" />
-            <span>{state.message}</span>
+            <Database className="w-4 h-4" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#0E1017]"></span>
           </button>
-
+        ) : (
           <button
             type="button"
-            onClick={() => testConnection(false)}
-            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-            title="Retry Connection"
+            onClick={() => setShowConfigHelp(!showConfigHelp)}
+            className="w-10 h-10 rounded-xl flex items-center justify-center relative border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+            title="Database Connection Notice (Click for diagnostics)"
+            aria-label="Database Connection Status"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <Database className="w-4 h-4" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-[#0E1017]"></span>
           </button>
-        </div>
+        )
+      ) : (
+        <>
+          {state.status === 'loading' && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+              <span>{state.message}</span>
+            </div>
+          )}
+
+          {state.status === 'connected' && (
+            <button
+              type="button"
+              onClick={() => setShowConfigHelp(!showConfigHelp)}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 shadow-xs transition-colors cursor-pointer"
+              title="Click to view connection info"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{state.message}</span>
+            </button>
+          )}
+
+          {state.status === 'failed' && (
+            <div className="inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowConfigHelp(!showConfigHelp)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/25 shadow-xs transition-colors cursor-pointer"
+                title="Click for connection diagnostics"
+              >
+                <XCircle className="w-3.5 h-3.5 text-red-500" />
+                <span>{state.message}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => testConnection(false)}
+                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                title="Retry Connection"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Diagnostics Popover */}

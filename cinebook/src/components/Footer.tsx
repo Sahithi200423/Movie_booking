@@ -170,11 +170,11 @@ export const Footer: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
               <span>Policies & Support</span>
             </h4>
-            <ul className="space-y-2 text-xs">
+            <ul className="space-y-1 text-xs">
               <li>
                 <button
                   onClick={openTerms}
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
+                  className="py-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
                 >
                   <FileText className="w-3.5 h-3.5 text-slate-400" /> Terms of Service
                 </button>
@@ -182,7 +182,7 @@ export const Footer: React.FC = () => {
               <li>
                 <button
                   onClick={openPrivacy}
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
+                  className="py-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
                 >
                   <Lock className="w-3.5 h-3.5 text-slate-400" /> Privacy & Security
                 </button>
@@ -190,7 +190,7 @@ export const Footer: React.FC = () => {
               <li>
                 <button
                   onClick={openFAQ}
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
+                  className="py-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
                 >
                   <HelpCircle className="w-3.5 h-3.5 text-slate-400" /> FAQ & Help Center
                 </button>

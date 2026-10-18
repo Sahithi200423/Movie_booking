@@ -106,32 +106,13 @@ export const CheckoutPage: React.FC = () => {
       });
   }, []);
 
-  // Fallback if accessed with empty booking state
-  if (!activeBooking.movie || !activeBooking.cinema || activeBooking.seats.length === 0) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-[#090A0F] text-slate-100">
-        <ShieldAlert className="w-16 h-16 text-amber-500 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">{t.seats.sessionEmptyTitle}</h2>
-        <p className="text-sm text-slate-400 mb-6 max-w-md">
-          {t.seats.sessionEmptyDesc}
-        </p>
-        <Link
-          to="/"
-          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition-colors"
-        >
-          {t.nav.movies}
-        </Link>
-      </div>
-    );
-  }
-
-  const seatsCount = activeBooking.seats.length;
+  const seatsCount = activeBooking.seats?.length || 0;
 
   // Calculate base ticket breakdown: Exactly ₹5 per seat in demo
   const seatsSubtotal = seatsCount * 5;
 
   // Group seats by tier for itemized display: Exactly ₹5 per seat in demo
-  const seatsByTier = activeBooking.seats.reduce((acc, seat) => {
+  const seatsByTier = (activeBooking.seats || []).reduce((acc, seat) => {
     if (!acc[seat.tier]) {
       acc[seat.tier] = { count: 0, price: 5, seats: [] };
     }
@@ -566,8 +547,27 @@ export const CheckoutPage: React.FC = () => {
     setIsProcessing(false);
   };
 
+  // Fallback if accessed with empty booking state (checked after all React Hooks)
+  if (!activeBooking.movie || !activeBooking.cinema || (activeBooking.seats && activeBooking.seats.length === 0)) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors">
+        <ShieldAlert className="w-16 h-16 text-amber-500 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t.seats.sessionEmptyTitle}</h2>
+        <p className="text-sm text-slate-400 mb-6 max-w-md">
+          {t.seats.sessionEmptyDesc}
+        </p>
+        <Link
+          to="/"
+          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition-colors"
+        >
+          {t.nav.movies}
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className={`min-h-screen pb-20 bg-[#090A0F] text-slate-100 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen pb-20 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* INLINE TOAST NOTIFICATION BADGE */}
       {toastNotice && (

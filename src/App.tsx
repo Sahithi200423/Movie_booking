@@ -50,7 +50,7 @@ export function App() {
           <BookingProvider>
             <Router>
               <ScrollToTop />
-              <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#0B0C0E] text-slate-900 dark:text-slate-100 selection:bg-blue-600 selection:text-white transition-colors duration-300">
+              <div className="min-h-screen flex flex-col overflow-x-hidden bg-slate-50 dark:bg-[#0B0C0E] text-slate-900 dark:text-slate-100 selection:bg-blue-600 selection:text-white transition-colors duration-300">
                 {/* Global Navigation Bar */}
                 <Navbar
                   onOpenSearch={() => setIsSearchOpen(true)}

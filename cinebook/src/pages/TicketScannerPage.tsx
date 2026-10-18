@@ -205,7 +205,7 @@ export const TicketScannerPage: React.FC = () => {
               <ChevronLeft className="w-5 h-5 text-blue-500" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span>Cinema M-Ticket Gate Scanner</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
                   LIVE GATE TERMINAL
@@ -292,7 +292,7 @@ export const TicketScannerPage: React.FC = () => {
             </div>
 
             {/* Manual Reference Code Input */}
-            <div className="p-6 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-xl space-y-4">
+            <div className="p-4 sm:p-6 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161F] shadow-xl space-y-4">
               <div className="flex items-center gap-2">
                 <Search className="w-5 h-5 text-blue-500" />
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">Manual Reference Validation</h3>
@@ -305,7 +305,7 @@ export const TicketScannerPage: React.FC = () => {
                     verifyTicket({ bookingRef: bookingRefInput.trim() });
                   }
                 }}
-                className="flex gap-2"
+                className="flex flex-col sm:flex-row gap-2"
               >
                 <input
                   type="text"
@@ -317,7 +317,7 @@ export const TicketScannerPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isValidating || !bookingRefInput.trim()}
-                  className="px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold text-sm transition-all shadow-lg shadow-blue-600/30 cursor-pointer flex items-center gap-2"
+                  className="min-h-[44px] px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold text-sm transition-all shadow-lg shadow-blue-600/30 cursor-pointer flex items-center justify-center gap-2 shrink-0"
                 >
                   {isValidating ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />

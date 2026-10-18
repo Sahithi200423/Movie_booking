@@ -239,7 +239,7 @@ export async function holdSeatsApi(showtimeId: string, seatIds: string[], sessio
     });
     return {
       success: res.success,
-      message: res.message || 'Seats locked for 10 minutes',
+      message: res.message || 'Seats locked for 7 minutes',
       showtimeId: res.showtimeId,
       heldSeats: res.lockedSeats || res.heldSeats || seatIds,
       expiresAt: res.expiresAt,

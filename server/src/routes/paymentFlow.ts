@@ -6,6 +6,7 @@ import { getSocketIO, seatReservationService } from '../services/seatReservation
 import { ensurePrismaShowtime } from '../services/showtimeResolver.js';
 import { isPastShowtime } from '../utils/dateUtils.js';
 import jwt from 'jsonwebtoken';
+import { paymentOrderLimiter, paymentVerifyLimiter } from '../middleware/rateLimiter.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cinebook_default_development_secret_2024';
 
@@ -71,7 +72,7 @@ export function generateRazorpaySignature(orderId: string, paymentId: string, se
  * Creates a server-side order with Razorpay: razorpay.orders.create({ amount: totalInPaise, currency: "INR", receipt: bookingRef })
  * Returns order_id, amount, and currency.
  */
-router.post('/create-order', async (req: Request, res: Response) => {
+router.post('/create-order', paymentOrderLimiter, async (req: Request, res: Response) => {
   try {
     const {
       showtimeId,
@@ -101,6 +102,13 @@ router.post('/create-order', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'showtimeId and selectedSeats (or seatIds) array are required.'
+      });
+    }
+
+    if (targetSeats.length > 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'A maximum of 8 seats can be booked in a single transaction.'
       });
     }
 
@@ -265,7 +273,7 @@ router.post('/create-order', async (req: Request, res: Response) => {
  * If valid, updates database seat records from HELD to BOOKED and creates/confirms Booking record.
  * If invalid, releases the seats back to AVAILABLE.
  */
-router.post('/verify', async (req: Request, res: Response) => {
+router.post('/verify', paymentVerifyLimiter, async (req: Request, res: Response) => {
   try {
     const {
       bookingId,
@@ -289,44 +297,7 @@ router.post('/verify', async (req: Request, res: Response) => {
       });
     }
 
-    // Find Payment record in Prisma
-    let payment = await prisma.payment.findUnique({
-      where: { orderId: targetOrderId },
-      include: {
-        booking: {
-          include: {
-            seats: true,
-            showtime: {
-              include: {
-                movie: true,
-                screen: { include: { theatre: true } }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!payment && bookingId) {
-      payment = await prisma.payment.findFirst({
-        where: { bookingId },
-        include: {
-          booking: {
-            include: {
-              seats: true,
-              showtime: {
-                include: {
-                  movie: true,
-                  screen: { include: { theatre: true } }
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    // 1. Verify HMAC-SHA256 signature against the configured secret ONLY (no prefix bypasses)
+    // 1. Verify HMAC-SHA256 signature against the configured secret ONLY (Fail fast)
     const body = `${targetOrderId}|${targetPaymentId}`;
     const expected = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(body).digest('hex');
     const isAuthentic =
@@ -334,18 +305,21 @@ router.post('/verify', async (req: Request, res: Response) => {
       targetSignature.length === expected.length &&
       crypto.timingSafeEqual(Buffer.from(targetSignature), Buffer.from(expected));
 
-    // If signature is INVALID: mark payment FAILED and release held seats
+    // If signature is INVALID: mark payment FAILED and release held seats immediately
     if (!isAuthentic) {
-      if (payment) {
-        await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', paymentId: null, signature: null } }).catch(() => null);
-        if (payment.booking) {
-          await prisma.booking.update({ where: { id: payment.booking.id }, data: { status: 'cancelled' } }).catch(() => null);
+      try {
+        const payment = await prisma.payment.findUnique({ where: { orderId: targetOrderId } }).catch(() => null);
+        if (payment) {
+          await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', paymentId: null, signature: null } }).catch(() => null);
+          if (payment.bookingId) {
+            await prisma.booking.update({ where: { id: payment.bookingId }, data: { status: 'cancelled' } }).catch(() => null);
+          }
         }
-      }
+      } catch {}
 
       const pendingOrder = pendingOrderStore.get(targetOrderId) || (bookingId ? pendingOrderStore.get(bookingId) : undefined);
       if (pendingOrder) {
-        const showtime = await ensurePrismaShowtime(pendingOrder.showtimeId);
+        const showtime = await ensurePrismaShowtime(pendingOrder.showtimeId).catch(() => null);
         if (showtime) {
           const seatNames = pendingOrder.matchedSeats.map(s => s.seatNumber || `${s.row}${s.number}`);
           await prisma.seatReservation.deleteMany({
@@ -377,6 +351,43 @@ router.post('/verify', async (req: Request, res: Response) => {
         success: false,
         message: 'Invalid payment signature. Payment rejected and seats have been released.'
       });
+    }
+
+    // Find Payment record in Prisma for verified payment
+    let payment = await prisma.payment.findUnique({
+      where: { orderId: targetOrderId },
+      include: {
+        booking: {
+          include: {
+            seats: true,
+            showtime: {
+              include: {
+                movie: true,
+                screen: { include: { theatre: true } }
+              }
+            }
+          }
+        }
+      }
+    }).catch(() => null);
+
+    if (!payment && bookingId) {
+      payment = await prisma.payment.findFirst({
+        where: { bookingId },
+        include: {
+          booking: {
+            include: {
+              seats: true,
+              showtime: {
+                include: {
+                  movie: true,
+                  screen: { include: { theatre: true } }
+                }
+              }
+            }
+          }
+        }
+      }).catch(() => null);
     }
 
     // Idempotency: check if already confirmed
@@ -585,44 +596,90 @@ router.post('/verify', async (req: Request, res: Response) => {
 
 /**
  * POST /api/payment/verify-webhook (Gateway Webhook Endpoint)
+ * Hardened with required signature header check, timing-safe HMAC-SHA256 verification,
+ * and reconciliation for payment.captured, order.paid, and payment.failed events.
  */
 router.post('/verify-webhook', async (req: Request, res: Response) => {
   try {
     const signature = req.headers['x-razorpay-signature'] as string;
-    const bodyStr = JSON.stringify(req.body);
+    const rawBuffer = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
 
-    if (signature) {
-      const expectedSignature = crypto
-        .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
-        .update(bodyStr)
-        .digest('hex');
+    if (!signature) {
+      return res.status(400).json({ success: false, message: 'Missing x-razorpay-signature header.' });
+    }
 
-      if (signature !== expectedSignature && signature !== 'whsec_valid_mock_signature') {
-        return res.status(400).json({ success: false, message: 'Invalid webhook signature.' });
-      }
+    const expectedSignature = crypto
+      .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
+      .update(rawBuffer)
+      .digest('hex');
+
+    const isMockBypass = process.env.NODE_ENV !== 'production' && signature === 'whsec_valid_mock_signature';
+    const isAuthentic = isMockBypass || (
+      signature.length === expectedSignature.length &&
+      crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+    );
+
+    if (!isAuthentic) {
+      return res.status(400).json({ success: false, message: 'Invalid webhook signature.' });
     }
 
     const event = req.body.event || 'payment.captured';
-    const payload = req.body.payload?.payment?.entity;
+    const payload = req.body.payload?.payment?.entity || req.body.payload?.order?.entity;
+    const targetOrderId = payload?.order_id || (payload?.id?.startsWith('order_') ? payload.id : undefined) || payload?.orderId;
+    const paymentGatewayId = req.body.payload?.payment?.entity?.id || (payload?.id?.startsWith('pay_') ? payload.id : undefined);
 
-    if (payload?.order_id) {
-      const payment = await prisma.payment.findUnique({
-        where: { orderId: payload.order_id },
-        include: { booking: true }
-      });
-
-      if (payment && event === 'payment.captured') {
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: { status: 'SUCCESS', paymentId: payload.id }
+    if (targetOrderId) {
+      try {
+        const payment = await prisma.payment.findUnique({
+          where: { orderId: targetOrderId },
+          include: { booking: true }
         });
 
-        if (payment.booking) {
-          await prisma.booking.update({
-            where: { id: payment.booking.id },
-            data: { status: 'confirmed' }
-          });
+        if (payment) {
+          if (event === 'payment.captured' || event === 'order.paid') {
+            await prisma.payment.update({
+              where: { id: payment.id },
+              data: { status: 'SUCCESS', ...(paymentGatewayId ? { paymentId: paymentGatewayId } : {}) }
+            });
+
+            if (payment.booking && payment.booking.status !== 'confirmed') {
+              await prisma.booking.update({
+                where: { id: payment.booking.id },
+                data: { status: 'confirmed' }
+              });
+            }
+
+            // Reconciliation: Convert any remaining HELD seats to BOOKED so background sweeper doesn't delete them
+            if (payment.booking) {
+              await prisma.seatReservation.updateMany({
+                where: {
+                  showtimeId: payment.booking.showtimeId,
+                  bookingId: payment.booking.id,
+                  status: { in: ['HELD', 'LOCKED'] }
+                },
+                data: { status: 'BOOKED' }
+              }).catch(() => null);
+            }
+          } else if (event === 'payment.failed') {
+            await prisma.payment.update({
+              where: { id: payment.id },
+              data: { status: 'FAILED' }
+            });
+
+            // Reconciliation: Release held seats if payment failed asynchronously
+            if (payment.booking && payment.booking.status !== 'confirmed') {
+              await prisma.seatReservation.deleteMany({
+                where: {
+                  showtimeId: payment.booking.showtimeId,
+                  bookingId: payment.booking.id,
+                  status: { in: ['HELD', 'LOCKED'] }
+                }
+              }).catch(() => null);
+            }
+          }
         }
+      } catch (dbErr: any) {
+        console.warn('Webhook DB reconciliation notice:', dbErr.message || dbErr);
       }
     }
 

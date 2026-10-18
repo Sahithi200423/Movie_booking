@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { seatReservationService } from '../services/seatReservationService.js';
+import { seatLockLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -14,8 +15,8 @@ function getSessionIdentifier(req: Request): string {
   );
 }
 
-// POST /api/seats/lock (Acquire 10-minute hold on seats)
-router.post('/lock', async (req: Request, res: Response) => {
+// POST /api/seats/lock (Acquire 10-minute hold on seats - Rate limited: 60/min per session/IP)
+router.post('/lock', seatLockLimiter, async (req: Request, res: Response) => {
   try {
     const { showtimeId, seatNumbers, selectedSeats, seatIds, userId, durationMinutes = 10 } = req.body;
     const targetSeats = seatNumbers || selectedSeats || seatIds || [];
@@ -25,6 +26,13 @@ router.post('/lock', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'showtimeId and selectedSeats (or seatNumbers) array are required.'
+      });
+    }
+
+    if (targetSeats.length > 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'A maximum of 8 seats can be locked in a single transaction.'
       });
     }
 
@@ -76,11 +84,11 @@ async function handleReleaseSeats(req: Request, res: Response) {
   }
 }
 
-// POST /api/seats/release (Primary requested endpoint)
-router.post('/release', handleReleaseSeats);
+// POST /api/seats/release (Primary requested endpoint - Rate limited: 60/min)
+router.post('/release', seatLockLimiter, handleReleaseSeats);
 
-// POST /api/seats/unlock (Backward compatibility)
-router.post('/unlock', handleReleaseSeats);
+// POST /api/seats/unlock (Backward compatibility - Rate limited: 60/min)
+router.post('/unlock', seatLockLimiter, handleReleaseSeats);
 
 // GET /api/seats/live (Live seat status map)
 router.get('/live', async (req: Request, res: Response) => {

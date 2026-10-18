@@ -312,7 +312,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "C:\\Users\\MI\\Desktop\\Movie-ticket-booking\\server\\src\\generated\\pgclient",
+      "value": "C:\\Users\\MI\\Desktop\\CineBook-v2\\server\\src\\generated\\pgclient",
       "fromEnvVar": null
     },
     "config": {
@@ -342,12 +342,11 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "C:\\Users\\MI\\Desktop\\Movie-ticket-booking\\server\\prisma\\schema.prisma",
+    "sourceFilePath": "C:\\Users\\MI\\Desktop\\CineBook-v2\\server\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": null,
-    "schemaEnvPath": "../../../.env"
+    "rootEnvPath": null
   },
   "relativePath": "../../../prisma",
   "clientVersion": "5.22.0",
@@ -356,7 +355,7 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
-  "postinstall": false,
+  "postinstall": true,
   "inlineDatasources": {
     "db": {
       "url": {

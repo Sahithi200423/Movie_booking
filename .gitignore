@@ -42,6 +42,7 @@ server/dist
 test_*.mjs
 test_*.js
 server/test_*.js
+!server/test_security_hardening.js
 server/inspect_*.js
 server/apply_*.js
 server/migrate_*.js

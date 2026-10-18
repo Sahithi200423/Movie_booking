@@ -15,9 +15,15 @@ import paymentFlowRoutes from './routes/paymentFlow.js';
 import seatLockRoutes from './routes/seatLocks.js';
 import ticketValidationRoutes from './routes/ticketValidation.js';
 import { setSocketIO } from './services/seatReservationService.js';
+import { globalApiLimiter } from './middleware/rateLimiter.js';
 import prisma from './prisma.js';
 
 const app = express();
+
+// Enable reverse proxy support (Render / Cloudflare / Vercel proxy headers)
+// Ensures req.ip correctly resolves the client's public IP from X-Forwarded-For
+app.set('trust proxy', 1);
+
 const httpServer = http.createServer(app);
 
 // Setup Socket.io for Real-time seat reservation broadcasts
@@ -66,7 +72,11 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(express.json());
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // API Health Check with live Supabase PostgreSQL ping
 app.get('/api/health', async (_req, res) => {
@@ -86,6 +96,9 @@ app.get('/api/health', async (_req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Apply baseline rate limiting to all /api routes (300 req/min per IP, excluding /api/health)
+app.use('/api', globalApiLimiter);
 
 // Mount Routes
 app.use('/api/auth', authRoutes);

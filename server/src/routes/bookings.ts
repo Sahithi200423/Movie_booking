@@ -8,6 +8,7 @@ import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { getSocketIO } from '../services/seatReservationService.js';
 import { isPastShowtime } from '../utils/dateUtils.js';
 import { ensurePrismaShowtime } from '../services/showtimeResolver.js';
+import { paymentOrderLimiter } from '../middleware/rateLimiter.js';
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_sampleKey';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sampleSecretKey';
@@ -18,8 +19,8 @@ const razorpay = new Razorpay({
 
 const router = Router();
 
-// POST /api/bookings (Create booking with atomic conflict prevention)
-router.post('/', async (req: AuthRequest, res: Response) => {
+// POST /api/bookings (Create booking with atomic conflict prevention - Rate limited: 20/10m)
+router.post('/', paymentOrderLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const {
       showtimeId,

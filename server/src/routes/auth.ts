@@ -2,11 +2,12 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from '../db.js';
 import { generateToken, authenticate, AuthRequest } from '../middleware/auth.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// POST /api/auth/register
-router.post('/register', async (req: Request, res: Response) => {
+// POST /api/auth/register (Rate limited: 15 attempts / 15m)
+router.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {
     const { name, email, password, phone } = req.body;
 
@@ -53,8 +54,8 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/login
-router.post('/login', async (req: Request, res: Response) => {
+// POST /api/auth/login (Rate limited: 15 attempts / 15m)
+router.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -119,8 +120,8 @@ router.get('/me', authenticate, (req: AuthRequest, res: Response) => {
   });
 });
 
-// POST /api/auth/demo - Convenient quick login for testing
-router.post('/demo', (req: Request, res: Response) => {
+// POST /api/auth/demo (Rate limited: 15 attempts / 15m) - Convenient quick login for testing
+router.post('/demo', authLimiter, (req: Request, res: Response) => {
   const role = req.body.role === 'admin' ? 'admin' : 'user';
   const email = role === 'admin' ? 'admin@cinebook.com' : 'user@cinebook.com';
   const user = db.findUserByEmail(email);

@@ -584,26 +584,30 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
             const floatY = Math.sin(elapsedTime * 1.25) * 0.18;
             ticketMesh.position.y = floatY;
 
-            // (B) Autonomous breathing rotation & tilt (visible on mobile WITHOUT any mouse/touch input)
-            const autoPitch = Math.sin(elapsedTime * 0.8) * 0.11;   // ~6.5° pitch
-            const autoYaw = Math.sin(elapsedTime * 0.6) * 0.20;     // ~11.5° slow rotation
-            const autoRoll = Math.cos(elapsedTime * 1.0) * 0.035;   // ~2° roll
+            // (B) Subtle automatic tilting (strictly limited to 10-15 degrees, zero 360-spin)
+            // 10 deg = 0.174 rad, 12 deg = 0.209 rad, 14 deg = 0.244 rad
+            const autoPitch = Math.sin(elapsedTime * 0.85) * 0.08;  // ~4.6° gentle pitch nod
+            const autoYaw = Math.sin(elapsedTime * 0.6) * 0.18;     // ~10.3° subtle horizontal sway
+            const autoRoll = Math.cos(elapsedTime * 0.8) * 0.025;   // ~1.4° micro roll
 
-            // (C) Seamless blending of autonomous motion with user tilt (mouse or touch)
-            const targetRotX = autoPitch + mouse.y * 0.38;
-            const targetRotY = autoYaw + mouse.x * 0.50;
-            const targetRotZ = autoRoll - mouse.x * 0.08;
+            // (C) Subtle desktop mouse parallax (capped so total tilt never exceeds ~14°)
+            const mousePitch = mouse.y * 0.06;
+            const mouseYaw = mouse.x * 0.08;
+
+            const targetRotX = THREE.MathUtils.clamp(autoPitch + mousePitch, -0.20, 0.20);
+            const targetRotY = THREE.MathUtils.clamp(autoYaw + mouseYaw, -0.24, 0.24);
+            const targetRotZ = autoRoll - mouse.x * 0.02;
 
             ticketMesh.rotation.x = targetRotX;
             ticketMesh.rotation.y = targetRotY;
             ticketMesh.rotation.z = targetRotZ;
 
-            // (D) Dynamic contact shadow tracks vertical oscillation
+            // (D) Soft moving floor shadow tracking vertical float and gentle sway
             if (shadowMesh) {
-              const shadowScale = 1.0 - floatY * 0.65;
+              const shadowScale = 1.0 - floatY * 0.6;
               shadowMesh.scale.set(shadowScale, shadowScale, shadowScale);
-              shadowMat.opacity = Math.max(0.2, 0.55 - floatY * 0.35);
-              shadowMesh.position.x = targetRotY * 0.35;
+              shadowMat.opacity = Math.max(0.2, 0.52 - floatY * 0.3);
+              shadowMesh.position.x = targetRotY * 0.3;
             }
           } else {
             // Accessible static presentation when reduced motion is preferred
@@ -665,27 +669,6 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     mouseRef.current.targetX = 0;
     mouseRef.current.targetY = 0;
     setIsHovered(false);
-  };
-
-  const handlePointerEnter = () => {
-    setIsHovered(true);
-  };
-
-  // Passive Touch Drag for Mobile Tilt (Without interfering with vertical scrolling)
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!containerRef.current || e.touches.length === 0) return;
-    const touch = e.touches[0];
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -(((touch.clientY - rect.top) / rect.height) * 2 - 1);
-
-    mouseRef.current.targetX = Math.max(-0.6, Math.min(0.6, x));
-    mouseRef.current.targetY = Math.max(-0.6, Math.min(0.6, y));
-  };
-
-  const handleTouchEnd = () => {
-    mouseRef.current.targetX = 0;
-    mouseRef.current.targetY = 0;
   };
 
   const handleBookNow = () => {
@@ -783,18 +766,14 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
         <div
           ref={containerRef}
           onPointerMove={handlePointerMove}
-          onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ touchAction: 'pan-y' }}
-          className="relative w-full max-w-4xl h-[280px] xs:h-[310px] sm:h-[400px] md:h-[480px] lg:h-[510px] flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+          className="relative w-full max-w-4xl h-[280px] xs:h-[310px] sm:h-[400px] md:h-[480px] lg:h-[510px] flex items-center justify-center select-none pointer-events-none"
         >
           {webglSupported ? (
             /* Three.js Hardware-Accelerated 3D Canvas */
             <canvas
               ref={canvasRef}
-              className="w-full h-full block focus:outline-none"
+              className="w-full h-full block focus:outline-none pointer-events-none"
               style={{
                 filter: isHovered ? 'drop-shadow(0 20px 45px rgba(225, 29, 72, 0.3))' : 'none',
                 transition: 'filter 0.5s ease'

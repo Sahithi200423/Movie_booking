@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -54,6 +54,7 @@ export const SeatSelectionPage: React.FC = () => {
   } | null>(null);
   const [isLoadingSeats, setIsLoadingSeats] = useState(true);
   const [isHolding, setIsHolding] = useState(false);
+  const isHoldingRef = useRef(false);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [showFnbModal, setShowFnbModal] = useState<boolean>(false);
@@ -66,6 +67,17 @@ export const SeatSelectionPage: React.FC = () => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     return (isMobile || prefersReduced) ? '2d' : '3d';
   });
+
+  // Automatically adapt viewMode when resizing between desktop and mobile screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setViewMode('2d');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Movie-adaptive ambient lighting for auditorium projector beam
   const { colors } = useMovieBackdropColor(activeBooking.movie);
@@ -273,6 +285,7 @@ export const SeatSelectionPage: React.FC = () => {
 
       if (diff <= 0) {
         setHoldExpiresAt(null);
+        setSeats([]);
         setErrorMessage(t.seats.holdExpiredNotice);
         releaseSeatsHoldApi(showtimeId, sessionId).catch(() => {});
       }
@@ -314,7 +327,7 @@ export const SeatSelectionPage: React.FC = () => {
   }, [baseLayout, backendSeats]);
 
   const selectedSeats = activeBooking.seats || [];
-  const subtotal = selectedSeats.length * 5;
+  const subtotal = useMemo(() => selectedSeats.reduce((sum, s) => sum + (s.price || 5), 0), [selectedSeats]);
 
   // Accurate seat availability counts for live dashboard
   const dashboardCounts = useMemo(() => {
@@ -385,7 +398,12 @@ export const SeatSelectionPage: React.FC = () => {
   }
 
   const handleSeatClick = async (seat: Seat) => {
-    if (isLoadingSeats) return;
+    // 1. Initial Availability Check: Notify user instead of freezing or selecting blindly
+    if (isLoadingSeats) {
+      setErrorMessage('Checking real-time seat availability with the cinema. Please wait a moment...');
+      return;
+    }
+
     if (seat.status === 'reserved') return;
     if (seat.status === 'held') {
       setErrorMessage('This seat is temporarily locked by another customer. Please choose an adjacent seat.');
@@ -395,11 +413,14 @@ export const SeatSelectionPage: React.FC = () => {
     setErrorMessage(null);
     const isAlreadySelected = selectedSeats.some(s => s.id === seat.id);
 
+    // 1. DESELECTION: Optimistic instant removal (always permitted without waiting for hold lock)
     if (isAlreadySelected) {
       toggleSeat(seat);
       const remaining = selectedSeats.filter(s => s.id !== seat.id);
       if (remaining.length === 0) {
         setHoldExpiresAt(null);
+        setIsHolding(false);
+        isHoldingRef.current = false;
         releaseSeatsHoldApi(showtimeId, sessionId).catch(() => {});
       } else {
         holdSeatsApi(showtimeId, remaining.map(s => s.id), sessionId).catch(() => {});
@@ -407,7 +428,12 @@ export const SeatSelectionPage: React.FC = () => {
       return;
     }
 
-    // If starting fresh and partySize > 1, try contiguous auto-selection
+    // 2. Concurrency Guard: Prevent rapid spam clicks from sending duplicate or conflicting hold requests for new seats
+    if (isHoldingRef.current) {
+      return;
+    }
+
+    // 2. CONTIGUOUS AUTO-SELECTION (when starting fresh with partySize > 1)
     if (selectedSeats.length === 0 && partySize > 1) {
       const currentRow = seatLayout.find(r => r.rowLetter === seat.row);
       if (currentRow) {
@@ -424,54 +450,79 @@ export const SeatSelectionPage: React.FC = () => {
           }
 
           if (candidateSeats.length === partySize) {
+            // Optimistic immediate UI selection
+            setSeats(candidateSeats);
             setIsHolding(true);
+            isHoldingRef.current = true;
             try {
               const res = await holdSeatsApi(showtimeId, candidateSeats.map(s => s.id), sessionId, 7);
-              if (res.success) {
-                setSeats(candidateSeats);
+              if (res && res.expiresAt) {
                 setHoldExpiresAt(res.expiresAt);
-                return;
+              } else {
+                setSeats([]);
+                setErrorMessage(res?.message || 'Selected seats could not be held. Please choose different seats.');
               }
             } catch (err: unknown) {
-              console.warn('Contiguous batch hold failed, falling back to single seat:', err);
+              setSeats([]);
+              const msg = (err as Error).message || 'Unable to hold selected seats. Please choose different seats.';
+              setErrorMessage(msg);
             } finally {
               setIsHolding(false);
+              isHoldingRef.current = false;
             }
+            return;
           }
         }
       }
     }
 
-    // Standard single seat selection with partySize limit check
+    // 3. SINGLE SEAT SELECTION
     if (selectedSeats.length >= 8) {
       setErrorMessage(t.seats.maxSeatsNotice);
       return;
     }
 
+    // If user clicks beyond previous partySize, seamlessly expand partySize up to 8
     if (selectedSeats.length >= partySize) {
-      setErrorMessage(`You previously selected ${partySize} seat(s). Tap "Change" above if you'd like to book more tickets.`);
-      return;
+      setPartySize(prev => Math.min(8, prev + 1));
     }
 
+    // Optimistic immediate UI selection
+    toggleSeat(seat);
     setIsHolding(true);
+    isHoldingRef.current = true;
     try {
       const nextSeatIds = [...selectedSeats.map(s => s.id), seat.id];
       const res = await holdSeatsApi(showtimeId, nextSeatIds, sessionId, 7);
-      if (res.success) {
-        toggleSeat(seat);
+      if (res && res.expiresAt) {
         setHoldExpiresAt(res.expiresAt);
+      } else {
+        toggleSeat(seat); // Immediately undo optimistic selection if hold was rejected
+        setErrorMessage(res?.message || 'Could not lock this seat. It may have just been booked by another customer.');
       }
     } catch (err: unknown) {
-      const msg = (err as Error).message || 'Unable to hold this seat.';
+      toggleSeat(seat); // Immediately undo optimistic selection on network/API failure
+      const msg = (err as Error).message || 'Unable to hold this seat. Please choose another seat.';
       setErrorMessage(msg);
     } finally {
       setIsHolding(false);
+      isHoldingRef.current = false;
     }
   };
 
   const handleProceedToCheckout = () => {
     if (selectedSeats.length === 0) {
       setErrorMessage('Please select at least one seat to continue.');
+      return;
+    }
+
+    if (isHolding) {
+      setErrorMessage('Securing your seats with the cinema... Please wait a moment.');
+      return;
+    }
+
+    if (!holdExpiresAt) {
+      setErrorMessage('Please wait while we confirm your seat reservation with the cinema.');
       return;
     }
 
@@ -499,7 +550,7 @@ export const SeatSelectionPage: React.FC = () => {
   const currentPartyOption = PARTY_OPTIONS.find(p => p.count === partySize) || PARTY_OPTIONS[1];
 
   return (
-    <div className={`min-h-screen pb-32 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors duration-200 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen pb-64 sm:pb-40 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors duration-200 ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* 1. TOP SESSION BAR */}
       <div className="border-b border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0E1017]/95 backdrop-blur-md sticky top-16 sm:top-18 z-20">
@@ -589,6 +640,13 @@ export const SeatSelectionPage: React.FC = () => {
               <span>{partySize} {partySize === 1 ? 'Ticket' : 'Tickets'}</span>
               <span className="text-blue-400 text-[10px] sm:text-[11px] underline">Change</span>
             </button>
+
+            {isHolding && (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-300 text-xs font-semibold animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                <span className="hidden sm:inline">Holding...</span>
+              </div>
+            )}
 
             {secondsRemaining !== null && secondsRemaining > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold animate-pulse">
@@ -918,7 +976,7 @@ export const SeatSelectionPage: React.FC = () => {
         {/* 4. CINEMA AUDITORIUM SEATING GRID (3D CINEMATIC OR 2D CLASSIC) */}
         <div className="overflow-x-auto touch-pan-x no-scrollbar pb-8 overscroll-x-contain">
           <div
-            className={`mx-auto flex flex-col items-center transition-all duration-500 ease-out ${
+            className={`w-max min-w-full mx-auto px-4 flex flex-col items-center transition-all duration-500 ease-out ${
               viewMode === '3d' ? 'perspective-1000' : ''
             }`}
           >
@@ -960,14 +1018,14 @@ export const SeatSelectionPage: React.FC = () => {
                     )}
 
                     {/* Seat Row */}
-                    <div className="flex items-center gap-3" role="row">
+                    <div className="flex items-center gap-3 pointer-events-none scroll-mb-36" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined} role="row">
                       {/* Left Row Letter */}
-                      <span className="w-5 text-center font-bold text-xs text-slate-400 select-none">
+                      <span className="w-5 text-center font-bold text-xs text-slate-400 select-none pointer-events-none">
                         {row.rowLetter}
                       </span>
 
                       {/* Seats with central aisle gap */}
-                      <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-none" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined}>
                         {row.seats.map(seat => {
                           const isSelected = selectedSeats.some(s => s.id === seat.id);
                           const isReserved = seat.status === 'reserved';
@@ -1012,9 +1070,9 @@ export const SeatSelectionPage: React.FC = () => {
                               <button
                                 type="button"
                                 role="gridcell"
-                                disabled={isLoadingSeats || isReserved || isHeld || isHolding}
+                                disabled={isReserved || isHeld}
                                 onClick={() => handleSeatClick(seat)}
-                                className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 ${seatClass}`}
+                                className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 pointer-events-auto relative z-10 ${seatClass}`}
                                 style={
                                   viewMode === '3d'
                                     ? {
@@ -1098,16 +1156,18 @@ export const SeatSelectionPage: React.FC = () => {
           {/* Checkout Proceed Action */}
           <button
             onClick={handleProceedToCheckout}
-            disabled={selectedSeats.length === 0}
+            disabled={selectedSeats.length === 0 || isHolding || !holdExpiresAt}
             className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-extrabold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer shrink-0 ${
-              selectedSeats.length > 0
+              selectedSeats.length > 0 && !isHolding && !!holdExpiresAt
                 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95'
                 : 'bg-[#1C1F2B] text-slate-500 border border-white/5 cursor-not-allowed opacity-60'
             }`}
           >
             <Ticket className="w-4 h-4 fill-current" />
             <span>
-              {t.seats.continueToCheckout} ({selectedSeats.length} {selectedSeats.length === 1 ? 'ticket' : 'tickets'})
+              {isHolding
+                ? 'Securing Seats...'
+                : `${t.seats.continueToCheckout} (${selectedSeats.length} ${selectedSeats.length === 1 ? 'ticket' : 'tickets'})`}
             </span>
           </button>
         </div>

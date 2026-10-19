@@ -34,7 +34,7 @@ export const globalApiLimiter = rateLimit({
   validate: { trustProxy: false, keyGeneratorIpFallback: false }
 });
 
-// 2. Auth endpoints rate limiter (15 attempts per 15 minutes)
+// 2. Auth endpoints rate limiter (15 attempts per 15 minutes per IP + userKey)
 // Keyed per IP + normalized email (prevents one user or bad login from blocking other users on same NAT)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -51,12 +51,28 @@ export const authLimiter = rateLimit({
   message: {
     success: false,
     code: 'AUTH_RATE_LIMIT_EXCEEDED',
-    message: 'Too many authentication attempts. Please try again after 15 minutes.'
+    message: 'Too many authentication attempts for this account. Please try again after 15 minutes.'
   },
   validate: { trustProxy: false, keyGeneratorIpFallback: false }
 });
 
-// 3. Seat-locking rate limiter (60 requests per minute)
+// 2b. Auth IP-level hard cap (50 total attempts per 15 minutes per IP across all emails)
+// Prevents credential stuffing / dictionary attacks where an attacker rotates email addresses from the same IP
+export const authIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 50,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => getClientIp(req),
+  message: {
+    success: false,
+    code: 'AUTH_IP_LIMIT_EXCEEDED',
+    message: 'Too many authentication attempts from this IP address. Please try again after 15 minutes.'
+  },
+  validate: { trustProxy: false, keyGeneratorIpFallback: false }
+});
+
+// 3. Seat-locking rate limiter (60 requests per minute per session)
 // Keyed per session/tab + IP so individual users can pick up to 8 seats or deselect without blocking others
 export const seatLockLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -76,7 +92,23 @@ export const seatLockLimiter = rateLimit({
   validate: { trustProxy: false, keyGeneratorIpFallback: false }
 });
 
-// 4. Payment order creation rate limiter (20 orders per 10 minutes)
+// 3b. Seat-locking IP-level hard cap (120 requests per minute per IP across all sessions)
+// Prevents bots from bypassing seat limits by generating new random session IDs
+export const seatLockIpLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => getClientIp(req),
+  message: {
+    success: false,
+    code: 'SEAT_LOCK_IP_LIMIT_EXCEEDED',
+    message: 'Too many seat selection requests from this IP. Please wait a moment.'
+  },
+  validate: { trustProxy: false, keyGeneratorIpFallback: false }
+});
+
+// 4. Payment order creation rate limiter (20 orders per 10 minutes per session/email)
 // Prevents bot spam creating thousands of dangling Razorpay orders
 export const paymentOrderLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
@@ -98,7 +130,23 @@ export const paymentOrderLimiter = rateLimit({
   validate: { trustProxy: false, keyGeneratorIpFallback: false }
 });
 
-// 5. Payment verification rate limiter (15 attempts per 10 minutes)
+// 4b. Payment order creation IP-level hard cap (40 orders per 10 minutes per IP across all sessions)
+// Prevents attackers from rotating session IDs or emails to flood order generation
+export const paymentOrderIpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  limit: 40,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => getClientIp(req),
+  message: {
+    success: false,
+    code: 'PAYMENT_ORDER_IP_LIMIT_EXCEEDED',
+    message: 'Too many payment order creations from this IP. Please wait a few minutes.'
+  },
+  validate: { trustProxy: false, keyGeneratorIpFallback: false }
+});
+
+// 5. Payment verification rate limiter (15 attempts per 10 minutes per order)
 export const paymentVerifyLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   limit: 15,
@@ -116,3 +164,19 @@ export const paymentVerifyLimiter = rateLimit({
   },
   validate: { trustProxy: false, keyGeneratorIpFallback: false }
 });
+
+// 5b. Payment verification IP-level hard cap (30 attempts per 10 minutes per IP)
+export const paymentVerifyIpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => getClientIp(req),
+  message: {
+    success: false,
+    code: 'PAYMENT_VERIFY_IP_LIMIT_EXCEEDED',
+    message: 'Too many payment verification attempts from this IP. Please wait a few minutes.'
+  },
+  validate: { trustProxy: false, keyGeneratorIpFallback: false }
+});
+

@@ -2,12 +2,12 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from '../db.js';
 import { generateToken, authenticate, AuthRequest } from '../middleware/auth.js';
-import { authLimiter } from '../middleware/rateLimiter.js';
+import { authLimiter, authIpLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// POST /api/auth/register (Rate limited: 15 attempts / 15m)
-router.post('/register', authLimiter, async (req: Request, res: Response) => {
+// POST /api/auth/register (Two-tier rate limited: 50/15m per IP + 15/15m per email)
+router.post('/register', authIpLimiter, authLimiter, async (req: Request, res: Response) => {
   try {
     const { name, email, password, phone } = req.body;
 
@@ -54,8 +54,8 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/login (Rate limited: 15 attempts / 15m)
-router.post('/login', authLimiter, async (req: Request, res: Response) => {
+// POST /api/auth/login (Two-tier rate limited: 50/15m per IP + 15/15m per email)
+router.post('/login', authIpLimiter, authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -120,8 +120,8 @@ router.get('/me', authenticate, (req: AuthRequest, res: Response) => {
   });
 });
 
-// POST /api/auth/demo (Rate limited: 15 attempts / 15m) - Convenient quick login for testing
-router.post('/demo', authLimiter, (req: Request, res: Response) => {
+// POST /api/auth/demo (Two-tier rate limited: 50/15m per IP + 15/15m per role) - Convenient quick login for testing
+router.post('/demo', authIpLimiter, authLimiter, (req: Request, res: Response) => {
   const role = req.body.role === 'admin' ? 'admin' : 'user';
   const email = role === 'admin' ? 'admin@cinebook.com' : 'user@cinebook.com';
   const user = db.findUserByEmail(email);

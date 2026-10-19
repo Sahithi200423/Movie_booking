@@ -36,9 +36,10 @@ let baseUrl;
 
 async function request(path, options = {}) {
   const url = `${baseUrl}${path}`;
+  const mergedHeaders = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options
+    ...options,
+    headers: mergedHeaders
   });
   let data;
   try {
@@ -512,6 +513,66 @@ async function runSecurityTestSuite() {
       const acquireExpired = simulateAtomicLock(expiredHold, 'session_beta', now);
       assert.strictEqual(acquireExpired.status, 200);
       assert.strictEqual(acquireExpired.heldBy, 'session_beta');
+    });
+
+    // 22. Auth Rate Limit Bypass Prevention via Email Rotation
+    await test('Auth Rate Limit: Rotating email addresses from same IP cannot bypass IP hard cap', async () => {
+      const stuffingIp = `198.51.100.${Math.floor(Math.random() * 200) + 20}`;
+      let blocked = false;
+
+      // Send 50 attempts each with a DIFFERENT email
+      for (let i = 1; i <= 50; i++) {
+        const res = await request('/api/auth/login', {
+          method: 'POST',
+          headers: { 'X-Forwarded-For': stuffingIp },
+          body: JSON.stringify({ email: `stuffed_user_${i}@domain.com`, password: 'some_password' })
+        });
+        assert(res.status === 400 || res.status === 401, `Attempt ${i} should be 400 or 401`);
+      }
+
+      // 51st attempt with yet another new email MUST be blocked by IP hard cap
+      const attempt51 = await request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'X-Forwarded-For': stuffingIp },
+        body: JSON.stringify({ email: 'brand_new_victim@domain.com', password: 'some_password' })
+      });
+
+      assert.strictEqual(attempt51.status, 429, '51st attempt across different emails must return 429');
+      assert.strictEqual(attempt51.data?.code, 'AUTH_IP_LIMIT_EXCEEDED', 'Must hit AUTH_IP_LIMIT_EXCEEDED');
+    });
+
+    // 23. Seat Lock Rate Limit Bypass Prevention via Session Rotation
+    await test('Seat Lock Rate Limit: Rotating session IDs from same IP cannot bypass IP hard cap', async () => {
+      const botIp = `198.51.100.${Math.floor(Math.random() * 200) + 20}`;
+
+      // Send 120 seat lock requests with 120 DIFFERENT session IDs
+      for (let i = 1; i <= 120; i++) {
+        const res = await request('/api/seats/lock', {
+          method: 'POST',
+          headers: { 'X-Forwarded-For': botIp },
+          body: JSON.stringify({
+            showtimeId: 'show_test_1',
+            seatNumbers: ['A1'],
+            sessionId: `bot_session_${i}`
+          })
+        });
+        // May fail with showtime not found (404/500/etc.) or succeed, but not 429
+        assert.notStrictEqual(res.status, 429, `Attempt ${i} within IP cap should not be 429`);
+      }
+
+      // 121st attempt with another new session ID MUST be blocked by IP hard cap
+      const attempt121 = await request('/api/seats/lock', {
+        method: 'POST',
+        headers: { 'X-Forwarded-For': botIp },
+        body: JSON.stringify({
+          showtimeId: 'show_test_1',
+          seatNumbers: ['A1'],
+          sessionId: 'brand_new_bot_session_121'
+        })
+      });
+
+      assert.strictEqual(attempt121.status, 429, '121st attempt across different session IDs must return 429');
+      assert.strictEqual(attempt121.data?.code, 'SEAT_LOCK_IP_LIMIT_EXCEEDED', 'Must hit SEAT_LOCK_IP_LIMIT_EXCEEDED');
     });
 
     console.log('\n================================================================');

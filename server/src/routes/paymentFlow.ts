@@ -6,7 +6,12 @@ import { getSocketIO, seatReservationService } from '../services/seatReservation
 import { ensurePrismaShowtime } from '../services/showtimeResolver.js';
 import { isPastShowtime } from '../utils/dateUtils.js';
 import jwt from 'jsonwebtoken';
-import { paymentOrderLimiter, paymentVerifyLimiter } from '../middleware/rateLimiter.js';
+import {
+  paymentOrderLimiter,
+  paymentOrderIpLimiter,
+  paymentVerifyLimiter,
+  paymentVerifyIpLimiter
+} from '../middleware/rateLimiter.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cinebook_default_development_secret_2024';
 
@@ -72,7 +77,7 @@ export function generateRazorpaySignature(orderId: string, paymentId: string, se
  * Creates a server-side order with Razorpay: razorpay.orders.create({ amount: totalInPaise, currency: "INR", receipt: bookingRef })
  * Returns order_id, amount, and currency.
  */
-router.post('/create-order', paymentOrderLimiter, async (req: Request, res: Response) => {
+router.post('/create-order', paymentOrderIpLimiter, paymentOrderLimiter, async (req: Request, res: Response) => {
   try {
     const {
       showtimeId,
@@ -273,7 +278,7 @@ router.post('/create-order', paymentOrderLimiter, async (req: Request, res: Resp
  * If valid, updates database seat records from HELD to BOOKED and creates/confirms Booking record.
  * If invalid, releases the seats back to AVAILABLE.
  */
-router.post('/verify', paymentVerifyLimiter, async (req: Request, res: Response) => {
+router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req: Request, res: Response) => {
   try {
     const {
       bookingId,

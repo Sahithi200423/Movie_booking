@@ -178,7 +178,7 @@ router.post('/create-order', paymentOrderLimiter, async (req: Request, res: Resp
 
     let orderId: string;
 
-    const isSandbox = RAZORPAY_KEY_ID.includes('sample') || RAZORPAY_KEY_SECRET === 'sampleSecretKey';
+    const isSandbox = (RAZORPAY_KEY_ID.includes('sample') || RAZORPAY_KEY_SECRET === 'sampleSecretKey') && process.env.NODE_ENV !== 'production';
 
     if (isSandbox) {
       orderId = `order_${crypto.randomBytes(8).toString('hex')}`;
@@ -613,8 +613,10 @@ router.post('/verify-webhook', async (req: Request, res: Response) => {
       .update(rawBuffer)
       .digest('hex');
 
-    const isMockBypass = process.env.NODE_ENV !== 'production' && signature === 'whsec_valid_mock_signature';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isMockBypass = !isProduction && signature === 'whsec_valid_mock_signature';
     const isAuthentic = isMockBypass || (
+      typeof signature === 'string' &&
       signature.length === expectedSignature.length &&
       crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
     );
@@ -632,11 +634,78 @@ router.post('/verify-webhook', async (req: Request, res: Response) => {
       try {
         const payment = await prisma.payment.findUnique({
           where: { orderId: targetOrderId },
-          include: { booking: true }
+          include: {
+            booking: {
+              include: { seats: true }
+            }
+          }
         });
 
         if (payment) {
+          // Idempotency check: if payment is already successfully confirmed, do not re-process
           if (event === 'payment.captured' || event === 'order.paid') {
+            if (payment.status === 'SUCCESS' && payment.booking?.status === 'confirmed') {
+              return res.status(200).json({
+                success: true,
+                message: 'Webhook already processed (idempotent)',
+                status: 'ALREADY_PROCESSED'
+              });
+            }
+
+            // Security Validation: Verify captured amount in paise matches the payment record
+            if (payload?.amount !== undefined) {
+              const receivedPaise = Number(payload.amount);
+              const expectedPaise = Math.round(Number(payment.amount) * 100);
+              if (receivedPaise !== expectedPaise) {
+                console.error(`Security Alert: Webhook amount mismatch for order ${targetOrderId}. Expected ${expectedPaise} paise, received ${receivedPaise} paise.`);
+                return res.status(400).json({ success: false, message: 'Payment amount mismatch detected.' });
+              }
+            }
+
+            // Security Validation: Verify currency matches
+            if (payload?.currency && payment.currency) {
+              if (String(payload.currency).toUpperCase() !== String(payment.currency).toUpperCase()) {
+                console.error(`Security Alert: Webhook currency mismatch for order ${targetOrderId}. Expected ${payment.currency}, received ${payload.currency}.`);
+                return res.status(400).json({ success: false, message: 'Payment currency mismatch detected.' });
+              }
+            }
+
+            // Seat Ownership & Post-Expiry Conflict Check: Ensure seats were not booked by another customer
+            if (payment.booking && payment.booking.seats?.length > 0) {
+              const bookingSeatIds = payment.booking.seats.map((s: any) => s.seatId || s.id);
+              const conflictingSeat = await prisma.seatReservation.findFirst({
+                where: {
+                  showtimeId: payment.booking.showtimeId,
+                  seatId: { in: bookingSeatIds },
+                  status: 'BOOKED',
+                  bookingId: { not: payment.booking.id }
+                }
+              }).catch(() => null);
+
+              if (conflictingSeat) {
+                console.error(`Conflict Alert: Payment succeeded after hold expired, but seat ${conflictingSeat.seatId} was booked by another user.`);
+                await prisma.payment.update({
+                  where: { id: payment.id },
+                  data: { status: 'FAILED' }
+                });
+                return res.status(409).json({
+                  success: false,
+                  message: 'Seats were booked by another customer after hold expired. Payment flagged for refund.'
+                });
+              }
+
+              // Atomically promote held seats to BOOKED
+              await prisma.seatReservation.updateMany({
+                where: {
+                  showtimeId: payment.booking.showtimeId,
+                  bookingId: payment.booking.id,
+                  status: { in: ['HELD', 'LOCKED'] }
+                },
+                data: { status: 'BOOKED', heldExpiresAt: null }
+              }).catch(() => null);
+            }
+
+            // Mark payment SUCCESS
             await prisma.payment.update({
               where: { id: payment.id },
               data: { status: 'SUCCESS', ...(paymentGatewayId ? { paymentId: paymentGatewayId } : {}) }
@@ -648,19 +717,13 @@ router.post('/verify-webhook', async (req: Request, res: Response) => {
                 data: { status: 'confirmed' }
               });
             }
-
-            // Reconciliation: Convert any remaining HELD seats to BOOKED so background sweeper doesn't delete them
-            if (payment.booking) {
-              await prisma.seatReservation.updateMany({
-                where: {
-                  showtimeId: payment.booking.showtimeId,
-                  bookingId: payment.booking.id,
-                  status: { in: ['HELD', 'LOCKED'] }
-                },
-                data: { status: 'BOOKED' }
-              }).catch(() => null);
-            }
           } else if (event === 'payment.failed') {
+            // Out-of-order protection: NEVER cancel an already confirmed successful payment!
+            if (payment.status === 'SUCCESS' || payment.booking?.status === 'confirmed') {
+              console.warn(`Webhook notice: Out-of-order payment.failed event received for already confirmed payment ${payment.id}. Ignored.`);
+              return res.status(200).json({ success: true, message: 'Out-of-order failed event ignored for confirmed payment' });
+            }
+
             await prisma.payment.update({
               where: { id: payment.id },
               data: { status: 'FAILED' }

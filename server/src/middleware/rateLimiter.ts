@@ -7,21 +7,9 @@ import type { Request, Response } from 'express';
  */
 
 export const getClientIp = (req: Request): string => {
-  // Check Cloudflare connecting IP header first
-  const cfIp = req.headers['cf-connecting-ip'];
-  if (typeof cfIp === 'string' && cfIp.trim()) {
-    try { return ipKeyGenerator(cfIp.trim()); } catch { return cfIp.trim(); }
-  }
-
-  // Extract leftmost client IP from X-Forwarded-For if available
-  const xff = req.headers['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.trim()) {
-    const leftmost = xff.split(',')[0].trim();
-    if (leftmost) {
-      try { return ipKeyGenerator(leftmost); } catch { return leftmost; }
-    }
-  }
-
+  // Rely on Express trusted proxy resolution (app.set('trust proxy', 1)).
+  // Express securely extracts the authentic client IP from the trusted reverse proxy hop,
+  // preventing client-side header spoofing via custom X-Forwarded-For prefixes or CF-Connecting-IP headers.
   const rawIp = req.ip || req.socket?.remoteAddress || '127.0.0.1';
   try {
     return ipKeyGenerator(rawIp);

@@ -24,3 +24,5 @@ services:
         value: rzp_test_sampleKey
       - key: RAZORPAY_KEY_SECRET
         value: sampleSecretKey
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false

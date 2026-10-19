@@ -7,7 +7,7 @@
 [![Database](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![Tests](https://img.shields.io/badge/Tests-43%2F43%20Passing-brightgreen?style=for-the-badge&logo=jest)](https://github.com/Sahithi200423/Movie_booking)
 
-> A production-grade cinema ticketing web application featuring an interactive **Three.js floating 3D ticket hero**, high-concurrency **seat locking with race-condition prevention**, **₹5 demo pricing**, **18-language internationalization** (including full RTL Urdu support), and **tamper-resistant digital M-tickets** with QR gate admission.
+> A full-stack cinema ticketing portfolio application featuring an interactive **Three.js floating 3D ticket hero**, high-concurrency **PostgreSQL-backed atomic seat locking with race-condition prevention**, **₹5 demo pricing**, **18-language internationalization** (including full RTL Urdu support), and **tamper-resistant digital M-tickets** with QR gate admission.
 
 ---
 
@@ -38,19 +38,20 @@ graph TD
     subgraph Backend ["Backend API Layer (Render)"]
         Express["Express REST API (Node.js + TS)<br/>Trust Proxy (Render 1-Hop)"]
         RateLimiter["Two-Tier Rate Limiter<br/>Per-Account + Per-IP Hard Cap"]
-        HoldEngine["In-Memory Lock Engine<br/>10-Minute Seat TTL Timer"]
+        SeatEngine["Seat Reservation Service<br/>PostgreSQL Atomic Lock Controller<br/>Socket.io Live Sync"]
         PaymentVerifier["HMAC-SHA256 Verifier<br/>Raw Body Webhook Handler"]
     end
 
     subgraph Storage ["Persistence Layer (Supabase AWS AP-South-1)"]
-        Postgres["PostgreSQL Database<br/>Port 6543 Transaction Pooler<br/>Bookings, Seats, Showtimes, Audit"]
+        Postgres["PostgreSQL Database<br/>Port 6543 Transaction Pooler<br/>seat_reservations, bookings, showtimes"]
     end
 
     User -->|HTTPS Navigation| SPA
     SPA -->|API Requests| ProxyRewrite
     ProxyRewrite -->|Proxied REST Calls| Express
     Express -->|Rate Limiting Checks| RateLimiter
-    Express -->|Atomic Seat Locking| HoldEngine
+    Express -->|Seat Lock / Release Requests| SeatEngine
+    SeatEngine -->|Atomic UPSERT & Row-Level Locks<br/>WHERE status != 'BOOKED'| Postgres
     Express -->|Cryptographic Verification| PaymentVerifier
     Express -->|Relational Queries & Mutations| Postgres
 ```
@@ -72,9 +73,9 @@ graph TD
   * **VIP Recliner Lounges:** Rows A & B (Front view, extra legroom)
   * **Premium Prime:** Rows C, D & E (Center acoustic sweet-spot)
   * **Standard Classic:** Rows F, G & H (Upper cinema seating)
-* **10-Minute Temporary Seat Hold:** When a customer selects seats, an atomic lock is placed on the backend (`POST /api/seats/lock`) with an exact 600,000 ms TTL.
+* **10-Minute Temporary Seat Hold:** When a customer selects seats, atomic conditional locks are acquired directly in PostgreSQL (`seat_reservations` table via conditional `INSERT ... ON CONFLICT DO UPDATE WHERE status != 'BOOKED' AND ...`) with an exact 600,000 ms TTL.
 * **Live Countdown Timer:** An in-auditorium countdown banner (`Hold expires in: MM:SS`) keeps the customer informed.
-* **Anti-Double-Booking Protection:** Competing sessions attempting to lock an already held seat immediately receive an HTTP `409 Conflict`.
+* **Anti-Double-Booking Protection:** Competing sessions attempting to lock an already held seat immediately receive an HTTP `409 Conflict` via atomic database-level conflict detection.
 * **Automatic Expiration & Cleanup:** If checkout is not completed within 10 minutes, the lock expires automatically, and seats return to available inventory.
 * **8-Seat Transaction Cap:** Enforces a maximum of 8 seats per booking transaction on both frontend and backend.
 
@@ -159,7 +160,7 @@ Cloud Infrastructure:
 
 ## 📸 Screenshots & UI Showcase
 
-The repository organizes production screenshots inside the [`docs/screenshots/`](file:///c:/Users/MI/Desktop/CineBook-v2/docs/screenshots) directory:
+The repository organizes application screenshots inside the [`docs/screenshots/`](file:///c:/Users/MI/Desktop/CineBook-v2/docs/screenshots) directory:
 
 | Screenshot | Description | Preview |
 |---|---|:---:|
@@ -184,7 +185,7 @@ The repository organizes production screenshots inside the [`docs/screenshots/`]
 ```
 ┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
 │      CineBook V1       │      │      CineBook V2       │      │      CineBook V3       │
-│  (Prototype / Client)  │ ───> │  (Full-Stack Connect)  │ ───> │  (Production Hardened) │
+│  (Prototype / Client)  │ ───> │  (Full-Stack Connect)  │ ───> │ (Security-Hardened App)│
 │                        │      │                        │      │                        │
 │ • Mock in-memory state │      │ • Express REST backend │      │ • Three.js 3D ticket   │
 │ • Static movie cards   │      │ • Supabase PostgreSQL  │      │ • Proxy anti-spoofing  │
@@ -196,7 +197,7 @@ The repository organizes production screenshots inside the [`docs/screenshots/`]
 
 1. **Version 1 (Frontend Prototype):** Built as an initial React SPA to demonstrate UI concepts, movie search, and basic seat layout with client-side state.
 2. **Version 2 (Full-Stack Architecture):** Connected to a live Node.js/Express backend and Supabase PostgreSQL. Added relational schema migrations, 18-language internationalization, multi-currency conversion, coupon discounts, and digital QR ticket verification.
-3. **Version 3 (Production Hardening & Visual Luxury):**
+3. **Version 3 (Security Hardening & Visual Experience):**
    - Engineered the interactive Three.js 3D floating metallic ticket hero with physics bounds and mobile touch isolation.
    - Deployed comprehensive rate limiting, IP anti-spoofing, and bot protection behind Render's reverse proxy.
    - Hardened payment webhooks with raw buffer HMAC validation, event idempotency, and post-expiry conflict resolution.
@@ -273,10 +274,10 @@ npm run dev
 
 ---
 
-## 📋 Production Readiness & Next Steps
+## 📋 Portfolio Evaluation & Production Roadmap
 
 ### For Evaluators & Recruiters:
-The application is **100% demo-ready**. Evaluators can:
+The application is **fully configured for portfolio demonstration and interactive review**. Evaluators can:
 1. Visit [https://movie-booking-one-azure.vercel.app/](https://movie-booking-one-azure.vercel.app/).
 2. Experience the interactive floating 3D ticket hero.
 3. Click **Demo Login** in the navigation bar to log in instantly as a user or administrator.
@@ -292,4 +293,4 @@ The application is **100% demo-ready**. Evaluators can:
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+An open-source license has not yet been attached to this repository. All rights reserved by the author. An open-source license (such as MIT) may be added in a future release.

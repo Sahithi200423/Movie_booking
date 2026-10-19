@@ -455,7 +455,7 @@ export const SeatSelectionPage: React.FC = () => {
             setIsHolding(true);
             isHoldingRef.current = true;
             try {
-              const res = await holdSeatsApi(showtimeId, candidateSeats.map(s => s.id), sessionId, 7);
+              const res = await holdSeatsApi(showtimeId, candidateSeats.map(s => s.id), sessionId, 10);
               if (res && res.expiresAt) {
                 setHoldExpiresAt(res.expiresAt);
               } else {
@@ -493,7 +493,7 @@ export const SeatSelectionPage: React.FC = () => {
     isHoldingRef.current = true;
     try {
       const nextSeatIds = [...selectedSeats.map(s => s.id), seat.id];
-      const res = await holdSeatsApi(showtimeId, nextSeatIds, sessionId, 7);
+      const res = await holdSeatsApi(showtimeId, nextSeatIds, sessionId, 10);
       if (res && res.expiresAt) {
         setHoldExpiresAt(res.expiresAt);
       } else {

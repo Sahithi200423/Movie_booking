@@ -161,7 +161,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     const genres = movie.genre.slice(0, 3).join(' • ');
     ctx.fillText(`${genres}  |  ${movie.duration}  |  ${movie.ageRating || 'UA'}`, 340, 390);
 
-    // 10. Luxury Feature Pills (IMAX 3D, ₹5 PRICE, 7-MIN HOLD)
+    // 10. Luxury Feature Pills (IMAX 3D, ₹5 PRICE, 10-MIN HOLD)
     const pills = [
       { text: 'IMAX 3D LASER', bg: '#1E293B', border: '#475569', color: '#38BDF8' },
       { text: '₹5 FLAT TICKET GUARANTEE', bg: '#881337', border: '#E11D48', color: '#FECDD3' },
@@ -753,7 +753,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
           <div className="flex md:hidden items-center justify-center gap-2 pt-1">
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 border border-rose-500/25 text-rose-300">
               <ShieldCheck className="w-3 h-3 text-rose-400" />
-              7-Min Concurrency Lock
+              10-Min Concurrency Lock
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 border border-blue-500/25 text-blue-300">
               <Zap className="w-3 h-3 text-blue-400" />
@@ -810,7 +810,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
               <ShieldCheck className="w-4 h-4 text-rose-400" />
               <span>Verified Hold Engine</span>
             </div>
-            <span className="text-[11px] text-slate-400">7-Min Concurrency Lock</span>
+            <span className="text-[11px] text-slate-400">10-Min Concurrency Lock</span>
           </div>
 
           {/* Floating Companion Badge: Right Flank (Desktop) */}

@@ -1,0 +1,164 @@
+{
+  "task1": {
+    "android": {
+      "heroCanvasInfo": {
+        "scrollWidth": 393,
+        "innerWidth": 393,
+        "hasHorizontalOverflow": false,
+        "hasCanvas": true,
+        "canvasPointerEvents": "none",
+        "parentPointerEvents": "none"
+      },
+      "scrollResult": {
+        "reachedBottom": true,
+        "maxDrift": 0,
+        "finalScrollY": 8616,
+        "scrollHeight": 9485
+      },
+      "scrollUp": {
+        "atTop": false
+      },
+      "stickyNav": {
+        "hasNav": true,
+        "position": "sticky",
+        "isStickyAtTop": false,
+        "hasBackdropBlur": true
+      }
+    },
+    "ios": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "hasOverflow": false
+    }
+  },
+  "task2": {
+    "modalDimensions": {
+      "isOpen": true,
+      "boxWidth": 358,
+      "fitsViewport": true
+    },
+    "errorAlert": {
+      "hasErrorAlert": true,
+      "errorText": "Invalid email or password."
+    },
+    "authStorage": {
+      "userKey": null,
+      "tokenKey": null,
+      "isAuthenticated": false
+    },
+    "persistence": {
+      "tokenStillInStorage": false,
+      "hasUserLoggedInNavbar": true
+    },
+    "postLogoutStorage": {
+      "tokenCleared": true
+    },
+    "adminProtection": {
+      "url": "https://movie-booking-one-azure.vercel.app/admin",
+      "isBlockedOrPrompted": true
+    }
+  },
+  "task3": {
+    "320px": {
+      "viewportWidth": 320,
+      "scrollWidth": 320,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "360px": {
+      "viewportWidth": 360,
+      "scrollWidth": 360,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "375px": {
+      "viewportWidth": 375,
+      "scrollWidth": 375,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "390px": {
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "414px": {
+      "viewportWidth": 414,
+      "scrollWidth": 414,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "768px": {
+      "viewportWidth": 768,
+      "scrollWidth": 768,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "1024px": {
+      "viewportWidth": 1024,
+      "scrollWidth": 1024,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    },
+    "1440px": {
+      "viewportWidth": 1440,
+      "scrollWidth": 1440,
+      "isOverflow": false,
+      "offendersCount": 0,
+      "topOffenders": [],
+      "movieCardsCount": 0
+    }
+  },
+  "task4": {
+    "auditorium": {
+      "totalSeats": 0,
+      "hasTimer": false,
+      "timerValue": null,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "hasAuditoriumOverflow": false
+    },
+    "availableSeatsCount": 0
+  },
+  "task5": {
+    "loadTimeMs": 1182,
+    "perfMetrics": {
+      "domContentLoaded": 341,
+      "loadComplete": 1174
+    },
+    "consoleErrorsCount": 0,
+    "failedRequestsCount": 0
+  },
+  "consoleErrors": [],
+  "failedRequests": [],
+  "screenshots": [
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task1_android_01_top.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task1_android_02_bottom.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task1_ios_01_top.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task2_01_login_modal.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_320px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_360px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_375px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_390px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_414px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_768px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_1024px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task3_vp_1440px.png",
+    "C:\\Users\\MI\\Desktop\\CineBook-v2\\docs\\audit_screenshots\\task4_01_auditorium_128_seats.png"
+  ]
+}

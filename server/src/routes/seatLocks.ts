@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { seatReservationService } from '../services/seatReservationService.js';
 import { seatLockLimiter, seatLockIpLimiter } from '../middleware/rateLimiter.js';
+import { isPortfolioDemoMode } from '../middleware/demoMode.js';
 
 const router = Router();
 
@@ -36,6 +37,20 @@ router.post('/lock', seatLockIpLimiter, seatLockLimiter, async (req: Request, re
       });
     }
 
+    // In Portfolio Demo Mode: simulate hold without altering production database records
+    if (isPortfolioDemoMode()) {
+      return res.status(200).json({
+        success: true,
+        isDemoMode: true,
+        message: 'Seat hold simulated in portfolio demo mode. Production database records were not altered.',
+        showtimeId,
+        lockedSeats: targetSeats,
+        heldSeats: targetSeats,
+        expiresAt: Date.now() + Number(durationMinutes) * 60 * 1000,
+        holdSecondsRemaining: Number(durationMinutes) * 60
+      });
+    }
+
     const result = await seatReservationService.lockSeats({
       showtimeId,
       seatNumbers: targetSeats,
@@ -66,6 +81,16 @@ async function handleReleaseSeats(req: Request, res: Response) {
       return res.status(400).json({
         success: false,
         message: 'showtimeId is required.'
+      });
+    }
+
+    if (isPortfolioDemoMode()) {
+      return res.status(200).json({
+        success: true,
+        isDemoMode: true,
+        message: 'Seat release simulated in portfolio demo mode.',
+        showtimeId,
+        unlockedSeats: targetSeats || []
       });
     }
 

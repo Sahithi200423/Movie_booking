@@ -55,3 +55,5 @@ server/*.json.backup
 server/sqlite_export.json
 server/supabase_showtimes_pre_correction.json
 scratch/
+.frontend_backup_v2/
+supabase/.temp/

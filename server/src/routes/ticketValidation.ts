@@ -34,6 +34,26 @@ router.post('/verify', async (req: Request, res: Response) => {
       });
     }
 
+    // Recognize and validate Portfolio Demo Tickets without touching production records
+    if (
+      (targetRef && targetRef.toUpperCase().startsWith('DEMO-')) ||
+      (targetId && targetId.toUpperCase().startsWith('DEMO-')) ||
+      (qrData && typeof qrData === 'object' && qrData.demo)
+    ) {
+      return res.json({
+        success: true,
+        valid: true,
+        isDemo: true,
+        message: 'DEMO PASS SCANNED — Verified Portfolio Demonstration Pass (Not valid for cinema entry).',
+        booking: {
+          bookingRef: targetRef || targetId,
+          status: 'demo_verified',
+          isDemo: true,
+          demoNotice: 'Portfolio Demo — No real tickets or payments are issued.'
+        }
+      });
+    }
+
     // Query Booking in Prisma
     const booking = await prisma.booking.findFirst({
       where: {

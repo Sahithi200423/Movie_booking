@@ -1,0 +1,27 @@
+{
+  "totalSeats": 128,
+  "availableCount": 128,
+  "price1Text": {
+    "barText": "Selected (0): | No seats selected yet | Subtotal | ₹0 | Continue to Checkout (0 tickets)",
+    "has5": false
+  },
+  "price4Text": {
+    "barText": "Selected (1): | A2 | Subtotal | ₹5 | Securing Seats...",
+    "has20": false
+  },
+  "price8Text": {
+    "barText": "Selected (1): | A2 | Subtotal | ₹5 | Securing Seats...",
+    "has40": false,
+    "timerFound": true,
+    "timerValue": "01:45"
+  },
+  "nineResult": {
+    "barText": "Selected (1): | A2 | Subtotal | ₹5 | Securing Seats...",
+    "still40": false,
+    "hasLimitWarning": false
+  },
+  "deselectResult": {
+    "barText": "Selected (2): | A2 | A7 | Subtotal | ₹10 | Securing Seats...",
+    "has30": false
+  }
+}

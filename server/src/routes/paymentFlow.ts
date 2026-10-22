@@ -12,6 +12,7 @@ import {
   paymentVerifyLimiter,
   paymentVerifyIpLimiter
 } from '../middleware/rateLimiter.js';
+import { enforceDemoModeGuard } from '../middleware/demoMode.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cinebook_default_development_secret_2024';
 
@@ -77,7 +78,7 @@ export function generateRazorpaySignature(orderId: string, paymentId: string, se
  * Creates a server-side order with Razorpay: razorpay.orders.create({ amount: totalInPaise, currency: "INR", receipt: bookingRef })
  * Returns order_id, amount, and currency.
  */
-router.post('/create-order', paymentOrderIpLimiter, paymentOrderLimiter, async (req: Request, res: Response) => {
+router.post('/create-order', enforceDemoModeGuard, paymentOrderIpLimiter, paymentOrderLimiter, async (req: Request, res: Response) => {
   try {
     const {
       showtimeId,
@@ -202,7 +203,13 @@ router.post('/create-order', paymentOrderIpLimiter, paymentOrderLimiter, async (
         });
         orderId = rzpOrder.id;
       } catch (rzpErr: any) {
-        console.warn('Razorpay SDK order creation notice (using fallback order ID):', rzpErr.message || rzpErr);
+        console.error('Razorpay SDK order creation error:', rzpErr.message || rzpErr);
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(502).json({
+            success: false,
+            message: 'Payment gateway order creation failed: ' + (rzpErr.error?.description || rzpErr.message || 'Gateway unavailable.')
+          });
+        }
         orderId = `order_${crypto.randomBytes(8).toString('hex')}`;
       }
     }
@@ -241,11 +248,6 @@ router.post('/create-order', paymentOrderIpLimiter, paymentOrderLimiter, async (
       }
     });
 
-    // Sandbox only: when running with placeholder keys the server simulates the gateway and
-    // hands back a correctly-signed test payment. With real keys this is never returned.
-    const mockPaymentId = isSandbox ? `pay_${crypto.randomBytes(8).toString('hex')}` : undefined;
-    const mockSignature = isSandbox && mockPaymentId ? generateRazorpaySignature(orderId, mockPaymentId) : undefined;
-
     return res.status(200).json({
       success: true,
       order_id: orderId,
@@ -257,8 +259,6 @@ router.post('/create-order', paymentOrderIpLimiter, paymentOrderLimiter, async (
       key_id: RAZORPAY_KEY_ID,
       bookingId: bookingRef,
       bookingRef,
-      mockPaymentId,
-      mockSignature,
       customer: {
         name: customerName,
         email: customerEmail,
@@ -278,7 +278,7 @@ router.post('/create-order', paymentOrderIpLimiter, paymentOrderLimiter, async (
  * If valid, updates database seat records from HELD to BOOKED and creates/confirms Booking record.
  * If invalid, releases the seats back to AVAILABLE.
  */
-router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req: Request, res: Response) => {
+router.post('/verify', enforceDemoModeGuard, paymentVerifyIpLimiter, paymentVerifyLimiter, async (req: Request, res: Response) => {
   try {
     const {
       bookingId,
@@ -358,6 +358,22 @@ router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req:
       });
     }
 
+    // 2. Prevent Replay Attacks: Check if targetPaymentId has already been consumed by any OTHER transaction
+    const alreadyUsedPayment = await prisma.payment.findFirst({
+      where: {
+        paymentId: targetPaymentId,
+        status: 'SUCCESS',
+        NOT: { orderId: targetOrderId }
+      }
+    }).catch(() => null);
+
+    if (alreadyUsedPayment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment ID has already been utilized for another transaction. Replay rejected.'
+      });
+    }
+
     // Find Payment record in Prisma for verified payment
     let payment = await prisma.payment.findUnique({
       where: { orderId: targetOrderId },
@@ -375,6 +391,14 @@ router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req:
         }
       }
     }).catch(() => null);
+
+    // 3. Prevent Re-verification of Failed Orders
+    if (payment && payment.status === 'FAILED') {
+      return res.status(400).json({
+        success: false,
+        message: 'This payment order has previously failed and cannot be re-verified.'
+      });
+    }
 
     if (!payment && bookingId) {
       payment = await prisma.payment.findFirst({
@@ -395,7 +419,7 @@ router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req:
       }).catch(() => null);
     }
 
-    // Idempotency: check if already confirmed
+    // 4. Idempotency: check if already confirmed
     const existingConfirmedBooking = await prisma.booking.findFirst({
       where: {
         OR: [
@@ -421,9 +445,17 @@ router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req:
       });
     }
 
-    const pending = pendingOrderStore.get(targetOrderId) || (bookingId ? pendingOrderStore.get(bookingId) : undefined);
+    // 5. Verify Pending Order & Prevent Mismatched Order/Booking IDs
+    const pending = pendingOrderStore.get(targetOrderId);
     if (!pending && (!payment || !payment.booking)) {
       return res.status(404).json({ success: false, message: 'Active booking session not found or has expired. Please retry checkout.' });
+    }
+
+    if (bookingId && pending && pending.bookingRef && bookingId !== pending.bookingRef) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order ID does not match the specified booking session.'
+      });
     }
 
     const targetShowtimeId = pending ? pending.showtimeId : payment!.booking!.showtimeId;
@@ -604,7 +636,7 @@ router.post('/verify', paymentVerifyIpLimiter, paymentVerifyLimiter, async (req:
  * Hardened with required signature header check, timing-safe HMAC-SHA256 verification,
  * and reconciliation for payment.captured, order.paid, and payment.failed events.
  */
-router.post('/verify-webhook', async (req: Request, res: Response) => {
+router.post('/verify-webhook', enforceDemoModeGuard, async (req: Request, res: Response) => {
   try {
     const signature = req.headers['x-razorpay-signature'] as string;
     const rawBuffer = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));

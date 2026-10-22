@@ -59,6 +59,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
         ref={cardRef}
         role="button"
         tabIndex={0}
+        data-cursor="VIEW"
         aria-label={`${movie.title}, rated ${movie.rating.toFixed(1)} out of 10. Press Enter to view movie details.`}
         onClick={handleViewDetails}
         onKeyDown={handleKeyDown}
@@ -67,7 +68,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
         onMouseLeave={onMouseLeave}
         onFocus={onFocus}
         onBlur={onBlur}
-        className="relative flex flex-col rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-white dark:bg-[#11131A] shadow-sm dark:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.65)] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/15 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none transition-colors duration-300 cursor-pointer preserve-3d"
+        className="relative flex flex-col rounded-2xl overflow-hidden border border-slate-200 dark:border-[#C7A675]/15 bg-white dark:bg-[#15171B] shadow-sm dark:shadow-[0_16px_36px_-12px_rgba(0,0,0,0.8)] hover:border-[#C7A675]/60 hover:shadow-2xl hover:shadow-[#C7A675]/15 focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none transition-colors duration-300 cursor-pointer preserve-3d"
         style={{ transformStyle: 'preserve-3d' }}
       >
         {/* Poster Image Container with 3D Depth */}
@@ -81,7 +82,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
           />
 
           {/* Cinematic Vignette Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0B0C10] via-black/20 to-black/30 opacity-80 group-hover:opacity-60 transition-opacity duration-300 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#08090B] via-black/25 to-black/35 opacity-85 group-hover:opacity-65 transition-opacity duration-300 pointer-events-none" />
 
           {/* Specular Glare Reflection (Tracks Cursor 3D Light) */}
           <div
@@ -93,12 +94,12 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
           {/* Floating Rating Badge (Layer 1 with 3D Pop translateZ) */}
           <div
             style={{ transform: 'translateZ(26px)' }}
-            className="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-xl backdrop-blur-md bg-black/80 border border-white/15 text-amber-400 font-bold text-xs shadow-lg shadow-black/50"
+            className="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-xl backdrop-blur-md bg-[#08090B]/85 border border-[#C7A675]/30 text-[#C7A675] font-bold text-xs shadow-lg shadow-black/60 font-mono"
           >
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span>{movie.rating.toFixed(1)}</span>
+            <Star className="w-3.5 h-3.5 fill-[#C7A675] text-[#C7A675]" />
+            <span className="text-[#F3F0E8]">{movie.rating.toFixed(1)}</span>
             {movie.votesCount && (
-              <span className="text-[10px] text-slate-300 font-normal">({movie.votesCount})</span>
+              <span className="text-[10px] text-[#A8ADB4] font-normal">({movie.votesCount})</span>
             )}
           </div>
 
@@ -108,14 +109,14 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
             className="absolute top-3 right-3 z-20 flex items-center gap-1.5"
           >
             {movie.ageRating && (
-              <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-black/75 border border-white/15 text-white shadow-sm">
+              <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-[#08090B]/80 border border-white/15 text-[#F3F0E8] shadow-sm">
                 {movie.ageRating}
               </span>
             )}
-            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-blue-600/90 text-white border border-blue-400/30 shadow-sm">
+            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-[#15171B]/95 text-[#C7A675] border border-[#C7A675]/40 shadow-sm font-mono">
               {movie.language}
               {movie.languages && movie.languages.length > 1 && (
-                <span className="ml-1 opacity-90 font-normal">+{movie.languages.length - 1}</span>
+                <span className="ml-1 opacity-80 font-normal">+{movie.languages.length - 1}</span>
               )}
             </span>
           </div>
@@ -129,13 +130,13 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
               {availableFormats.slice(0, 2).map((format) => (
                 <span
                   key={format}
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight bg-black/80 border border-white/15 text-blue-300 backdrop-blur-md shadow-sm"
+                  className="px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-[#08090B]/90 border border-[#C7A675]/30 text-[#C7A675] backdrop-blur-md shadow-sm font-mono"
                 >
                   {format}
                 </span>
               ))}
               {availableFormats.length > 2 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/80 border border-white/15 text-slate-300 backdrop-blur-md">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#08090B]/90 border border-white/10 text-[#A8ADB4] backdrop-blur-md font-mono">
                   +{availableFormats.length - 2}
                 </span>
               )}
@@ -146,59 +147,62 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
         {/* Movie Info & Details Container */}
         <div
           style={{ transform: 'translateZ(12px)' }}
-          className="p-4 sm:p-5 flex-1 flex flex-col justify-between bg-white dark:bg-[#11131A] border-t border-slate-100 dark:border-white/5"
+          className="p-4 sm:p-5 flex-1 flex flex-col justify-between bg-white dark:bg-[#15171B] border-t border-slate-100 dark:border-[#C7A675]/10"
         >
           <div>
             {/* Duration & Genres */}
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#A8ADB4] mb-2">
               <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
-                <span className="text-slate-700 dark:text-zinc-300 font-medium">{movie.duration}</span>
+                <Clock className="w-3.5 h-3.5 text-[#C7A675]" />
+                <span className="text-slate-700 dark:text-[#F3F0E8] font-medium font-mono text-[11px]">{movie.duration}</span>
               </div>
-              <span className="truncate max-w-[140px] font-semibold text-blue-600 dark:text-blue-400">
+              <span className="truncate max-w-[140px] font-semibold text-[#C7A675] text-[11px] uppercase tracking-wider font-mono">
                 {movie.genre.slice(0, 2).join(' • ')}
               </span>
             </div>
 
             {/* Title */}
-            <h3 className="font-bold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1">
+            <h3 className="font-bold text-base sm:text-lg tracking-wide text-slate-900 dark:text-[#F3F0E8] font-display group-hover:text-[#C7A675] transition-colors line-clamp-1">
               {movie.title}
             </h3>
 
             {/* Tagline */}
-            <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-300 line-clamp-2 leading-relaxed">
+            <p className="mt-1.5 text-xs text-slate-600 dark:text-[#A8ADB4] line-clamp-2 leading-relaxed font-sans">
               {movie.tagline}
             </p>
           </div>
 
           {/* Interactive Action Bar */}
-          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-white/10 grid grid-cols-2 gap-2">
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-[#C7A675]/15 grid grid-cols-2 gap-2">
             <Link
               to={`/movie/${movie.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#1A1D27] text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-200 dark:hover:bg-[#232735] hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              data-cursor="DETAILS"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border border-slate-200 dark:border-[#C7A675]/25 bg-slate-100 dark:bg-[#08090B] text-slate-700 dark:text-[#F3F0E8] hover:border-[#C7A675] hover:bg-slate-200 dark:hover:bg-[#1A1D24] hover:text-slate-900 dark:hover:text-[#C7A675] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none btn-tactile"
             >
-              <Eye className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+              <Eye className="w-3.5 h-3.5 text-[#C7A675]" />
               <span>Details</span>
             </Link>
 
             {movie.status === 'now_showing' ? (
               <button
                 type="button"
+                data-cursor="BOOK"
                 onClick={handleBookNow}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold rounded-xl transition-all bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold rounded-xl transition-all bg-[#C7A675] hover:bg-[#D4B585] text-[#08090B] shadow-md shadow-[#C7A675]/20 active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none btn-tactile"
               >
-                <Ticket className="w-3.5 h-3.5 fill-white" />
+                <Ticket className="w-3.5 h-3.5 fill-[#08090B]" />
                 <span>Book</span>
               </button>
             ) : (
               <button
                 type="button"
+                data-cursor="EXPLORE"
                 onClick={handleViewDetails}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border border-blue-500/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border border-[#C7A675]/40 text-[#C7A675] bg-[#C7A675]/10 hover:bg-[#C7A675]/20 active:scale-95 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none btn-tactile"
               >
                 <span>Explore</span>
-                <ArrowRight className="w-3 h-3 text-blue-400" />
+                <ArrowRight className="w-3 h-3 text-[#C7A675]" />
               </button>
             )}
           </div>

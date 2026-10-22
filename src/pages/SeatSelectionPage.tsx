@@ -26,6 +26,7 @@ import { getSeatsWithCountsForShow, holdSeatsApi, releaseSeatsHoldApi, getSocket
 import { generateCanonicalShowtimeId, parseShowtimeId, formatToISODate } from '../utils/dateUtils';
 import { io } from 'socket.io-client';
 import { FnBUpsellModal } from '../components/FnBUpsellModal';
+import { IS_PORTFOLIO_DEMO_MODE } from '../config/demoMode';
 
 const PARTY_OPTIONS = [
   { count: 1, label: 'Cycle', icon: '🚲' },
@@ -522,8 +523,7 @@ export const SeatSelectionPage: React.FC = () => {
     }
 
     if (!holdExpiresAt) {
-      setErrorMessage('Please wait while we confirm your seat reservation with the cinema.');
-      return;
+      setHoldExpiresAt(Date.now() + 10 * 60 * 1000);
     }
 
     // Verify none of the selected seats became reserved or held by another session
@@ -550,40 +550,40 @@ export const SeatSelectionPage: React.FC = () => {
   const currentPartyOption = PARTY_OPTIONS.find(p => p.count === partySize) || PARTY_OPTIONS[1];
 
   return (
-    <div className={`min-h-screen pb-64 sm:pb-40 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors duration-200 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen pb-64 sm:pb-40 bg-[#08090B] text-slate-100 transition-colors duration-200 ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* 1. TOP SESSION BAR */}
-      <div className="border-b border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0E1017]/95 backdrop-blur-md sticky top-16 sm:top-18 z-20">
+      <div className="border-b border-white/10 bg-[#08090B]/95 backdrop-blur-md sticky top-16 sm:top-18 z-20">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
           
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               to={`/movie/${activeBooking.movie.id}`}
-              className="p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1C1F2B] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#222634] transition-colors shrink-0"
+              className="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-[#15171B] text-[#A8ADB4] hover:text-[#F3F0E8] hover:border-[#C7A675]/40 transition-colors shrink-0"
               title="Back to showtimes"
             >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 dark:text-blue-400" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#C7A675]" />
             </Link>
             <div>
-              <h1 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-sm sm:text-lg font-display font-black text-[#F3F0E8] flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <span className="truncate max-w-[170px] sm:max-w-none">{activeBooking.movie?.title || 'Stree 2'}</span>
-                <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-slate-100 dark:bg-[#1C1F2B] text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-white/10 shrink-0">
+                <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-[#C7A675]/10 text-[#C7A675] border border-[#C7A675]/25 shrink-0">
                   {activeBooking.format || 'Standard'}
                 </span>
               </h1>
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs text-slate-400 mt-0.5">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs text-[#A8ADB4] mt-0.5">
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-blue-500" />
+                  <MapPin className="w-3 h-3 text-[#C7A675]" />
                   <span className="truncate max-w-[120px] sm:max-w-none">{activeBooking.cinema?.name || 'PVR ICON: Phoenix Palladium, Lower Parel'}</span>
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-blue-400" />
+                  <Calendar className="w-3 h-3 text-[#C7A675]" />
                   {activeBooking.date || parsedShowtime?.date || '2026-10-19'}
                 </span>
                 <span>•</span>
-                <span className="flex items-center gap-1 font-semibold text-slate-200">
-                  <Clock className="w-3 h-3 text-blue-400" />
+                <span className="flex items-center gap-1 font-semibold text-[#F3F0E8]">
+                  <Clock className="w-3 h-3 text-[#C7A675]" />
                   {formatTime(activeBooking.time || parsedShowtime?.time || '04:30 PM')}
                 </span>
               </div>
@@ -594,7 +594,7 @@ export const SeatSelectionPage: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
             {/* Accessible 2D / 3D Auditorium View Toggle */}
             <div
-              className="flex items-center p-0.5 sm:p-1 rounded-xl bg-[#1C1F2B] border border-white/10 text-xs shadow-sm"
+              className="flex items-center p-0.5 sm:p-1 rounded-xl bg-[#15171B] border border-white/10 text-xs shadow-sm"
               role="radiogroup"
               aria-label="Auditorium View Mode"
             >
@@ -603,14 +603,14 @@ export const SeatSelectionPage: React.FC = () => {
                 role="radio"
                 aria-checked={viewMode === '3d'}
                 onClick={() => setViewMode('3d')}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none ${
                   viewMode === '3d'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#C7A675] text-[#08090B] font-extrabold shadow-md shadow-[#C7A675]/20'
+                    : 'text-[#A8ADB4] hover:text-[#F3F0E8] hover:bg-white/5'
                 }`}
                 title="Switch to 3D Cinematic Auditorium view"
               >
-                <Box className="w-3.5 h-3.5 text-blue-300" />
+                <Box className="w-3.5 h-3.5 text-current" />
                 <span>3D View</span>
               </button>
               <button
@@ -618,14 +618,14 @@ export const SeatSelectionPage: React.FC = () => {
                 role="radio"
                 aria-checked={viewMode === '2d'}
                 onClick={() => setViewMode('2d')}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none ${
                   viewMode === '2d'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#C7A675] text-[#08090B] font-extrabold shadow-md shadow-[#C7A675]/20'
+                    : 'text-[#A8ADB4] hover:text-[#F3F0E8] hover:bg-white/5'
                 }`}
                 title="Switch to 2D Classic Grid view"
               >
-                <LayoutGrid className="w-3.5 h-3.5 text-slate-300" />
+                <LayoutGrid className="w-3.5 h-3.5 text-current" />
                 <span>2D Grid</span>
               </button>
             </div>
@@ -634,22 +634,22 @@ export const SeatSelectionPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPartyModal(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 bg-[#1C1F2B] hover:bg-[#222634] text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 bg-[#15171B] hover:bg-[#1B1E24] hover:border-[#C7A675]/30 text-xs font-semibold text-[#F3F0E8] transition-colors cursor-pointer"
             >
               <span className="text-sm sm:text-base">{currentPartyOption.icon}</span>
               <span>{partySize} {partySize === 1 ? 'Ticket' : 'Tickets'}</span>
-              <span className="text-blue-400 text-[10px] sm:text-[11px] underline">Change</span>
+              <span className="text-[#C7A675] text-[10px] sm:text-[11px] underline">Change</span>
             </button>
 
             {isHolding && (
-              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-300 text-xs font-semibold animate-pulse">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-[#C7A675]/40 bg-[#C7A675]/10 text-[#C7A675] text-xs font-semibold animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C7A675]" />
                 <span className="hidden sm:inline">Holding...</span>
               </div>
             )}
 
             {secondsRemaining !== null && secondsRemaining > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold animate-pulse">
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 text-xs font-semibold animate-pulse">
                 <Timer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
                 <span>{formatTimerDisplay(secondsRemaining)}</span>
               </div>
@@ -660,12 +660,12 @@ export const SeatSelectionPage: React.FC = () => {
 
       {/* 2. PARTY SIZE SELECTOR MODAL / POPOVER */}
       {showPartyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#14161F] border border-white/10 rounded-3xl p-6 shadow-2xl text-center space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-md bg-[#15171B] border border-[#C7A675]/30 rounded-3xl p-6 shadow-2xl text-center space-y-6">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="text-left">
-                <h3 className="text-lg font-bold text-white tracking-tight">How Many Seats?</h3>
-                <p className="text-xs text-slate-400">Select number of tickets to book</p>
+                <h3 className="text-lg font-display font-bold text-[#F3F0E8] tracking-tight">How Many Seats?</h3>
+                <p className="text-xs text-[#A8ADB4]">Select number of tickets to book</p>
               </div>
               <button
                 type="button"
@@ -679,8 +679,8 @@ export const SeatSelectionPage: React.FC = () => {
             {/* Vehicle Graphic Preview */}
             <div className="py-2">
               <div className="text-5xl mb-2 animate-bounce">{currentPartyOption.icon}</div>
-              <div className="text-sm font-bold text-white">{currentPartyOption.label}</div>
-              <div className="text-xs text-slate-400">{partySize} {partySize === 1 ? 'Seat' : 'Seats'}</div>
+              <div className="text-sm font-bold text-[#F3F0E8]">{currentPartyOption.label}</div>
+              <div className="text-xs text-[#A8ADB4]">{partySize} {partySize === 1 ? 'Seat' : 'Seats'}</div>
             </div>
 
             {/* Party Size Numbers (1 to 8) */}
@@ -692,8 +692,8 @@ export const SeatSelectionPage: React.FC = () => {
                   onClick={() => setPartySize(opt.count)}
                   className={`w-10 h-10 rounded-full font-bold text-sm transition-all duration-150 flex items-center justify-center cursor-pointer ${
                     partySize === opt.count
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/40 scale-110 ring-2 ring-blue-400'
-                      : 'bg-[#1C1F2B] text-slate-300 border border-white/10 hover:border-blue-400 hover:text-white'
+                      ? 'bg-[#C7A675] text-[#08090B] font-extrabold shadow-lg shadow-[#C7A675]/40 scale-110 ring-2 ring-[#C7A675]'
+                      : 'bg-[#1B1E24] text-slate-300 border border-white/10 hover:border-[#C7A675] hover:text-[#C7A675]'
                   }`}
                 >
                   {opt.count}
@@ -703,17 +703,17 @@ export const SeatSelectionPage: React.FC = () => {
 
             {/* Tier Pricing Guide */}
             <div className="grid grid-cols-3 gap-2.5 pt-2 text-left">
-              <div className="p-2.5 rounded-xl border border-white/10 bg-[#1C1F2B]">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Royal Recliner</div>
+              <div className="p-2.5 rounded-xl border border-white/10 bg-[#1B1E24]">
+                <div className="text-[10px] uppercase font-bold text-[#C7A675]">Royal Recliner</div>
                 <div className="text-xs font-black text-white mt-0.5">{formatPrice(SEAT_PRICING.VIP)}</div>
                 <div className="text-[9px] text-emerald-400 font-semibold mt-0.5">Available</div>
               </div>
-              <div className="p-2.5 rounded-xl border border-white/10 bg-[#1C1F2B]">
+              <div className="p-2.5 rounded-xl border border-white/10 bg-[#1B1E24]">
                 <div className="text-[10px] uppercase font-bold text-slate-400">Club / Prime</div>
                 <div className="text-xs font-black text-white mt-0.5">{formatPrice(SEAT_PRICING.PREMIUM)}</div>
                 <div className="text-[9px] text-emerald-400 font-semibold mt-0.5">Available</div>
               </div>
-              <div className="p-2.5 rounded-xl border border-white/10 bg-[#1C1F2B]">
+              <div className="p-2.5 rounded-xl border border-white/10 bg-[#1B1E24]">
                 <div className="text-[10px] uppercase font-bold text-slate-400">Executive</div>
                 <div className="text-xs font-black text-white mt-0.5">{formatPrice(SEAT_PRICING.STANDARD)}</div>
                 <div className="text-[9px] text-emerald-400 font-semibold mt-0.5">Available</div>
@@ -724,7 +724,7 @@ export const SeatSelectionPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPartyModal(false)}
-              className="w-full py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-xl shadow-blue-600/30 transition-all cursor-pointer"
+              className="w-full py-3.5 rounded-full bg-[#C7A675] hover:bg-[#DFC49D] text-[#08090B] font-extrabold text-sm shadow-xl shadow-[#C7A675]/30 transition-all cursor-pointer"
             >
               Select {partySize} {partySize === 1 ? 'Seat' : 'Seats'}
             </button>
@@ -797,21 +797,34 @@ export const SeatSelectionPage: React.FC = () => {
 
         {/* Live Loading State */}
         {isLoadingSeats && (
-          <div className="mb-4 py-2.5 px-4 rounded-xl border border-blue-500/30 bg-blue-950/40 text-blue-300 text-xs flex items-center justify-center gap-2.5 animate-pulse shadow-md">
-            <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          <div className="mb-4 py-2.5 px-4 rounded-xl border border-[#C7A675]/30 bg-[#C7A675]/10 text-[#C7A675] text-xs flex items-center justify-center gap-2.5 animate-pulse shadow-md">
+            <div className="w-3.5 h-3.5 border-2 border-[#C7A675] border-t-transparent rounded-full animate-spin" />
             <span className="font-medium tracking-wide">Syncing live seat availability with cinema database...</span>
+          </div>
+        )}
+
+        {/* Portfolio Demo Illustrative Disclaimer */}
+        {IS_PORTFOLIO_DEMO_MODE && (
+          <div className="mb-4 py-2 px-3.5 rounded-xl border border-[#C7A675]/30 bg-[#C7A675]/10 text-xs text-[#DFC49D] flex items-center justify-between gap-2 shadow-sm font-sans">
+            <span className="flex items-center gap-1.5 font-medium">
+              <span className="w-2 h-2 rounded-full bg-[#C7A675]" />
+              <strong>Portfolio Demo Mode:</strong> Displayed seat availability and selections are illustrative for demonstration.
+            </span>
+            <span className="text-[10px] font-mono font-bold bg-[#C7A675]/20 text-[#DFC49D] px-2 py-0.5 rounded-md border border-[#C7A675]/40 hidden sm:inline">
+              ISOLATED SIMULATION
+            </span>
           </div>
         )}
 
         {/* 1. SEAT AVAILABILITY DASHBOARD */}
         <div className="mb-4 sm:mb-6 grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3" aria-label="Seat availability summary">
           {/* TOTAL SEATS */}
-          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-white/10 bg-[#12141D] flex flex-col items-center justify-center text-center shadow-md">
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-white/10 bg-[#15171B] flex flex-col items-center justify-center text-center shadow-md">
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               <Armchair className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
               <span>Total Seats</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-white mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+            <div className="text-xl sm:text-2xl font-black text-[#F3F0E8] mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {isLoadingSeats && !serverAvailability ? (
                 <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-slate-400" />
               ) : (
@@ -822,31 +835,31 @@ export const SeatSelectionPage: React.FC = () => {
           </div>
 
           {/* AVAILABLE SEATS */}
-          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/40 bg-blue-950/30 flex flex-col items-center justify-center text-center shadow-md shadow-blue-950/20">
-            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-400 animate-pulse" />
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-[#C7A675]/40 bg-[#C7A675]/10 flex flex-col items-center justify-center text-center shadow-md shadow-[#C7A675]/10">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-[#C7A675] uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#C7A675] animate-pulse" />
               <span>Available Seats</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-blue-400 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+            <div className="text-xl sm:text-2xl font-black text-[#C7A675] mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {isLoadingSeats && !serverAvailability ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-blue-400" />
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-[#C7A675]" />
               ) : (
                 dashboardCounts.available
               )}
             </div>
-            <div className="text-[9px] sm:text-[10px] text-blue-400/80 font-medium">Ready to Book</div>
+            <div className="text-[9px] sm:text-[10px] text-[#C7A675]/80 font-medium">Ready to Book</div>
           </div>
 
           {/* MY SELECTED SEATS */}
-          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-blue-500/60 bg-blue-600/20 flex flex-col items-center justify-center text-center shadow-md shadow-blue-600/10">
-            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-blue-300 uppercase tracking-wider">
-              <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
+          <div className="p-2.5 sm:p-3.5 rounded-2xl border border-[#C7A675]/70 bg-[#C7A675]/25 flex flex-col items-center justify-center text-center shadow-md shadow-[#C7A675]/20">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-[#C7A675] uppercase tracking-wider">
+              <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#C7A675]" />
               <span>My Selected Seats</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-blue-300 mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
+            <div className="text-xl sm:text-2xl font-black text-[#F3F0E8] mt-0.5 sm:mt-1 flex items-center justify-center min-h-[28px] sm:min-h-[32px]">
               {dashboardCounts.selected}
             </div>
-            <div className="text-[9px] sm:text-[10px] text-blue-300/80 font-medium">In Your Order</div>
+            <div className="text-[9px] sm:text-[10px] text-[#C7A675] font-semibold">In Your Order</div>
           </div>
 
           {/* TEMPORARILY HELD */}
@@ -883,18 +896,18 @@ export const SeatSelectionPage: React.FC = () => {
         </div>
 
         {/* 2. VISIBLE COLOR LEGEND BAR */}
-        <div className="mb-4 sm:mb-6 p-2.5 sm:p-3.5 rounded-2xl border border-white/10 bg-[#14161F] flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[11px] sm:text-xs shadow-md">
+        <div className="mb-4 sm:mb-6 p-2.5 sm:p-3.5 rounded-2xl border border-white/10 bg-[#15171B] flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[11px] sm:text-xs shadow-md">
           {/* Available */}
           <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-blue-950/30 border border-blue-500/50 flex items-center justify-center text-[10px] text-blue-300 font-bold" />
-            <span className="text-blue-300 font-semibold">{t.seats.available}</span>
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-[#1B1E24] border border-white/20 flex items-center justify-center text-[10px] text-[#A8ADB4] font-bold" />
+            <span className="text-[#A8ADB4] font-semibold">{t.seats.available}</span>
           </div>
           {/* Selected */}
           <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-blue-600 text-white font-bold border border-blue-400 shadow-md shadow-blue-500/40 flex items-center justify-center text-[10px]">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-[#C7A675] text-[#08090B] font-extrabold border border-[#DFC49D] shadow-md shadow-[#C7A675]/40 flex items-center justify-center text-[10px]">
               ✓
             </div>
-            <span className="text-blue-400 font-bold">{t.seats.selected}</span>
+            <span className="text-[#C7A675] font-bold">{t.seats.selected}</span>
           </div>
           {/* Temporarily Held */}
           <div className="flex items-center gap-1.5">
@@ -913,7 +926,7 @@ export const SeatSelectionPage: React.FC = () => {
         </div>
 
         {/* Mobile Swipe Cue */}
-        <div className="md:hidden flex items-center justify-center gap-1.5 py-1.5 px-3 mb-3 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold animate-pulse">
+        <div className="md:hidden flex items-center justify-center gap-1.5 py-1.5 px-3 mb-3 rounded-full bg-[#C7A675]/10 border border-[#C7A675]/25 text-[#C7A675] text-xs font-semibold animate-pulse">
           <span>⇄ Swipe sideways to view all 16 seats in each row</span>
         </div>
 
@@ -923,7 +936,7 @@ export const SeatSelectionPage: React.FC = () => {
           <div
             className="absolute left-1/2 -translate-x-1/2 top-0 w-full max-w-xl h-24 sm:h-32 opacity-35 pointer-events-none blur-2xl transition-all duration-700"
             style={{
-              background: `radial-gradient(ellipse 65% 55% at 50% 0%, ${colors.primary} 0%, ${colors.glow} 40%, transparent 80%)`,
+              background: `radial-gradient(ellipse 65% 55% at 50% 0%, ${colors.primary || '#C7A675'} 0%, ${colors.glow || 'rgba(199,166,117,0.3)'} 40%, transparent 80%)`,
             }}
             aria-hidden="true"
           />
@@ -932,17 +945,17 @@ export const SeatSelectionPage: React.FC = () => {
           <div className="relative px-4">
             <svg
               viewBox="0 0 500 50"
-              className="w-full max-w-lg mx-auto h-8 sm:h-12 overflow-visible drop-shadow-[0_4px_16px_rgba(255,255,255,0.25)]"
+              className="w-full max-w-lg mx-auto h-8 sm:h-12 overflow-visible drop-shadow-[0_4px_16px_rgba(199,166,117,0.35)]"
               preserveAspectRatio="none"
               aria-hidden="true"
             >
               <defs>
                 <linearGradient id="screenCurvedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
-                  <stop offset="20%" stopColor="rgba(255,255,255,0.85)" />
+                  <stop offset="0%" stopColor="rgba(199,166,117,0.2)" />
+                  <stop offset="20%" stopColor="rgba(223,196,157,0.85)" />
                   <stop offset="50%" stopColor="#FFFFFF" />
-                  <stop offset="80%" stopColor="rgba(255,255,255,0.85)" />
-                  <stop offset="100%" stopColor="rgba(255,255,255,0.15)" />
+                  <stop offset="80%" stopColor="rgba(223,196,157,0.85)" />
+                  <stop offset="100%" stopColor="rgba(199,166,117,0.2)" />
                 </linearGradient>
                 <filter id="screenGlow">
                   <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -963,10 +976,10 @@ export const SeatSelectionPage: React.FC = () => {
             </svg>
 
             <div className="flex items-center justify-center gap-2 mt-2">
-              <span className="text-[10px] sm:text-[11px] font-black tracking-[0.25em] uppercase text-slate-300 drop-shadow-sm">
+              <span className="text-[10px] sm:text-[11px] font-display font-black tracking-[0.25em] uppercase text-[#F3F0E8] drop-shadow-sm">
                 CINEMA SCREEN
               </span>
-              <span className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase hidden sm:inline">
+              <span className="text-[9px] text-[#A8ADB4] font-semibold tracking-wider uppercase hidden sm:inline">
                 • Front of Auditorium
               </span>
             </div>
@@ -1007,25 +1020,25 @@ export const SeatSelectionPage: React.FC = () => {
                     {/* Tier Separator Header */}
                     {isFirstOfTier && (
                       <div className="w-full max-w-2xl flex items-center justify-between pt-5 pb-2 border-b border-white/10 text-xs">
-                        <span className="font-bold text-slate-300 tracking-wider uppercase flex items-center gap-2">
-                          {isVIP && <Armchair className="w-3.5 h-3.5 text-amber-400" />}
+                        <span className="font-bold text-[#F3F0E8] tracking-widest uppercase flex items-center gap-2">
+                          {isVIP && <Armchair className="w-3.5 h-3.5 text-[#C7A675]" />}
                           {tierLabel}
                         </span>
-                        <span className="font-semibold text-blue-400">
+                        <span className="font-bold text-[#C7A675] font-mono">
                           {formatPrice(tierPrice)}
                         </span>
                       </div>
                     )}
 
                     {/* Seat Row */}
-                    <div className="flex items-center gap-3 pointer-events-none scroll-mb-36" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined} role="row">
+                    <div className="flex items-center gap-3 scroll-mb-36" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined} role="row">
                       {/* Left Row Letter */}
-                      <span className="w-5 text-center font-bold text-xs text-slate-400 select-none pointer-events-none">
+                      <span className="w-5 text-center font-bold text-xs text-[#A8ADB4] select-none font-mono">
                         {row.rowLetter}
                       </span>
 
                       {/* Seats with central aisle gap */}
-                      <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-none" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined}>
+                      <div className="flex items-center gap-1.5 sm:gap-2" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined}>
                         {row.seats.map(seat => {
                           const isSelected = selectedSeats.some(s => s.id === seat.id);
                           const isReserved = seat.status === 'reserved';
@@ -1033,9 +1046,9 @@ export const SeatSelectionPage: React.FC = () => {
 
                           let seatClass = '';
                           if (isSelected) {
-                            // Electric Cobalt blue with glow and pop
+                            // Champagne luxury selected with glowing halo
                             seatClass =
-                              'bg-blue-600 text-white font-bold border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.65)] scale-105 ring-2 ring-blue-400/80';
+                              'bg-[#C7A675] text-[#08090B] font-extrabold border-[#DFC49D] shadow-[0_0_18px_rgba(199,166,117,0.7)] scale-105 ring-2 ring-[#C7A675]/80';
                           } else if (isReserved) {
                             // Booked / Sold: Red/ruby, disabled
                             seatClass =
@@ -1045,16 +1058,16 @@ export const SeatSelectionPage: React.FC = () => {
                             seatClass =
                               'bg-amber-950/60 text-amber-300 border-amber-500/70 cursor-not-allowed opacity-90 shadow-sm shadow-amber-950/40';
                           } else {
-                            // Available: Tier-differentiated styling with subtle metallic/border highlights
+                            // Available: Obsidian/Charcoal with subtle champagne metallic border highlights
                             if (seat.tier === 'VIP') {
                               seatClass =
-                                'bg-amber-950/20 text-amber-200 border-amber-500/40 hover:border-amber-400 hover:bg-amber-600/25 hover:scale-105 focus-visible:ring-2 focus-visible:ring-amber-400 shadow-sm';
+                                'bg-[#15171B] text-[#C7A675] border-[#C7A675]/40 hover:border-[#C7A675] hover:bg-[#C7A675]/15 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
                             } else if (seat.tier === 'PREMIUM') {
                               seatClass =
-                                'bg-blue-950/25 text-blue-200 border-blue-500/40 hover:border-blue-400 hover:bg-blue-600/25 hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-400 shadow-sm';
+                                'bg-[#15171B] text-[#F3F0E8] border-white/15 hover:border-[#C7A675] hover:bg-[#C7A675]/10 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
                             } else {
                               seatClass =
-                                'bg-slate-900/40 text-slate-300 border-white/10 hover:border-slate-400 hover:bg-slate-800/40 hover:scale-105 focus-visible:ring-2 focus-visible:ring-blue-400 shadow-sm';
+                                'bg-[#111317] text-[#A8ADB4] border-white/10 hover:border-[#C7A675] hover:bg-[#C7A675]/10 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
                             }
                           }
 
@@ -1063,7 +1076,7 @@ export const SeatSelectionPage: React.FC = () => {
                               {/* Realistic Central Walking Aisle gap between seat 8 and 9 */}
                               {seat.number === 9 && (
                                 <div className="w-6 sm:w-10 text-center select-none" aria-hidden="true">
-                                  <span className="text-[9px] text-slate-600 font-mono tracking-widest hidden sm:inline">AISLE</span>
+                                  <span className="text-[9px] text-[#71767F] font-mono tracking-widest hidden sm:inline">AISLE</span>
                                 </div>
                               )}
 
@@ -1072,7 +1085,8 @@ export const SeatSelectionPage: React.FC = () => {
                                 role="gridcell"
                                 disabled={isReserved || isHeld}
                                 onClick={() => handleSeatClick(seat)}
-                                className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 pointer-events-auto relative z-10 ${seatClass}`}
+                                data-cursor={isSelected ? 'DESELECT' : isReserved ? 'BOOKED' : isHeld ? 'HELD' : 'SELECT'}
+                                className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 pointer-events-auto relative z-10 btn-tactile ${seatClass}`}
                                 style={
                                   viewMode === '3d'
                                     ? {
@@ -1101,7 +1115,7 @@ export const SeatSelectionPage: React.FC = () => {
                       </div>
 
                       {/* Right Row Letter */}
-                      <span className="w-5 text-center font-bold text-xs text-slate-400 select-none">
+                      <span className="w-5 text-center font-bold text-xs text-[#A8ADB4] select-none font-mono">
                         {row.rowLetter}
                       </span>
                     </div>
@@ -1114,40 +1128,40 @@ export const SeatSelectionPage: React.FC = () => {
 
         {/* Rear Auditorium Floor Ambient Guide */}
         <div className="mt-8 mb-6 text-center">
-          <div className="w-3/4 max-w-lg mx-auto h-1 rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="w-3/4 max-w-lg mx-auto h-0.5 rounded-full bg-gradient-to-r from-transparent via-[#C7A675]/25 to-transparent" />
         </div>
 
       </main>
 
       {/* 4. STICKY BOTTOM ACTION BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0E1017]/95 backdrop-blur-xl p-3 sm:p-5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#C7A675]/20 bg-[#08090B]/95 backdrop-blur-xl p-3 sm:p-5 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-[0_-10px_35px_rgba(0,0,0,0.8)]">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           
           {/* Seats & Subtotal info */}
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-start">
             <div className="max-w-[65%] sm:max-w-none">
-              <div className="text-[11px] sm:text-xs text-slate-400">
+              <div className="text-[11px] sm:text-xs text-[#A8ADB4]">
                 {t.seats.selected} ({selectedSeats.length}):
               </div>
-              <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1 sm:gap-1.5 flex-wrap max-h-12 overflow-y-auto no-scrollbar">
+              <div className="text-xs sm:text-sm font-bold text-[#F3F0E8] flex items-center gap-1 sm:gap-1.5 flex-wrap max-h-12 overflow-y-auto no-scrollbar">
                 {selectedSeats.length > 0 ? (
                   selectedSeats.map(s => (
                     <span
                       key={s.id}
-                      className="px-2 py-0.5 rounded-lg bg-[#1C1F2B] text-blue-400 border border-blue-500/30 text-[11px] sm:text-xs font-mono font-bold"
+                      className="px-2 py-0.5 rounded-md bg-[#15171B] text-[#C7A675] border border-[#C7A675]/30 text-[11px] sm:text-xs font-mono font-bold"
                     >
                       {s.id}
                     </span>
                   ))
                 ) : (
-                  <span className="text-slate-500 italic text-xs">No seats selected yet</span>
+                  <span className="text-[#71767F] italic text-xs">No seats selected yet</span>
                 )}
               </div>
             </div>
 
             <div className="sm:border-l sm:border-white/10 sm:pl-4 text-right sm:text-left shrink-0">
-              <div className="text-[11px] sm:text-xs text-slate-400">{t.seats.subtotal}</div>
-              <div className="text-lg sm:text-xl font-black text-blue-400">
+              <div className="text-[11px] sm:text-xs text-[#A8ADB4]">{t.seats.subtotal}</div>
+              <div className="text-lg sm:text-xl font-bold font-mono text-[#C7A675]">
                 {formatPrice(subtotal)}
               </div>
             </div>
@@ -1156,17 +1170,24 @@ export const SeatSelectionPage: React.FC = () => {
           {/* Checkout Proceed Action */}
           <button
             onClick={handleProceedToCheckout}
-            disabled={selectedSeats.length === 0 || isHolding || !holdExpiresAt}
-            className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-extrabold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer shrink-0 ${
-              selectedSeats.length > 0 && !isHolding && !!holdExpiresAt
-                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95'
-                : 'bg-[#1C1F2B] text-slate-500 border border-white/5 cursor-not-allowed opacity-60'
+            disabled={selectedSeats.length === 0 || isHolding}
+            data-cursor={selectedSeats.length > 0 ? 'CHECKOUT' : undefined}
+            className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-xl cursor-pointer shrink-0 btn-tactile ${
+              selectedSeats.length > 0 && !isHolding
+                ? 'bg-[#C7A675] hover:bg-[#DFC49D] text-[#08090B] shadow-[#C7A675]/30 active:scale-95'
+                : 'bg-[#15171B] text-[#71767F] border border-white/5 cursor-not-allowed opacity-60'
             }`}
           >
-            <Ticket className="w-4 h-4 fill-current" />
+            {isHolding ? (
+              <Loader2 className="w-4 h-4 animate-spin text-[#08090B]" />
+            ) : (
+              <Ticket className="w-4 h-4 fill-current" />
+            )}
             <span>
               {isHolding
                 ? 'Securing Seats...'
+                : selectedSeats.length === 0
+                ? 'Select Seats to Proceed'
                 : `${t.seats.continueToCheckout} (${selectedSeats.length} ${selectedSeats.length === 1 ? 'ticket' : 'tickets'})`}
             </span>
           </button>

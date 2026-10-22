@@ -1,0 +1,31 @@
+{
+  "step1_1seat": {
+    "barText": "Selected (1): | B7 | Subtotal | ₹5 | Continue to Checkout (1 ticket)",
+    "has5": true
+  },
+  "step2_4seats": {
+    "barText": "Selected (4): | B7 | B8 | B9 | B10 | Subtotal | ₹20 | Continue to Checkout (4 tickets)",
+    "has20": true
+  },
+  "step3_8seats": {
+    "barText": "Selected (8): | B7 | B8 | B9 | B10 | B11 | B12 | B13 | B14 | Subtotal | ₹40 | Continue to Checkout (8 tickets)",
+    "has40": true,
+    "timerMatch": "01:45"
+  },
+  "step4_9limit": {
+    "barText": "Selected (8): | B7 | B8 | B9 | B10 | B11 | B12 | B13 | B14 | Subtotal | ₹40 | Continue to Checkout (8 tickets)",
+    "still40": true,
+    "hasLimitWarning": false
+  },
+  "step5_deselect": {
+    "barText": "Selected (6): | B7 | B8 | B9 | B10 | B11 | B12 | Subtotal | ₹30 | Continue to Checkout (6 tickets)",
+    "has30": true
+  },
+  "step6_checkout": {
+    "url": "https://movie-booking-one-azure.vercel.app/checkout",
+    "isCheckout": true,
+    "hasAmount": true,
+    "hasPayAction": true
+  },
+  "step7_backNavUrl": "https://movie-booking-one-azure.vercel.app/seat-selection?showtimeId=show-subhas-pvr--2"
+}

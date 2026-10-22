@@ -2,50 +2,56 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ==========================================================================
-   CineBook Version 2.0 — Premium Cinematic Design System Tokens
+   CineBook Version 3.0 — Unified Luxury Cinematic Design System Tokens
+   Palette: Obsidian (#08090B), Charcoal (#15171B), Warm Ivory (#F3F0E8),
+            Muted Silver (#A8ADB4), Champagne Accent (#C7A675)
    ========================================================================== */
 
 @layer base {
   :root {
-    /* Existing typography & base tokens (preserved for backward compatibility) */
+    /* Brand Design System Core */
+    --color-obsidian: #08090B;
+    --color-charcoal: #15171B;
+    --color-charcoal-light: #1F2228;
+    --color-warm-ivory: #F3F0E8;
+    --color-muted-silver: #A8ADB4;
+    --color-champagne: #C7A675;
+    --color-champagne-light: #DFC49D;
+    --color-champagne-dark: #A58352;
+    --color-champagne-glow: rgba(199, 166, 117, 0.25);
+
+    /* Typography */
+    --font-display: 'Cinzel', 'Outfit', serif;
     --font-sans: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --app-bg: #F8FAFC;
-    --surface-card: #FFFFFF;
-    --surface-pill: #F1F5F9;
-    --border-subtle: #E2E8F0;
-    --border-card: #E2E8F0;
-    --accent-blue: #2563EB;
-    --accent-blue-light: #3B82F6;
-    --accent-ice: #60A5FA;
 
-    /* Version 2.0 Light Palette */
-    --cinema-bg-base: #F8FAFC;
+    /* Light Theme (Preserved cleanly) */
+    --cinema-bg-base: #F7F5F0;
     --cinema-surface-1: #FFFFFF;
-    --cinema-surface-2: #F1F5F9;
-    --cinema-surface-3: #E2E8F0;
-    --cinema-surface-4: #CBD5E1;
-    --cinema-border-subtle: #E2E8F0;
-    --cinema-border-card: #CBD5E1;
-    --cinema-border-glow: rgba(37, 99, 235, 0.25);
+    --cinema-surface-2: #EDEAE1;
+    --cinema-surface-3: #DFD9CD;
+    --cinema-surface-4: #D0C8B8;
+    --cinema-border-subtle: rgba(21, 23, 27, 0.08);
+    --cinema-border-card: rgba(21, 23, 27, 0.12);
+    --cinema-border-glow: rgba(199, 166, 117, 0.25);
 
-    /* Cinematic Accents */
-    --cinema-primary: #2563EB;
-    --cinema-primary-light: #3B82F6;
-    --cinema-primary-glow: rgba(37, 99, 235, 0.25);
-    --cinema-cyan: #0284C7;
-    --cinema-cyan-glow: rgba(2, 132, 199, 0.25);
-    --cinema-gold: #D97706;
-    --cinema-gold-glow: rgba(217, 119, 6, 0.25);
-    --cinema-ruby: #E11D48;
-    --cinema-ruby-glow: rgba(225, 29, 72, 0.25);
-    --cinema-emerald: #059669;
-    --cinema-emerald-glow: rgba(5, 150, 105, 0.25);
+    /* Unified Champagne Luxury Accents */
+    --cinema-primary: #C7A675;
+    --cinema-primary-light: #DFC49D;
+    --cinema-primary-glow: rgba(199, 166, 117, 0.25);
+    --cinema-cyan: #A58352;
+    --cinema-cyan-glow: rgba(165, 131, 82, 0.25);
+    --cinema-gold: #C7A675;
+    --cinema-gold-glow: rgba(199, 166, 117, 0.25);
+    --cinema-ruby: #C7A675;
+    --cinema-ruby-glow: rgba(199, 166, 117, 0.25);
+    --cinema-emerald: #10B981;
+    --cinema-emerald-glow: rgba(16, 185, 129, 0.25);
 
-    /* Movie-Adaptive Ambient Defaults (Fallback) */
-    --movie-ambient-primary: #2563EB;
-    --movie-ambient-secondary: #7C3AED;
-    --movie-ambient-glow: rgba(37, 99, 235, 0.15);
-    --movie-ambient-mesh: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.15), transparent 70%);
+    /* Ambient Lighting */
+    --movie-ambient-primary: #C7A675;
+    --movie-ambient-secondary: #15171B;
+    --movie-ambient-glow: rgba(199, 166, 117, 0.12);
+    --movie-ambient-mesh: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(199, 166, 117, 0.12), transparent 70%);
 
     /* 3D & Elevation Defaults */
     --cinema-perspective: 1000px;
@@ -54,41 +60,40 @@
   }
 
   html.dark, :root.dark {
-    /* Existing dark mode tokens (preserved for backward compatibility) */
-    --app-bg: #07080B;
-    --surface-card: #0E1017;
-    --surface-pill: #141722;
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --border-card: #1C202F;
+    /* Version 3.0 Signature Obsidian & Charcoal Luxury Palette */
+    --app-bg: #08090B;
+    --surface-card: #15171B;
+    --surface-pill: #1B1E24;
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --border-card: rgba(199, 166, 117, 0.15);
 
-    /* Version 2.0 Deep Obsidian & Charcoal Surfaces */
-    --cinema-bg-base: #07080B;
-    --cinema-surface-1: #0E1017;
-    --cinema-surface-2: #141722;
-    --cinema-surface-3: #1C202F;
-    --cinema-surface-4: #252B3E;
+    --cinema-bg-base: #08090B;
+    --cinema-surface-1: #15171B;
+    --cinema-surface-2: #1B1E24;
+    --cinema-surface-3: #242832;
+    --cinema-surface-4: #2E3340;
     --cinema-border-subtle: rgba(255, 255, 255, 0.08);
-    --cinema-border-card: rgba(255, 255, 255, 0.12);
-    --cinema-border-glow: rgba(59, 130, 246, 0.35);
+    --cinema-border-card: rgba(199, 166, 117, 0.15);
+    --cinema-border-glow: rgba(199, 166, 117, 0.30);
 
-    /* Cinematic Electric Accents */
-    --cinema-primary: #3B82F6;
-    --cinema-primary-light: #60A5FA;
-    --cinema-primary-glow: rgba(59, 130, 246, 0.35);
-    --cinema-cyan: #06B6D4;
-    --cinema-cyan-glow: rgba(6, 182, 212, 0.35);
-    --cinema-gold: #F59E0B;
-    --cinema-gold-glow: rgba(245, 158, 11, 0.35);
-    --cinema-ruby: #F43F5E;
-    --cinema-ruby-glow: rgba(244, 63, 94, 0.35);
+    /* Unified Champagne Accents */
+    --cinema-primary: #C7A675;
+    --cinema-primary-light: #DFC49D;
+    --cinema-primary-glow: rgba(199, 166, 117, 0.30);
+    --cinema-cyan: #DFC49D;
+    --cinema-cyan-glow: rgba(223, 196, 157, 0.25);
+    --cinema-gold: #C7A675;
+    --cinema-gold-glow: rgba(199, 166, 117, 0.30);
+    --cinema-ruby: #E11D48;
+    --cinema-ruby-glow: rgba(225, 29, 72, 0.25);
     --cinema-emerald: #10B981;
-    --cinema-emerald-glow: rgba(16, 185, 129, 0.35);
+    --cinema-emerald-glow: rgba(16, 185, 129, 0.25);
 
-    /* Movie-Adaptive Ambient Defaults (Fallback) */
-    --movie-ambient-primary: #3B82F6;
-    --movie-ambient-secondary: #8B5CF6;
-    --movie-ambient-glow: rgba(59, 130, 246, 0.25);
-    --movie-ambient-mesh: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.25), transparent 70%);
+    /* Cinematic Ambient Glow */
+    --movie-ambient-primary: #C7A675;
+    --movie-ambient-secondary: #08090B;
+    --movie-ambient-glow: rgba(199, 166, 117, 0.15);
+    --movie-ambient-mesh: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(199, 166, 117, 0.15), transparent 70%);
   }
 
   html {
@@ -132,8 +137,116 @@
    Refined Glassmorphism Utilities
    ========================================================================== */
 
+.font-display {
+  font-family: var(--font-display);
+}
+
+.text-champagne {
+  color: var(--color-champagne);
+}
+
+.bg-champagne {
+  background-color: var(--color-champagne);
+}
+
+.border-champagne {
+  border-color: var(--color-champagne);
+}
+
+.border-champagne-subtle {
+  border-color: rgba(199, 166, 117, 0.2);
+}
+
+.text-ivory {
+  color: var(--color-warm-ivory);
+}
+
+.text-silver {
+  color: var(--color-muted-silver);
+}
+
+.bg-obsidian {
+  background-color: var(--color-obsidian);
+}
+
+.bg-charcoal {
+  background-color: var(--color-charcoal);
+}
+
+.bg-charcoal-light {
+  background-color: var(--color-charcoal-light);
+}
+
+.editorial-tag {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  color: var(--color-muted-silver);
+}
+
+.champagne-btn {
+  background: linear-gradient(135deg, #DFC49D 0%, #C7A675 60%, #B8935D 100%);
+  color: #08090B;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 9999px;
+  padding: 0.75rem 1.75rem;
+  box-shadow: 0 4px 20px -2px rgba(199, 166, 117, 0.35);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.champagne-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px -2px rgba(199, 166, 117, 0.5);
+  filter: brightness(1.05);
+}
+
+.champagne-btn:active {
+  transform: translateY(0);
+}
+
+.champagne-btn-outline {
+  background: transparent;
+  color: var(--color-warm-ivory);
+  border: 1px solid rgba(199, 166, 117, 0.4);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border-radius: 9999px;
+  padding: 0.75rem 1.75rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.champagne-btn-outline:hover {
+  border-color: #C7A675;
+  background: rgba(199, 166, 117, 0.08);
+  color: #C7A675;
+  transform: translateY(-2px);
+}
+
+.luxury-card {
+  background: #15171B;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.7);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-card:hover {
+  border-color: rgba(199, 166, 117, 0.35);
+  box-shadow: 0 16px 44px -8px rgba(199, 166, 117, 0.12), 0 20px 40px -10px rgba(0, 0, 0, 0.8);
+}
+
 .cinema-glass {
-  background: rgba(14, 16, 23, 0.75);
+  background: rgba(21, 23, 27, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -145,29 +258,29 @@ html:not(.dark) .cinema-glass {
 }
 
 .cinema-glass-card {
-  background: rgba(20, 23, 34, 0.85);
+  background: rgba(21, 23, 27, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(199, 166, 117, 0.15);
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 16px 36px -10px rgba(0, 0, 0, 0.6);
 }
 
 html:not(.dark) .cinema-glass-card {
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(199, 166, 117, 0.2);
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 12px 30px -8px rgba(0, 0, 0, 0.08);
 }
 
 .cinema-glass-nav {
-  background: rgba(10, 12, 17, 0.82);
+  background: rgba(8, 9, 11, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(199, 166, 117, 0.12);
 }
 
 html:not(.dark) .cinema-glass-nav {
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(247, 245, 240, 0.9);
+  border-bottom: 1px solid rgba(199, 166, 117, 0.15);
 }
 
 /* Backward compatibility aliases */
@@ -493,4 +606,108 @@ html:not(.dark) .cinema-glass-nav {
 .animate-drift-slow {
   animation: cinebookDrift 7s ease-in-out infinite;
 }
+
+/* ==========================================================================
+   CineBook V3 — Custom Cursor & Micro-Interactivity Enhancements
+   ========================================================================== */
+
+/* Active Custom Cursor (Desktop Pointer Devices Only) */
+@media (hover: hover) and (pointer: fine) {
+  html.custom-cursor-active,
+  html.custom-cursor-active a,
+  html.custom-cursor-active button,
+  html.custom-cursor-active [role="button"],
+  html.custom-cursor-active input,
+  html.custom-cursor-active select,
+  html.custom-cursor-active textarea,
+  html.custom-cursor-active label,
+  html.custom-cursor-active .cursor-pointer {
+    cursor: none !important;
+  }
+}
+
+/* Scroll Reveal Animations */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-on-scroll.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Tactile Button Feedback */
+.btn-tactile {
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.btn-tactile:hover {
+  filter: brightness(1.06);
+}
+
+.btn-tactile:active {
+  transform: scale(0.97) !important;
+}
+
+/* Luxury Cinematic Shimmer */
+.cinematic-shimmer {
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    rgba(199, 166, 117, 0.15) 35%,
+    rgba(223, 196, 157, 0.3) 50%,
+    rgba(199, 166, 117, 0.15) 65%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: cinematicShine 4s linear infinite;
+}
+
+@keyframes cinematicShine {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* CineBook Luxury Champagne Custom Cursor System */
+/* When custom cursor is actively tracking on desktop, hide system arrow */
+html.custom-cursor-active,
+html.custom-cursor-active body,
+html.custom-cursor-active a,
+html.custom-cursor-active button,
+html.custom-cursor-active [role="button"],
+html.custom-cursor-active .cursor-pointer {
+  cursor: none !important;
+}
+
+/* Form inputs & text areas must always retain native text cursor */
+html.custom-cursor-active input,
+html.custom-cursor-active textarea,
+html.custom-cursor-active select,
+html.custom-cursor-active [contenteditable="true"] {
+  cursor: text !important;
+}
+
+/* Mobile & touch devices: ALWAYS guarantee native cursor behavior */
+@media (hover: none) and (pointer: coarse) {
+  html.custom-cursor-active,
+  html.custom-cursor-active body,
+  html.custom-cursor-active a,
+  html.custom-cursor-active button,
+  html.custom-cursor-active [role="button"],
+  html.custom-cursor-active .cursor-pointer {
+    cursor: auto !important;
+  }
+}
+
 

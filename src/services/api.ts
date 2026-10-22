@@ -306,11 +306,12 @@ export async function createPaymentOrderApi(payload: {
     bookingId: string;
     bookingRef: string;
     orderId: string;
+    order_id?: string;
     amount: number;
+    totalInPaise?: number;
     currency: string;
     key: string;
-    mockPaymentId?: string;
-    mockSignature?: string;
+    key_id?: string;
     customer: { name: string; email: string; phone: string };
   }>('/payment/create-order', {
     method: 'POST',

@@ -7,6 +7,8 @@ import { LanguageProvider } from './context/LanguageContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { SearchModal } from './components/SearchModal';
+import { CustomCursor } from './components/CustomCursor';
+import { DemoBanner } from './components/DemoBanner';
 import { HomePage } from './pages/HomePage';
 import { MovieDetailsPage } from './pages/MovieDetailsPage';
 import { SeatSelectionPage } from './pages/SeatSelectionPage';
@@ -50,7 +52,11 @@ export function App() {
           <BookingProvider>
             <Router>
               <ScrollToTop />
-              <div className="min-h-screen flex flex-col overflow-x-hidden bg-slate-50 dark:bg-[#0B0C0E] text-slate-900 dark:text-slate-100 selection:bg-blue-600 selection:text-white transition-colors duration-300">
+              <CustomCursor />
+              <div className="min-h-screen flex flex-col overflow-x-hidden bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-[#F3F0E8] selection:bg-[#C7A675] selection:text-[#08090B] transition-colors duration-300">
+                {/* Global Demo Announcement */}
+                <DemoBanner />
+
                 {/* Global Navigation Bar */}
                 <Navbar
                   onOpenSearch={() => setIsSearchOpen(true)}

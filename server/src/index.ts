@@ -16,6 +16,7 @@ import seatLockRoutes from './routes/seatLocks.js';
 import ticketValidationRoutes from './routes/ticketValidation.js';
 import { setSocketIO } from './services/seatReservationService.js';
 import { globalApiLimiter } from './middleware/rateLimiter.js';
+import { isPortfolioDemoMode } from './middleware/demoMode.js';
 import prisma from './prisma.js';
 
 const app = express();
@@ -90,6 +91,7 @@ app.get('/api/health', async (_req, res) => {
   res.json({
     status: dbStatus === 'connected' ? 'healthy' : 'degraded',
     ok: true,
+    portfolioDemoMode: isPortfolioDemoMode(),
     database: dbStatus,
     service: 'CineBook Movie Ticket Booking API',
     version: '1.0.0',

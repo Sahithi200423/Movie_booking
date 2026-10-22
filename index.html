@@ -10,29 +10,28 @@
     <meta name="format-detection" content="telephone=no" />
     <meta name="description" content="CineBook - Premium Movie Ticket Booking. Discover now showing blockbusters, pick your favorite seats, and book tickets instantly." />
     <title>CineBook | Premium Cinema & Movie Ticket Booking</title>
-    <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+    <!-- Google Fonts: Cinzel (Cinematic Display), Outfit & Plus Jakarta Sans (Modern Body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Immediate Theme Application (prevents initial flash) -->
     <script>
       (function() {
         try {
           var saved = localStorage.getItem('theme') || localStorage.getItem('cinebook_theme');
-          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var theme = saved || (prefersDark ? 'dark' : 'light');
-          if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
-          } else {
+          var theme = saved === 'light' ? 'light' : 'dark';
+          if (theme === 'light') {
             document.documentElement.classList.remove('dark');
             document.documentElement.classList.add('light');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
           }
         } catch (e) {}
       })();
     </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-600 selection:text-white min-h-screen">
+  <body class="bg-[#08090B] text-slate-100 font-sans antialiased selection:bg-[#C7A675] selection:text-[#08090B] min-h-screen">
     <div id="root"></div>
     <!-- Razorpay Checkout SDK (non-blocking) -->
     <script async src="https://checkout.razorpay.com/v1/checkout.js"></script>

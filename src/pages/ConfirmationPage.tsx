@@ -16,6 +16,7 @@ import { useBooking } from '../context/BookingContext';
 import { useTranslation } from '../context/LanguageContext';
 import { getBookingByIdApi } from '../services/api';
 import type { BookingRecord } from '../types';
+import { IS_PORTFOLIO_DEMO_MODE, DEMO_NOTICE_TEXT } from '../config/demoMode';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -298,28 +299,51 @@ const ConfirmationContent: React.FC = () => {
   const seatsList = (booking?.seats || []).map((s: any) => (typeof s === 'string' ? s : s?.id || ''));
   const bookingRef = booking?.bookingRef || booking?.bookingId || booking?.id || 'BMS-849204-KL';
   const isCheckedIn = booking?.status === 'checked_in' || booking?.checkedIn;
+  const isDemoBooking = Boolean(
+    IS_PORTFOLIO_DEMO_MODE ||
+    booking?.isDemoBooking ||
+    (typeof bookingRef === 'string' && bookingRef.startsWith('DEMO-'))
+  );
 
   return (
-    <div className={`min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 transition-colors ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-[#08090B] text-[#F3F0E8] ${isRTL ? 'rtl' : 'ltr'}`}>
       <div className="max-w-3xl mx-auto space-y-8">
         
         {/* Success Header (Hidden during print) */}
         <div className="text-center space-y-2 no-print">
-          <div className="inline-flex p-3 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2">
+          <div className="inline-flex p-3 rounded-full bg-[#C7A675]/15 text-[#C7A675] border border-[#C7A675]/30 mb-2">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-            <span>Booking Confirmed & Secured!</span>
-            {isCheckedIn && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500 text-white">
+          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-[#F3F0E8] flex items-center justify-center gap-2">
+            <span>{isDemoBooking ? 'Demo Booking Confirmed!' : 'Booking Confirmed & Secured!'}</span>
+            {isCheckedIn ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500 text-white font-mono">
                 CHECKED IN
               </span>
-            )}
+            ) : isDemoBooking ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#C7A675]/20 text-[#DFC49D] border border-[#C7A675]/40 font-mono">
+                PORTFOLIO DEMO
+              </span>
+            ) : null}
           </h1>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Your M-Ticket pass is active in cinema records. Present the QR code below at the cinema turnstile.
+          <p className="text-sm text-[#A8ADB4] max-w-md mx-auto">
+            {isDemoBooking
+              ? 'Portfolio Demo — No real tickets or payments are issued. Your simulated VIP pass is rendered below with sample scannable M-ticket.'
+              : 'Your M-Ticket pass is active in cinema records. Present the QR code below at the cinema turnstile.'}
           </p>
         </div>
+
+        {/* Portfolio Demo Notice Card */}
+        {isDemoBooking && (
+          <div className="p-4 rounded-2xl bg-[#C7A675]/10 border border-[#C7A675]/30 text-center space-y-1 no-print shadow-lg shadow-[#C7A675]/5">
+            <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#DFC49D] font-mono uppercase tracking-wider">
+              <span>★ PORTFOLIO DEMONSTRATION MODE ★</span>
+            </div>
+            <p className="text-xs text-[#A8ADB4] max-w-lg mx-auto">
+              {DEMO_NOTICE_TEXT} This simulated booking is stored locally in your browser and did not mutate any real database seats or create real financial charges.
+            </p>
+          </div>
+        )}
 
         {/* PREMIUM HOLOGRAPHIC DIGITAL TICKET */}
         <HolographicTicket booking={booking} id="printable-ticket" />
@@ -338,15 +362,15 @@ const ConfirmationContent: React.FC = () => {
             <div className="flex flex-col">
               <button
                 onClick={handleDownloadIcs}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-xs sm:text-sm bg-[#1C1F2B] hover:bg-[#252a3a] text-slate-100 border border-white/10 hover:border-blue-500/50 shadow-lg transition-all cursor-pointer active:scale-98"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-xs sm:text-sm bg-[#15171B] hover:bg-[#1B1E24] text-[#F3F0E8] border border-white/10 hover:border-[#C7A675]/50 shadow-lg transition-all cursor-pointer active:scale-98"
               >
-                <Calendar className="w-4 h-4 text-blue-400" />
+                <Calendar className="w-4 h-4 text-[#C7A675]" />
                 <span>Add to Calendar (.ics)</span>
               </button>
               <div className="pt-1.5 text-center">
                 <button
                   onClick={handleOpenGoogleCalendar}
-                  className="text-[11px] text-blue-400 hover:text-blue-300 underline font-medium cursor-pointer"
+                  className="text-[11px] text-[#C7A675] hover:text-[#DFC49D] underline font-medium cursor-pointer"
                 >
                   or sync via Google Calendar ↗
                 </button>
@@ -362,7 +386,7 @@ const ConfirmationContent: React.FC = () => {
                 <Share2 className="w-4 h-4" />
                 <span>Share via WhatsApp</span>
               </button>
-              <p className="text-[11px] text-slate-400 text-center pt-1.5">
+              <p className="text-[11px] text-[#A8ADB4] text-center pt-1.5">
                 Send tickets & link to companions
               </p>
             </div>
@@ -371,12 +395,12 @@ const ConfirmationContent: React.FC = () => {
             <div className="flex flex-col">
               <button
                 onClick={handleDownloadPdf}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 transition-all cursor-pointer active:scale-98"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-bold text-xs sm:text-sm bg-[#C7A675] hover:bg-[#DFC49D] text-[#08090B] shadow-lg shadow-[#C7A675]/30 transition-all cursor-pointer active:scale-98"
               >
                 <Download className="w-4 h-4" />
                 <span>Download PDF Pass</span>
               </button>
-              <p className="text-[11px] text-slate-400 text-center pt-1.5">
+              <p className="text-[11px] text-[#A8ADB4] text-center pt-1.5">
                 Clean 1-page pass with QR code
               </p>
             </div>
@@ -386,25 +410,25 @@ const ConfirmationContent: React.FC = () => {
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Link
               to={`/scanner?ref=${bookingRef}`}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-xs bg-[#C7A675]/15 text-[#DFC49D] border border-[#C7A675]/40 hover:bg-[#C7A675]/25 transition-colors cursor-pointer font-mono"
             >
-              <Scan className="w-3.5 h-3.5" />
+              <Scan className="w-3.5 h-3.5 text-[#C7A675]" />
               <span>Simulate Gatekeeper Scanner</span>
             </Link>
 
             <Link
               to="/my-tickets"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-xs border border-white/10 bg-[#1C1F2B] hover:bg-[#252a3a] text-slate-300 transition-colors"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-xs border border-white/10 bg-[#15171B] hover:bg-[#1B1E24] text-[#A8ADB4] hover:text-[#F3F0E8] transition-colors"
             >
-              <Ticket className="w-3.5 h-3.5 text-blue-400" />
+              <Ticket className="w-3.5 h-3.5 text-[#C7A675]" />
               <span>View All My Tickets</span>
             </Link>
 
             <Link
               to="/"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-xs border border-white/10 bg-[#1C1F2B] hover:bg-[#252a3a] text-slate-300 transition-colors"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-xs border border-white/10 bg-[#15171B] hover:bg-[#1B1E24] text-[#A8ADB4] hover:text-[#F3F0E8] transition-colors"
             >
-              <Home className="w-3.5 h-3.5 text-blue-400" />
+              <Home className="w-3.5 h-3.5 text-[#C7A675]" />
               <span>Book Another Movie</span>
             </Link>
           </div>

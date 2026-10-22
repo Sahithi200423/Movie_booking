@@ -9,6 +9,7 @@ import { getSocketIO } from '../services/seatReservationService.js';
 import { isPastShowtime } from '../utils/dateUtils.js';
 import { ensurePrismaShowtime } from '../services/showtimeResolver.js';
 import { paymentOrderLimiter } from '../middleware/rateLimiter.js';
+import { enforceDemoModeGuard } from '../middleware/demoMode.js';
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_sampleKey';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sampleSecretKey';
@@ -20,7 +21,7 @@ const razorpay = new Razorpay({
 const router = Router();
 
 // POST /api/bookings (Create booking with atomic conflict prevention - Rate limited: 20/10m)
-router.post('/', paymentOrderLimiter, async (req: AuthRequest, res: Response) => {
+router.post('/', enforceDemoModeGuard, paymentOrderLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const {
       showtimeId,
@@ -481,7 +482,7 @@ router.get('/:id/cancel-quote', async (req: Request, res: Response) => {
 });
 
 // POST /api/bookings/:id/cancel
-router.post('/:id/cancel', async (req: Request, res: Response) => {
+router.post('/:id/cancel', enforceDemoModeGuard, async (req: Request, res: Response) => {
   try {
     const { email, reason = 'Customer requested cancellation' } = req.body;
     const targetId = req.params.id;

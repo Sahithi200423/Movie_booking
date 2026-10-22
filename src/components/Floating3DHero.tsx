@@ -13,6 +13,7 @@ import {
 import type { Movie } from '../types';
 import { useTranslation } from '../context/LanguageContext';
 import { useBooking } from '../context/BookingContext';
+import { useMagnetic } from '../hooks/useMagnetic';
 
 interface Floating3DHeroProps {
   movies: Movie[];
@@ -46,6 +47,9 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const bookBtnRef = useMagnetic<HTMLButtonElement>({ maxDisplacement: 6 });
+  const trailerBtnRef = useMagnetic<HTMLButtonElement>({ maxDisplacement: 5 });
+
   // WebGL & Motion state
   const [webglSupported, setWebglSupported] = useState<boolean>(true);
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
@@ -73,59 +77,59 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return new THREE.CanvasTexture(canvas);
 
-    // 1. Luxury Dark Charcoal / Carbon Base Gradient
+    // 1. Luxury Dark Charcoal / Obsidian Base Gradient
     const bgGrad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    bgGrad.addColorStop(0, '#12131C');
-    bgGrad.addColorStop(0.4, '#0A0B10');
-    bgGrad.addColorStop(1, '#050608');
+    bgGrad.addColorStop(0, '#15171B');
+    bgGrad.addColorStop(0.4, '#0E1014');
+    bgGrad.addColorStop(1, '#08090B');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Subtle Luxury Geometric Diagonal Grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
-    ctx.lineWidth = 2;
-    for (let x = 0; x < canvas.width; x += 64) {
+    // 2. Subtle Luxury Geometric Micro-Grid
+    ctx.strokeStyle = 'rgba(199, 166, 117, 0.035)';
+    ctx.lineWidth = 1.5;
+    for (let x = 0; x < canvas.width; x += 56) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
-    for (let y = 0; y < canvas.height; y += 64) {
+    for (let y = 0; y < canvas.height; y += 56) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
     }
 
-    // 3. Cinematic Red / Crimson Ambient Radial Glow
+    // 3. Cinematic Warm Champagne Specular Radial Glow
     const radial = ctx.createRadialGradient(
       canvas.width * 0.35,
       canvas.height * 0.45,
-      50,
+      40,
       canvas.width * 0.35,
       canvas.height * 0.45,
-      800
+      850
     );
-    radial.addColorStop(0, 'rgba(225, 29, 72, 0.28)');
-    radial.addColorStop(0.5, 'rgba(159, 18, 57, 0.12)');
+    radial.addColorStop(0, 'rgba(199, 166, 117, 0.22)');
+    radial.addColorStop(0.5, 'rgba(165, 131, 82, 0.08)');
     radial.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 4. Gold / Ruby Outer Border Foil
-    ctx.strokeStyle = 'rgba(244, 63, 94, 0.85)';
-    ctx.lineWidth = 14;
+    // 4. Champagne Metallic Foil Outer Border
+    ctx.strokeStyle = '#C7A675';
+    ctx.lineWidth = 12;
     ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(243, 240, 232, 0.22)';
+    ctx.lineWidth = 2;
     ctx.strokeRect(58, 58, canvas.width - 116, canvas.height - 116);
 
     // 5. Perforation Dividing Line between Ticket Body and Stub (at x = 1450)
     const stubX = 1450;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.lineWidth = 6;
-    ctx.setLineDash([22, 16]);
+    ctx.strokeStyle = 'rgba(199, 166, 117, 0.4)';
+    ctx.lineWidth = 5;
+    ctx.setLineDash([20, 14]);
     ctx.beginPath();
     ctx.moveTo(stubX, 40);
     ctx.lineTo(stubX, canvas.height - 40);
@@ -133,108 +137,108 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     ctx.setLineDash([]); // Reset dash
 
     // 6. Header: CINEBOOK VIP PREMIERE PASS
-    ctx.fillStyle = '#E11D48';
-    ctx.font = 'bold 36px "Outfit", "Inter", sans-serif';
+    ctx.fillStyle = '#C7A675';
+    ctx.font = 'bold 34px "Outfit", "Plus Jakarta Sans", sans-serif';
     ctx.letterSpacing = '8px';
     ctx.fillText('✦ CINEBOOK LUXURY PASS • VIP EXPERIENCE ✦', 100, 130);
 
     // 7. Cinema & Hall Info
-    ctx.fillStyle = '#94A3B8';
-    ctx.font = '500 28px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = '500 26px "Plus Jakarta Sans", sans-serif';
     ctx.letterSpacing = '3px';
     ctx.fillText('PVR INOX • AUDITORIUM 1 • 4K LASER DOLBY ATMOS', 100, 180);
 
     // 8. Main Movie Title (Large & Bold with Subtitle Drop)
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 88px "Outfit", "Inter", sans-serif';
-    ctx.letterSpacing = '2px';
+    ctx.fillStyle = '#F3F0E8';
+    ctx.font = '800 86px "Cinzel", "Outfit", serif';
+    ctx.letterSpacing = '3px';
     const cleanTitle = movie.title.toUpperCase();
     ctx.fillText(cleanTitle, 100, 310);
 
     // 9. Movie Details: Rating, Genre, Duration
-    ctx.fillStyle = '#F59E0B';
-    ctx.font = 'bold 36px "Inter", sans-serif';
+    ctx.fillStyle = '#C7A675';
+    ctx.font = 'bold 34px "Plus Jakarta Sans", sans-serif';
     ctx.fillText(`★ ${movie.rating.toFixed(1)} / 10`, 100, 390);
 
-    ctx.fillStyle = '#E2E8F0';
-    ctx.font = '600 32px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = '500 30px "Plus Jakarta Sans", sans-serif';
     const genres = movie.genre.slice(0, 3).join(' • ');
     ctx.fillText(`${genres}  |  ${movie.duration}  |  ${movie.ageRating || 'UA'}`, 340, 390);
 
     // 10. Luxury Feature Pills (IMAX 3D, ₹5 PRICE, 10-MIN HOLD)
     const pills = [
-      { text: 'IMAX 3D LASER', bg: '#1E293B', border: '#475569', color: '#38BDF8' },
-      { text: '₹5 FLAT TICKET GUARANTEE', bg: '#881337', border: '#E11D48', color: '#FECDD3' },
-      { text: 'VERIFIED CONCURRENCY SEAT HOLD', bg: '#14532D', border: '#22C55E', color: '#BBF7D0' }
+      { text: 'IMAX 3D LASER', bg: '#1A1D24', border: '#C7A675', color: '#DFC49D' },
+      { text: '₹5 FLAT TICKET GUARANTEE', bg: '#231E18', border: '#C7A675', color: '#F3F0E8' },
+      { text: 'VERIFIED CONCURRENCY SEAT HOLD', bg: '#131920', border: 'rgba(255, 255, 255, 0.2)', color: '#A8ADB4' }
     ];
 
     let pillX = 100;
     pills.forEach(pill => {
-      ctx.font = 'bold 26px "Inter", sans-serif';
+      ctx.font = 'bold 24px "Plus Jakarta Sans", sans-serif';
       const textWidth = ctx.measureText(pill.text).width;
       const pillWidth = textWidth + 48;
-      const pillHeight = 60;
+      const pillHeight = 58;
       const pillY = 460;
 
       ctx.fillStyle = pill.bg;
       ctx.beginPath();
-      ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 30);
+      ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 29);
       ctx.fill();
 
       ctx.strokeStyle = pill.border;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
       ctx.fillStyle = pill.color;
-      ctx.fillText(pill.text, pillX + 24, pillY + 41);
+      ctx.fillText(pill.text, pillX + 24, pillY + 39);
 
       pillX += pillWidth + 24;
     });
 
     // 11. Seat Number and Time Grid Box
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 3;
+    ctx.fillStyle = 'rgba(21, 23, 27, 0.75)';
+    ctx.strokeStyle = 'rgba(199, 166, 117, 0.25)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.roundRect(100, 560, 1260, 320, 24);
     ctx.fill();
     ctx.stroke();
 
     // Section 1: SEAT NUMBER
-    ctx.fillStyle = '#64748B';
-    ctx.font = 'bold 24px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('ALLOCATED SEATS', 140, 620);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 64px "Outfit", monospace';
+    ctx.fillStyle = '#F3F0E8';
+    ctx.font = '800 62px "Outfit", monospace';
     ctx.fillText('A1, A2 • VIP RECLINER', 140, 710);
-    ctx.fillStyle = '#38BDF8';
-    ctx.font = '600 26px "Inter", sans-serif';
+    ctx.fillStyle = '#C7A675';
+    ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('Front Row Prime Audio Zone', 140, 770);
 
     // Section 2: SHOWTIME & DATE
-    ctx.fillStyle = '#64748B';
-    ctx.font = 'bold 24px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('DATE & TIME', 760, 620);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 52px "Outfit", sans-serif';
+    ctx.fillStyle = '#F3F0E8';
+    ctx.font = '800 50px "Outfit", sans-serif';
     ctx.fillText('TODAY • 04:30 PM', 760, 700);
-    ctx.fillStyle = '#F43F5E';
-    ctx.font = 'bold 26px "Inter", sans-serif';
+    ctx.fillStyle = '#DFC49D';
+    ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('Doors open 15 min prior', 760, 770);
 
     // Section 3: PRICE TAG
-    ctx.fillStyle = '#64748B';
-    ctx.font = 'bold 24px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('PRICE PER TICKET', 1140, 620);
-    ctx.fillStyle = '#38BDF8';
-    ctx.font = '900 68px "Outfit", sans-serif';
+    ctx.fillStyle = '#C7A675';
+    ctx.font = '800 66px "Outfit", sans-serif';
     ctx.fillText('₹5.00', 1140, 710);
-    ctx.fillStyle = '#94A3B8';
-    ctx.font = '600 22px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = '500 22px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('All Taxes Incl.', 1140, 770);
 
     // 12. Bottom Barcode across main ticket
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#F3F0E8';
     const barcodeStartX = 100;
     const barcodeY = 930;
     const barcodeHeight = 120;
@@ -252,8 +256,8 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       curBx += w + 6;
     });
 
-    ctx.fillStyle = '#64748B';
-    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = 'bold 22px monospace';
     ctx.letterSpacing = '6px';
     ctx.fillText(`CINEBOOK-SECURE-TOKEN • #${movie.id.toUpperCase()}-2026-X99`, 100, 1090);
 
@@ -262,18 +266,18 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     ctx.translate(1500, 0);
 
     // Stub Title & Brand
-    ctx.fillStyle = '#E11D48';
-    ctx.font = 'bold 32px "Outfit", sans-serif';
+    ctx.fillStyle = '#C7A675';
+    ctx.font = 'bold 30px "Outfit", sans-serif';
     ctx.letterSpacing = '4px';
     ctx.fillText('STUB CHECK', 20, 130);
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 48px "Outfit", sans-serif';
+    ctx.fillStyle = '#F3F0E8';
+    ctx.font = '800 44px "Cinzel", "Outfit", serif';
     ctx.fillText(cleanTitle.slice(0, 14), 20, 210);
 
     // Stub Details Box
-    ctx.fillStyle = '#94A3B8';
-    ctx.font = '600 24px "Inter", sans-serif';
+    ctx.fillStyle = '#A8ADB4';
+    ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('AUDITORIUM 1', 20, 270);
     ctx.fillText('ROW A • SEAT 1, 2', 20, 310);
     ctx.fillText('TIME: 04:30 PM', 20, 350);
@@ -283,24 +287,24 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     const sealY = 560;
     const sealRad = 150;
     const sealGrad = ctx.createLinearGradient(sealX - sealRad, sealY - sealRad, sealX + sealRad, sealY + sealRad);
-    sealGrad.addColorStop(0, '#F43F5E');
-    sealGrad.addColorStop(0.5, '#6366F1');
-    sealGrad.addColorStop(1, '#38BDF8');
+    sealGrad.addColorStop(0, '#DFC49D');
+    sealGrad.addColorStop(0.5, '#C7A675');
+    sealGrad.addColorStop(1, '#8A6834');
     ctx.fillStyle = sealGrad;
     ctx.beginPath();
     ctx.arc(sealX, sealY, sealRad, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#0F172A';
+    ctx.fillStyle = '#08090B';
     ctx.beginPath();
-    ctx.arc(sealX, sealY, sealRad - 16, 0, Math.PI * 2);
+    ctx.arc(sealX, sealY, sealRad - 14, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 36px "Outfit", sans-serif';
+    ctx.fillStyle = '#DFC49D';
+    ctx.font = 'bold 36px "Cinzel", "Outfit", serif';
     ctx.textAlign = 'center';
     ctx.fillText('★ VIP ★', sealX, sealY - 10);
-    ctx.font = 'bold 24px "Inter", sans-serif';
+    ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('₹5 VERIFIED', sealX, sealY + 30);
     ctx.textAlign = 'start'; // reset
 
@@ -309,12 +313,12 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     let sBx = 40;
     for (let i = 0; i < 35; i++) {
       const bw = (i % 3 === 0) ? 8 : 4;
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = '#F3F0E8';
       ctx.fillRect(sBx, stubBarcodeY, bw, 130);
       sBx += bw + 8;
     }
 
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#A8ADB4';
     ctx.font = 'bold 20px monospace';
     ctx.fillText('SCAN FOR ENTRY', 120, 1000);
 
@@ -371,27 +375,27 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
       camera.position.set(0, 0, 7.6);
 
-      // 3. Lighting Setup: Luxury Theatrical Red, Amber & Cool Specular
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+      // 3. Lighting Setup: Luxury Theatrical Champagne, Warm Ivory & Specular
+      const ambientLight = new THREE.AmbientLight(0x22242b, 2.2);
       scene.add(ambientLight);
 
-      // Theatrical Red/Crimson Main Specular Rim Light
-      pointLightRed = new THREE.PointLight(0xe11d48, 7.5, 22);
+      // Main Warm Champagne Specular Rim Light
+      pointLightRed = new THREE.PointLight(0xc7a675, 6.5, 24);
       pointLightRed.position.set(4.5, 2.5, 3.5);
       scene.add(pointLightRed);
 
-      // Soft Cobalt/Cyan Balance Light
-      pointLightBlue = new THREE.PointLight(0x38bdf8, 4.2, 18);
+      // Soft Warm Ivory Balance Light
+      pointLightBlue = new THREE.PointLight(0xf3f0e8, 3.8, 18);
       pointLightBlue.position.set(-4.5, -1.5, 3.0);
       scene.add(pointLightBlue);
 
-      // Warm Amber Under-Glow
-      amberUnderLight = new THREE.PointLight(0xf59e0b, 2.5, 14);
+      // Warm Champagne Under-Glow
+      amberUnderLight = new THREE.PointLight(0xdfc49d, 2.8, 14);
       amberUnderLight.position.set(0, -3.2, 2.8);
       scene.add(amberUnderLight);
 
-      // Directional Overhead Spotlight
-      dirLight = new THREE.DirectionalLight(0xfff1f2, 1.8);
+      // Directional Overhead Key Light
+      dirLight = new THREE.DirectionalLight(0xfff8ec, 2.0);
       dirLight.position.set(0, 6, 4);
       scene.add(dirLight);
 
@@ -456,7 +460,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
         uvs.needsUpdate = true;
       }
 
-      // 5. Materials Setup (AURAL Luxury Red Metallic & Clearcoat)
+      // 5. Materials Setup (Luxury Champagne Foil & Obsidian Base)
       const frontTexture = createTicketTexture(activeMovie);
       frontTexture.wrapS = THREE.ClampToEdgeWrapping;
       frontTexture.wrapT = THREE.ClampToEdgeWrapping;
@@ -464,20 +468,20 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       // Front face material with clearcoat metallic finish & iridescence
       const frontMaterial = new THREE.MeshPhysicalMaterial({
         map: frontTexture,
-        metalness: 0.88,
-        roughness: 0.14,
-        clearcoat: 1.0,
+        metalness: 0.28,
+        roughness: 0.2,
+        clearcoat: 0.95,
         clearcoatRoughness: 0.08,
         reflectivity: 0.95,
-        iridescence: 0.4,
+        iridescence: 0.35,
         iridescenceIOR: 1.35
       });
 
-      // Side chamfered edge material: dark anodized ruby obsidian
+      // Side chamfered edge material: metallic champagne gold
       const sideMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1f0b12,
-        metalness: 0.96,
-        roughness: 0.18
+        color: 0xc7a675,
+        metalness: 0.88,
+        roughness: 0.22
       });
 
       ticketMesh = new THREE.Mesh(geometry, [frontMaterial, sideMaterial]);
@@ -491,8 +495,8 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       const sCtx = shadowCanvas.getContext('2d');
       if (sCtx) {
         const rad = sCtx.createRadialGradient(128, 128, 20, 128, 128, 120);
-        rad.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
-        rad.addColorStop(0.4, 'rgba(225, 29, 72, 0.22)');
+        rad.addColorStop(0, 'rgba(0, 0, 0, 0.75)');
+        rad.addColorStop(0.4, 'rgba(199, 166, 117, 0.16)');
         rad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         sCtx.fillStyle = rad;
         sCtx.fillRect(0, 0, 256, 256);
@@ -502,7 +506,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       const shadowMat = new THREE.MeshBasicMaterial({
         map: shadowTexture,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.55,
         depthWrite: false
       });
       shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
@@ -678,52 +682,51 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
 
   return (
     <div
-      className={`relative w-full overflow-hidden bg-[#0A0B10] text-slate-100 select-none ${
+      className={`relative w-full overflow-hidden bg-[#08090B] text-[#F3F0E8] select-none ${
         isRTL ? 'rtl' : 'ltr'
       }`}
     >
       {/* 1. CINEMATIC BACKGROUND ATMOSPHERE WITH LUXURY GRADIENTS */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Deep Charcoal Radial Ambient Mesh */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,#181926_0%,#0C0D14_60%,#06070A_100%)]" />
+        {/* Deep Charcoal & Obsidian Radial Ambient Mesh */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,#1A1D24_0%,#111317_50%,#08090B_100%)]" />
 
-        {/* Theatrical Red Glow (Right Rim) */}
-        <div className="absolute -top-32 right-0 w-[550px] sm:w-[750px] h-[550px] sm:h-[750px] rounded-full bg-rose-600/15 blur-[140px] pointer-events-none" />
+        {/* Theatrical Warm Champagne Glow (Right Rim) */}
+        <div className="absolute -top-32 right-0 w-[550px] sm:w-[750px] h-[550px] sm:h-[750px] rounded-full bg-[#C7A675]/12 blur-[150px] pointer-events-none" />
 
-        {/* Theatrical Cobalt Glow (Left Bottom Accent) */}
-        <div className="absolute -bottom-32 left-0 w-[450px] sm:w-[650px] h-[450px] sm:h-[650px] rounded-full bg-blue-600/10 blur-[130px] pointer-events-none" />
+        {/* Theatrical Warm Ivory Glow (Left Bottom Accent) */}
+        <div className="absolute -bottom-32 left-0 w-[450px] sm:w-[650px] h-[450px] sm:h-[650px] rounded-full bg-[#F3F0E8]/06 blur-[140px] pointer-events-none" />
 
-        {/* Floating Decorative Film Elements */}
+        {/* Floating Subtle Decorative Film Elements */}
         <div className="absolute top-12 left-8 opacity-15 hidden sm:block animate-pulse">
-          <Film className="w-12 h-12 text-rose-500" />
+          <Film className="w-10 h-10 text-[#C7A675]" />
         </div>
         <div className="absolute bottom-16 right-8 opacity-15 hidden sm:block animate-pulse" style={{ animationDelay: '1.5s' }}>
-          <Film className="w-10 h-10 text-blue-500" />
+          <Film className="w-10 h-10 text-[#A8ADB4]" />
         </div>
 
-        {/* Subtle Luxury Film Grid */}
+        {/* Subtle Luxury Geometric Grid */}
         <div
-          className="absolute inset-0 opacity-[0.035] pointer-events-none"
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
           style={{
             backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '48px 48px'
+              'linear-gradient(rgba(199,166,117,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(199,166,117,0.15) 1px, transparent 1px)',
+            backgroundSize: '56px 56px'
           }}
         />
       </div>
 
-      {/* 2. OVERSIZED "CINEBOOK" TYPOGRAPHY BEHIND OBJECT (AURAL INSPIRED) */}
+      {/* 2. OVERSIZED "CINEBOOK" TYPOGRAPHY BEHIND OBJECT (FLOMERA INSPIRED) */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0"
         aria-hidden="true"
       >
         <span
-          className="text-[22vw] sm:text-[18vw] font-black tracking-[0.16em] uppercase text-transparent select-none whitespace-nowrap transition-transform duration-700 ease-out"
+          className="text-[20vw] sm:text-[17vw] font-bold tracking-[0.2em] uppercase text-transparent select-none whitespace-nowrap transition-transform duration-700 ease-out font-display"
           style={{
-            WebkitTextStroke: '2px rgba(244, 63, 94, 0.12)',
-            textShadow: '0 0 70px rgba(225, 29, 72, 0.08)',
-            transform: `translate3d(${-mouseRef.current.x * 25}px, ${-mouseRef.current.y * 15}px, 0)`,
-            fontFamily: '"Outfit", "Inter", sans-serif'
+            WebkitTextStroke: '1.5px rgba(199, 166, 117, 0.10)',
+            textShadow: '0 0 80px rgba(199, 166, 117, 0.06)',
+            transform: `translate3d(${-mouseRef.current.x * 25}px, ${-mouseRef.current.y * 15}px, 0)`
           }}
         >
           CINEBOOK
@@ -734,92 +737,117 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-12 pb-12 sm:pb-20 flex flex-col items-center">
         
         {/* Top Floating Badge */}
-        <div className="inline-flex items-center gap-2.5 px-3.5 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-bold tracking-widest uppercase bg-white/5 border border-white/10 text-rose-400 backdrop-blur-xl shadow-lg shadow-rose-950/30 mb-3 animate-fade-in">
-          <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-          <span>V3 SIGNATURE EXPERIENCE • LUXURY CINEMA</span>
+        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase bg-[#15171B]/90 border border-[#C7A675]/25 text-[#C7A675] backdrop-blur-xl shadow-lg shadow-black/50 mb-3 animate-fade-in">
+          <Sparkles className="w-3.5 h-3.5 text-[#C7A675] animate-pulse" />
+          <span>CINEBOOK V3 • LUXURY CINEMA</span>
         </div>
 
         {/* Featured Movie Title & Quick Tagline */}
-        <div className="text-center max-w-3xl space-y-1.5 mb-1 sm:mb-3">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight uppercase drop-shadow-md">
+        <div className="text-center max-w-3xl space-y-2 mb-1 sm:mb-3">
+          <h1 className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-[#F3F0E8] tracking-tight uppercase drop-shadow-md">
             {activeMovie.title}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 font-medium tracking-wide">
+          <p className="text-xs sm:text-sm text-[#A8ADB4] font-medium tracking-widest uppercase">
             {activeMovie.genre.join(' • ')}  |  {activeMovie.duration}  |  
-            <span className="text-rose-400 font-bold ml-1">★ {activeMovie.rating.toFixed(1)} / 10</span>
+            <span className="text-[#C7A675] font-bold ml-1.5">★ {activeMovie.rating.toFixed(1)} / 10</span>
           </p>
 
-          {/* Mobile Companion Badges (Under title on mobile) */}
-          <div className="flex md:hidden items-center justify-center gap-2 pt-1">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 border border-rose-500/25 text-rose-300">
-              <ShieldCheck className="w-3 h-3 text-rose-400" />
+          {/* Mobile Companion Badges */}
+          <div className="flex md:hidden items-center justify-center gap-2 pt-1.5">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-[#15171B] border border-[#C7A675]/30 text-[#C7A675]">
+              <ShieldCheck className="w-3 h-3 text-[#C7A675]" />
               10-Min Concurrency Lock
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 border border-blue-500/25 text-blue-300">
-              <Zap className="w-3 h-3 text-blue-400" />
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-[#15171B] border border-white/10 text-[#F3F0E8]">
+              <Zap className="w-3 h-3 text-[#DFC49D]" />
               ₹5 Flat Guarantee
             </span>
           </div>
         </div>
 
-        {/* 4. 3D FLOATING TICKET STAGE (320px to 1440px Centered) */}
+        {/* 4. 3D FLOATING TICKET STAGE */}
         <div
           ref={containerRef}
+          role="button"
+          tabIndex={0}
+          data-cursor="TICKET"
+          aria-label={`Interactive 3D VIP Ticket for ${activeMovie.title}. Click or tap to view showtimes and book for ₹5.`}
+          onClick={handleBookNow}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleBookNow();
+            }
+          }}
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
-          className="relative w-full max-w-4xl h-[280px] xs:h-[310px] sm:h-[400px] md:h-[480px] lg:h-[510px] flex items-center justify-center select-none pointer-events-none"
+          onMouseEnter={() => setIsHovered(true)}
+          className="relative w-full max-w-4xl h-[280px] xs:h-[310px] sm:h-[400px] md:h-[480px] lg:h-[510px] flex items-center justify-center select-none cursor-pointer pointer-events-auto group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C7A675] rounded-3xl"
+          style={{ touchAction: 'pan-y' }}
         >
           {webglSupported ? (
             /* Three.js Hardware-Accelerated 3D Canvas */
             <canvas
               ref={canvasRef}
-              className="w-full h-full block focus:outline-none pointer-events-none"
+              className="w-full h-full block focus:outline-none pointer-events-none transition-transform duration-300 group-hover:scale-[1.02] group-active:scale-[0.98]"
               style={{
-                filter: isHovered ? 'drop-shadow(0 20px 45px rgba(225, 29, 72, 0.3))' : 'none',
-                transition: 'filter 0.5s ease'
+                filter: isHovered ? 'drop-shadow(0 20px 45px rgba(199, 166, 117, 0.35))' : 'none',
+                transition: 'filter 0.5s ease, transform 0.3s ease'
               }}
             />
           ) : (
             /* Graceful Animated CSS 3D Fallback for Non-WebGL Devices */
             <div
-              className="w-[92%] max-w-[560px] aspect-[1.8/1] rounded-3xl p-5 sm:p-7 border border-rose-500/40 bg-gradient-to-br from-[#1E1118] via-[#0E0F16] to-[#06070A] shadow-2xl flex flex-col justify-between transition-transform duration-500"
+              className="w-[92%] max-w-[560px] aspect-[1.8/1] rounded-3xl p-5 sm:p-7 border border-[#C7A675]/40 bg-gradient-to-br from-[#1E2128] via-[#15171B] to-[#08090B] shadow-2xl flex flex-col justify-between transition-transform duration-300 group-hover:scale-105 group-hover:border-[#C7A675]"
               style={{
                 animation: reducedMotion ? 'none' : 'cinebookFloat 5s ease-in-out infinite',
-                boxShadow: '0 25px 60px -15px rgba(225, 29, 72, 0.45)',
+                boxShadow: '0 25px 60px -15px rgba(199, 166, 117, 0.35)',
                 transformStyle: 'preserve-3d'
               }}
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                <span className="text-[11px] sm:text-xs font-bold tracking-widest text-rose-400 uppercase">✦ CINEBOOK VIP PASS</span>
-                <span className="text-[11px] sm:text-xs font-mono font-bold text-blue-400">₹5.00 TICKET</span>
+              <div className="flex items-center justify-between border-b border-[#C7A675]/20 pb-2.5">
+                <span className="text-[11px] sm:text-xs font-bold tracking-widest text-[#C7A675] uppercase">✦ CINEBOOK VIP PASS</span>
+                <span className="text-[11px] sm:text-xs font-mono font-bold text-[#DFC49D]">₹5.00 TICKET</span>
               </div>
               <div className="space-y-1">
-                <h3 className="text-xl sm:text-3xl font-black text-white">{activeMovie.title}</h3>
-                <p className="text-xs text-slate-400">{activeMovie.genre.join(', ')} • {activeMovie.duration}</p>
+                <h3 className="font-display text-xl sm:text-3xl font-bold text-[#F3F0E8]">{activeMovie.title}</h3>
+                <p className="text-xs text-[#A8ADB4]">{activeMovie.genre.join(', ')} • {activeMovie.duration}</p>
               </div>
-              <div className="flex items-center justify-between pt-2.5 border-t border-white/10 text-xs">
-                <span className="text-slate-400">AUDI 1 • VIP RECLINER</span>
-                <span className="text-amber-400 font-bold">★ {activeMovie.rating.toFixed(1)} / 10</span>
+              <div className="flex items-center justify-between pt-2.5 border-t border-[#C7A675]/20 text-xs">
+                <span className="text-[#A8ADB4]">AUDI 1 • VIP RECLINER</span>
+                <span className="text-[#C7A675] font-bold">★ {activeMovie.rating.toFixed(1)} / 10</span>
               </div>
             </div>
           )}
 
+          {/* Interactive Floating Ticket Action Indicator (Clarity on hover/focus) */}
+          <div className="absolute bottom-2 sm:bottom-4 px-3.5 py-1.5 rounded-full bg-[#15171B]/95 border border-[#C7A675]/40 text-[#DFC49D] text-[10px] sm:text-xs font-bold tracking-wider uppercase backdrop-blur-xl shadow-xl flex items-center gap-1.5 opacity-90 group-hover:opacity-100 group-hover:border-[#C7A675] group-hover:scale-105 transition-all pointer-events-none">
+            <Ticket className="w-3.5 h-3.5 text-[#C7A675] fill-[#C7A675]" />
+            <span>Click or Tap Ticket to View Showtimes (₹5)</span>
+          </div>
+
           {/* Floating Companion Badge: Left Flank (Desktop) */}
-          <div className="hidden md:flex absolute -left-4 top-1/3 -translate-y-1/2 flex-col gap-1 p-3.5 rounded-2xl bg-[#141622]/90 border border-white/15 backdrop-blur-xl shadow-2xl pointer-events-none animate-float-slow">
-            <div className="flex items-center gap-2 text-rose-400 text-xs font-bold uppercase">
-              <ShieldCheck className="w-4 h-4 text-rose-400" />
+          <div
+            data-cursor="VERIFIED"
+            className="hidden md:flex absolute -left-4 top-1/3 -translate-y-1/2 flex-col gap-1 p-4 rounded-2xl bg-[#15171B]/95 border border-[#C7A675]/20 backdrop-blur-xl shadow-2xl pointer-events-auto hover:border-[#C7A675]/60 hover:scale-105 transition-all duration-300 animate-float-slow cursor-default"
+          >
+            <div className="flex items-center gap-2 text-[#C7A675] text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-[#C7A675]" />
               <span>Verified Hold Engine</span>
             </div>
-            <span className="text-[11px] text-slate-400">10-Min Concurrency Lock</span>
+            <span className="text-[11px] text-[#A8ADB4]">10-Min Concurrency Lock</span>
           </div>
 
           {/* Floating Companion Badge: Right Flank (Desktop) */}
-          <div className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 flex-col gap-1 p-3.5 rounded-2xl bg-[#141622]/90 border border-white/15 backdrop-blur-xl shadow-2xl pointer-events-none animate-float-delayed">
-            <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase">
-              <Zap className="w-4 h-4 text-blue-400" />
+          <div
+            data-cursor="GUARANTEE"
+            className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 flex-col gap-1 p-4 rounded-2xl bg-[#15171B]/95 border border-[#C7A675]/20 backdrop-blur-xl shadow-2xl pointer-events-auto hover:border-[#DFC49D]/60 hover:scale-105 transition-all duration-300 animate-float-delayed cursor-default"
+          >
+            <div className="flex items-center gap-2 text-[#DFC49D] text-xs font-bold uppercase tracking-wider">
+              <Zap className="w-4 h-4 text-[#DFC49D]" />
               <span>₹5 Flat Guarantee</span>
             </div>
-            <span className="text-[11px] text-slate-400">Zero Convenience Markup</span>
+            <span className="text-[11px] text-[#A8ADB4]">Zero Convenience Markup</span>
           </div>
         </div>
 
@@ -827,17 +855,20 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-4 sm:mt-6 z-20">
           {/* Primary Book Tickets Action */}
           <button
+            ref={bookBtnRef}
             type="button"
+            data-cursor="BOOK"
             onClick={handleBookNow}
-            className="flex items-center gap-2.5 px-7 sm:px-10 py-3 sm:py-4 rounded-full font-black text-xs sm:text-sm tracking-wider uppercase bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-xl shadow-rose-600/30 active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none"
+            className="champagne-btn btn-tactile cursor-pointer"
           >
-            <Ticket className="w-4 h-4 fill-white" />
+            <Ticket className="w-4 h-4 fill-[#08090B]" />
             <span>{t.home.bookNow} • ₹5</span>
           </button>
 
-          {/* Explore Movies Action (Smooth scroll to movie catalogue) */}
+          {/* Explore Movies Action */}
           <button
             type="button"
+            data-cursor="EXPLORE"
             onClick={() => {
               const el = document.getElementById('explore-movies-grid');
               if (el) {
@@ -846,27 +877,29 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
                 navigate(`/movie/${activeMovie.id}`);
               }
             }}
-            className="flex items-center gap-2 px-5 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-xs sm:text-sm border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white backdrop-blur-xl active:scale-95 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+            className="champagne-btn-outline btn-tactile cursor-pointer"
           >
-            <ArrowDown className="w-4 h-4" />
-            <span>Explore Movies</span>
+            <ArrowDown className="w-4 h-4 text-[#C7A675]" />
+            <span>Explore Selections</span>
           </button>
 
           {/* Watch Teaser Modal Button */}
           <button
+            ref={trailerBtnRef}
             type="button"
+            data-cursor="TRAILER"
             onClick={() => onOpenTrailer(activeMovie.title)}
-            className="flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-full font-semibold text-xs sm:text-sm text-slate-400 hover:text-white bg-transparent hover:bg-white/5 transition-colors cursor-pointer active:scale-95"
+            className="flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-full font-semibold text-xs sm:text-sm text-[#A8ADB4] hover:text-[#F3F0E8] bg-transparent hover:bg-white/5 transition-colors cursor-pointer active:scale-95 btn-tactile"
           >
-            <Play className="w-4 h-4 text-rose-400 fill-rose-400" />
+            <Play className="w-4 h-4 text-[#C7A675] fill-[#C7A675]" />
             <span>Trailer</span>
           </button>
         </div>
 
         {/* 6. TRENDING MOVIE SELECTOR STRIP */}
         <div className="w-full max-w-3xl mt-8 pt-5 border-t border-white/10 flex flex-col items-center gap-2.5">
-          <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-widest uppercase">
-            ✦ SELECT FEATURED 3D PASS ✦
+          <span className="text-[10px] sm:text-[11px] font-bold text-[#A8ADB4] tracking-[0.2em] uppercase">
+            ✦ SELECT CINEMATIC PASS ✦
           </span>
           <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-wrap">
             {movies.slice(0, 5).map(m => {
@@ -875,16 +908,17 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
                 <button
                   key={m.id}
                   type="button"
+                  data-cursor="SELECT"
                   onClick={() => onSelectMovie(m)}
-                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all duration-300 cursor-pointer border ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-semibold transition-all duration-300 cursor-pointer border ${
                     isSelected
-                      ? 'bg-rose-600/20 text-rose-300 border-rose-500 shadow-lg shadow-rose-950/40 scale-105 ring-1 ring-rose-500/50'
-                      : 'bg-white/5 text-slate-400 border-white/10 hover:border-white/20 hover:text-white'
+                      ? 'bg-[#C7A675]/15 text-[#F3F0E8] border-[#C7A675] shadow-lg shadow-black/50 scale-105'
+                      : 'bg-[#15171B] text-[#A8ADB4] border-white/10 hover:border-[#C7A675]/40 hover:text-[#F3F0E8]'
                   }`}
                 >
                   <span
                     className={`w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full ${
-                      isSelected ? 'bg-rose-500 animate-pulse' : 'bg-slate-600'
+                      isSelected ? 'bg-[#C7A675] animate-pulse' : 'bg-slate-600'
                     }`}
                   />
                   <span>{m.title}</span>

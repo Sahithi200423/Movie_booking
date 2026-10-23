@@ -3,7 +3,16 @@ import { MOVIES, CINEMAS } from '../data/mockData';
 
 const DEFAULT_RENDER_API = 'https://cinebook-backend-as00.onrender.com/api';
 const envApiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-const rawApiUrl = envApiUrl || (import.meta.env.PROD ? DEFAULT_RENDER_API : '/api');
+
+// Defensive fallback: If VITE_API_URL is absent, placeholder, or mistakenly points to Supabase database URL, default to Render Express API
+const isInvalidOrSupabase = !envApiUrl || 
+  envApiUrl === 'undefined' || 
+  envApiUrl === 'null' || 
+  envApiUrl.toLowerCase().includes('supabase.co') || 
+  envApiUrl.toLowerCase().includes('placeholder');
+
+const safeApiUrl = isInvalidOrSupabase ? DEFAULT_RENDER_API : envApiUrl;
+const rawApiUrl = (import.meta.env.DEV && envApiUrl === '/api') ? '/api' : (safeApiUrl || (import.meta.env.PROD ? DEFAULT_RENDER_API : '/api'));
 
 // Normalize API_BASE:
 // Automatically handles full URLs with or without /api, trailing slashes, or relative paths

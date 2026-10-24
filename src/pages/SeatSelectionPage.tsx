@@ -202,8 +202,19 @@ export const SeatSelectionPage: React.FC = () => {
 
       // 1. Immediately sync known data from parsed canonical showtime ID if available
       const parsed = parseShowtimeId(queryShowtimeId);
-      const immediateMovie = parsed.movieId ? MOVIES.find(m => m.id === parsed.movieId) : null;
-      const immediateCinema = parsed.cinemaSlug ? CINEMAS.find(c => c.id.toLowerCase().includes(parsed.cinemaSlug!)) : null;
+      const immediateMovie = parsed.movieId
+        ? MOVIES.find(
+            m =>
+              m.id === parsed.movieId ||
+              m.id.startsWith(parsed.movieId + '-') ||
+              parsed.movieId!.startsWith(m.id + '-') ||
+              m.id.includes(parsed.movieId!) ||
+              parsed.movieId!.includes(m.id)
+          ) || MOVIES[0]
+        : MOVIES[0];
+      const immediateCinema = parsed.cinemaSlug
+        ? CINEMAS.find(c => c.id.toLowerCase().includes(parsed.cinemaSlug!.toLowerCase())) || CINEMAS[0]
+        : CINEMAS[0];
 
       if (immediateMovie && immediateCinema && (!activeBooking.movie || activeBooking.showtimeId !== queryShowtimeId)) {
         setActiveMovieAndShowtime(immediateMovie, {

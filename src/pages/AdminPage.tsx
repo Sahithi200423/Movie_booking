@@ -130,42 +130,64 @@ export const AdminPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const statsRes = await getAdminStatsApi();
-      if (statsRes.success) setStats(statsRes.stats);
+      const [
+        statsRes,
+        bookingsRes,
+        moviesRes,
+        cinemasRes,
+        showsRes,
+        usersRes,
+        couponsRes,
+        reviewsRes
+      ] = await Promise.allSettled([
+        getAdminStatsApi(),
+        getAdminBookingsApi(),
+        getMovies(),
+        getCinemas(),
+        getAdminShowtimesApi(),
+        getAdminUsersApi(),
+        getAdminCouponsApi(),
+        getAdminReviewsApi()
+      ]);
 
-      const allBookings = await getAdminBookingsApi();
-      setBookings(allBookings);
-
-      const allMovies = await getMovies();
-      setMoviesList(allMovies);
-      if (allMovies.length > 0 && !newShowtime.movieId) {
-        setNewShowtime(prev => ({ ...prev, movieId: allMovies[0].id }));
+      if (statsRes.status === 'fulfilled' && statsRes.value?.success) {
+        setStats(statsRes.value.stats);
       }
 
-      const allCinemas = await getCinemas();
-      setCinemasList(allCinemas);
-      if (allCinemas.length > 0 && !newShowtime.cinemaId) {
-        setNewShowtime(prev => ({ ...prev, cinemaId: allCinemas[0].id }));
+      if (bookingsRes.status === 'fulfilled' && Array.isArray(bookingsRes.value)) {
+        setBookings(bookingsRes.value);
       }
 
-      const showsRes = await getAdminShowtimesApi();
-      if (showsRes.success) {
-        setShowtimesList(showsRes.showtimes);
+      if (moviesRes.status === 'fulfilled' && Array.isArray(moviesRes.value)) {
+        const allMovies = moviesRes.value;
+        setMoviesList(allMovies);
+        if (allMovies.length > 0 && !newShowtime.movieId) {
+          setNewShowtime(prev => ({ ...prev, movieId: allMovies[0].id }));
+        }
       }
 
-      const usersRes = await getAdminUsersApi();
-      if (usersRes.success) {
-        setUsersList(usersRes.users);
+      if (cinemasRes.status === 'fulfilled' && Array.isArray(cinemasRes.value)) {
+        const allCinemas = cinemasRes.value;
+        setCinemasList(allCinemas);
+        if (allCinemas.length > 0 && !newShowtime.cinemaId) {
+          setNewShowtime(prev => ({ ...prev, cinemaId: allCinemas[0].id }));
+        }
       }
 
-      const couponsRes = await getAdminCouponsApi();
-      if (couponsRes.success) {
-        setCouponsList(couponsRes.coupons);
+      if (showsRes.status === 'fulfilled' && showsRes.value?.success) {
+        setShowtimesList(showsRes.value.showtimes);
       }
 
-      const reviewsRes = await getAdminReviewsApi();
-      if (reviewsRes.success) {
-        setReviewsList(reviewsRes.reviews);
+      if (usersRes.status === 'fulfilled' && usersRes.value?.success) {
+        setUsersList(usersRes.value.users);
+      }
+
+      if (couponsRes.status === 'fulfilled' && couponsRes.value?.success) {
+        setCouponsList(couponsRes.value.coupons);
+      }
+
+      if (reviewsRes.status === 'fulfilled' && reviewsRes.value?.success) {
+        setReviewsList(reviewsRes.value.reviews);
       }
     } catch (err) {
       console.warn('Admin fetch notice:', err);

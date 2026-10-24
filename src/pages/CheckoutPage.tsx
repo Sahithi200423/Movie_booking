@@ -596,6 +596,11 @@ export const CheckoutPage: React.FC = () => {
                       <img
                         src={addon.imageUrl}
                         alt={addon.name}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.onerror = null;
+                          target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2256%22%20height%3D%2256%22%20viewBox%3D%220%200%2056%2056%22%3E%3Crect%20fill%3D%22%2315171B%22%20width%3D%2256%22%20height%3D%2256%22%2F%3E%3Ctext%20x%3D%2228%22%20y%3D%2232%22%20fill%3D%22%23C7A675%22%20font-size%3D%2210%22%20text-anchor%3D%22middle%22%3EF%26B%3C%2Ftext%3E%3C%2Fsvg%3E';
+                        }}
                         className="w-14 h-14 rounded-lg object-cover bg-[#08090B] shrink-0 shadow-sm border border-white/10"
                       />
                       <div className="flex-1 min-w-0">
@@ -887,6 +892,11 @@ export const CheckoutPage: React.FC = () => {
                 <img
                   src={activeBooking.movie.posterUrl}
                   alt={activeBooking.movie.title}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22150%22%20height%3D%22225%22%20viewBox%3D%220%200%20150%20225%22%3E%3Crect%20fill%3D%22%2315171B%22%20width%3D%22150%22%20height%3D%22225%22%2F%3E%3Ctext%20x%3D%2275%22%20y%3D%22115%22%20fill%3D%22%23C7A675%22%20font-size%3D%2212%22%20font-weight%3D%22bold%22%20text-anchor%3D%22middle%22%3ECINEBOOK%3C%2Ftext%3E%3C%2Fsvg%3E';
+                  }}
                   className="w-16 aspect-[2/3] rounded-xl object-cover bg-[#08090B] shadow-md shrink-0 border border-[#C7A675]/30"
                 />
                 <div>

@@ -571,7 +571,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       window.addEventListener('resize', handleResize);
 
       // 8. IntersectionObserver: Pause render loop when scrolled off-screen
-      const clock = new THREE.Clock();
+      const startTime = performance.now();
       let isAnimating = false;
       const animate = () => {
         if (!isVisible) {
@@ -581,7 +581,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
         isAnimating = true;
         animationFrameId = requestAnimationFrame(animate);
 
-        const elapsedTime = clock.getElapsedTime();
+        const elapsedTime = (performance.now() - startTime) * 0.001;
 
         // Parallax user interaction smoothing (mouse or touch drag)
         const mouse = mouseRef.current;

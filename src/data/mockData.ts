@@ -279,7 +279,7 @@ export const MOVIES: Movie[] = [
     title: 'Pushpa 2: The Rule',
     tagline: 'Pushpa jhukega nahi... ab poore desh par rule karega!',
     synopsis: 'Pushpa Raj has solidified his syndicate over the Seshachalam forests, but his arch-nemesis SP Bhanwar Singh Shekhawat launches a venomous tactical crusade to destroy him and his empire.',
-    posterUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80',
     backdropUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
     genre: ['Action', 'Thriller', 'Drama'],
     language: 'Telugu',

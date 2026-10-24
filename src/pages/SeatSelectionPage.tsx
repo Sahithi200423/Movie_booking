@@ -42,6 +42,7 @@ const PARTY_OPTIONS = [
 interface SeatItemProps {
   seat: Seat;
   isSelected: boolean;
+  isPending?: boolean;
   viewMode: '3d' | '2d';
   tierLabel: string;
   priceFormatted: string;
@@ -51,18 +52,22 @@ interface SeatItemProps {
 const SeatItem = React.memo<SeatItemProps>(({
   seat,
   isSelected,
+  isPending = false,
   viewMode,
   tierLabel,
   priceFormatted,
   onSeatClick
 }) => {
   const isReserved = seat.status === 'reserved';
-  const isHeld = seat.status === 'held' && !isSelected;
+  const isHeld = seat.status === 'held' && !isSelected && !isPending;
 
   let seatClass = '';
   if (isSelected) {
     seatClass =
       'bg-[#C7A675] text-[#08090B] font-extrabold border-[#DFC49D] shadow-[0_0_18px_rgba(199,166,117,0.7)] scale-105 ring-2 ring-[#C7A675]/80';
+  } else if (isPending) {
+    seatClass =
+      'bg-[#C7A675]/25 text-[#DFC49D] font-bold border-[#C7A675] animate-pulse shadow-[0_0_14px_rgba(199,166,117,0.5)] scale-105 ring-2 ring-[#C7A675]/60 cursor-wait';
   } else if (isReserved) {
     seatClass =
       'bg-rose-950/60 text-rose-300 border-rose-700/60 cursor-not-allowed opacity-90 shadow-sm shadow-rose-950/40';
@@ -86,24 +91,27 @@ const SeatItem = React.memo<SeatItemProps>(({
     <button
       type="button"
       role="gridcell"
-      disabled={isReserved || isHeld}
+      disabled={isReserved || isHeld || isPending}
       onClick={() => onSeatClick(seat)}
-      data-cursor={isSelected ? 'DESELECT' : isReserved ? 'BOOKED' : isHeld ? 'HELD' : 'SELECT'}
+      data-cursor={isPending ? 'LOCKING' : isSelected ? 'DESELECT' : isReserved ? 'BOOKED' : isHeld ? 'HELD' : 'SELECT'}
       className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 pointer-events-auto relative z-10 btn-tactile ${seatClass}`}
       style={
         viewMode === '3d'
           ? {
-              transform: isSelected ? 'translateZ(14px)' : 'translateZ(3px)',
+              transform: isSelected || isPending ? 'translateZ(14px)' : 'translateZ(3px)',
               transformStyle: 'preserve-3d',
             }
           : undefined
       }
-      aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${priceFormatted}, ${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
+      aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${priceFormatted}, ${isPending ? 'Securing reservation...' : isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
       aria-selected={isSelected}
-      title={`${seat.id} (${tierLabel}) - ${priceFormatted} [${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
+      aria-busy={isPending}
+      title={`${seat.id} (${tierLabel}) - ${priceFormatted} [${isPending ? 'Securing...' : isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
     >
       {isSelected ? (
         '✓'
+      ) : isPending ? (
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C7A675]" />
       ) : isReserved ? (
         <span className="text-[10px] text-rose-300 font-black">✕</span>
       ) : isHeld ? (
@@ -132,6 +140,7 @@ export const SeatSelectionPage: React.FC = () => {
   const [isLoadingSeats, setIsLoadingSeats] = useState(true);
   const [isHolding, setIsHolding] = useState(false);
   const isHoldingRef = useRef(false);
+  const [pendingSeatIds, setPendingSeatIds] = useState<string[]>([]);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [showFnbModal, setShowFnbModal] = useState<boolean>(false);
@@ -506,7 +515,7 @@ export const SeatSelectionPage: React.FC = () => {
     }
 
     // 2. Concurrency Guard: Prevent rapid spam clicks from sending duplicate or conflicting hold requests for new seats
-    if (isHoldingRef.current) {
+    if (isHoldingRef.current || pendingSeatIds.length > 0) {
       return;
     }
 
@@ -527,23 +536,25 @@ export const SeatSelectionPage: React.FC = () => {
           }
 
           if (candidateSeats.length === partySize) {
-            // Optimistic immediate UI selection
-            setSeats(candidateSeats);
+            // Immediate pending lock visual indicator (< 10ms response)
+            const candidateIds = candidateSeats.map(s => s.id);
+            setPendingSeatIds(candidateIds);
             setIsHolding(true);
             isHoldingRef.current = true;
             try {
-              const res = await holdSeatsApi(showtimeId, candidateSeats.map(s => s.id), sessionId, 10);
+              const res = await holdSeatsApi(showtimeId, candidateIds, sessionId, 10);
               if (res && res.expiresAt) {
+                // Authoritatively confirmed by backend
+                setSeats(candidateSeats);
                 setHoldExpiresAt(res.expiresAt);
               } else {
-                setSeats([]);
                 setErrorMessage(res?.message || 'Selected seats could not be held. Please choose different seats.');
               }
             } catch (err: unknown) {
-              setSeats([]);
               const msg = (err as Error).message || 'Unable to hold selected seats. Please choose different seats.';
               setErrorMessage(msg);
             } finally {
+              setPendingSeatIds([]);
               setIsHolding(false);
               isHoldingRef.current = false;
             }
@@ -564,24 +575,27 @@ export const SeatSelectionPage: React.FC = () => {
       setPartySize(prev => Math.min(8, prev + 1));
     }
 
-    // Optimistic immediate UI selection
-    toggleSeat(seat);
+    // Immediate pending lock feedback: show the seat locking with cinema backend
+    setPendingSeatIds([seat.id]);
     setIsHolding(true);
     isHoldingRef.current = true;
     try {
       const nextSeatIds = [...selectedSeats.map(s => s.id), seat.id];
       const res = await holdSeatsApi(showtimeId, nextSeatIds, sessionId, 10);
       if (res && res.expiresAt) {
+        // Authoritatively confirmed by backend!
+        toggleSeat(seat);
         setHoldExpiresAt(res.expiresAt);
       } else {
-        toggleSeat(seat); // Immediately undo optimistic selection if hold was rejected
+        // Rollback safely without falsely claiming seat was confirmed
         setErrorMessage(res?.message || 'Could not lock this seat. It may have just been booked by another customer.');
       }
     } catch (err: unknown) {
-      toggleSeat(seat); // Immediately undo optimistic selection on network/API failure
+      // Rollback safely
       const msg = (err as Error).message || 'Unable to hold this seat. Please choose another seat.';
       setErrorMessage(msg);
     } finally {
+      setPendingSeatIds([]);
       setIsHolding(false);
       isHoldingRef.current = false;
     }
@@ -1130,6 +1144,7 @@ export const SeatSelectionPage: React.FC = () => {
                               <SeatItem
                                 seat={seat}
                                 isSelected={isSelected}
+                                isPending={pendingSeatIds.includes(seat.id)}
                                 viewMode={viewMode}
                                 tierLabel={tierLabel}
                                 priceFormatted={formatPrice(seat.price)}

@@ -83,9 +83,20 @@ const ConfirmationContent: React.FC = () => {
   const [dbBooking, setDbBooking] = useState<any | null>(null);
   const [isLoadingDb, setIsLoadingDb] = useState(false);
 
-  // 1. Fetch real saved booking from Prisma SQLite Database via /api/bookings/:id
+  // 1. Fetch real saved booking from Prisma SQLite/Postgres Database via /api/bookings/:id
   useEffect(() => {
     if (!cleanId) return;
+
+    // In Portfolio Demo Mode or when booking is already in local session/store,
+    // avoid sending an unnecessary HTTP request to Render that results in a 404
+    const isDemoBooking = cleanId.startsWith('DEMO-') || IS_PORTFOLIO_DEMO_MODE;
+    const isAlreadyInLocalState = myBookings?.some(
+      b => b.bookingId === cleanId || (b as any).id === cleanId || (b as any).bookingRef === cleanId
+    );
+
+    if (isDemoBooking || isAlreadyInLocalState) {
+      return;
+    }
 
     let isMounted = true;
     setIsLoadingDb(true);
@@ -106,7 +117,7 @@ const ConfirmationContent: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [cleanId]);
+  }, [cleanId, myBookings]);
 
   // Combine DB booking with local fallback
   const booking = useMemo<BookingRecord | any>(() => {

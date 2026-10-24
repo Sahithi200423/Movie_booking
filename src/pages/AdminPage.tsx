@@ -740,7 +740,16 @@ export const AdminPage: React.FC = () => {
                   className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 shadow-sm flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-700"
                 >
                   <div className="flex items-center gap-3">
-                    <img src={m.posterUrl} alt={m.title} className="w-10 h-14 object-cover rounded-lg shadow" />
+                    <img
+                      src={m.posterUrl}
+                      alt={m.title}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.onerror = null;
+                        target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2240%22%20height%3D%2256%22%20viewBox%3D%220%200%2040%2056%22%3E%3Crect%20fill%3D%22%2315171B%22%20width%3D%2240%22%20height%3D%2256%22%2F%3E%3Ctext%20x%3D%2220%22%20y%3D%2232%22%20fill%3D%22%23C7A675%22%20font-size%3D%228%22%20text-anchor%3D%22middle%22%3ECB%3C%2Ftext%3E%3C%2Fsvg%3E';
+                      }}
+                      className="w-10 h-14 object-cover rounded-lg shadow"
+                    />
                     <div>
                       <h4 className="font-bold text-xs text-slate-900 dark:text-white">{m.title}</h4>
                       <p className="text-[11px] text-slate-500">{m.language} • {m.duration} • {m.ageRating}</p>

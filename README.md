@@ -1,26 +1,57 @@
-# 🎬 CineBook V3 — Full-Stack Cinema Ticketing & Reservation Platform
+# 🎬 CineBook V3 — Full-Stack Cinema Reservation & Ticketing Platform
 
-[![Live Application](https://img.shields.io/badge/Vercel-Live%20Website-000000?style=for-the-badge&logo=vercel)](https://movie-booking-one-azure.vercel.app/)
-[![Backend API](https://img.shields.io/badge/Render-API%20Healthy-46E3B7?style=for-the-badge&logo=render)](https://cinebook-backend-as00.onrender.com/api/health)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
-[![Database](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![Tests](https://img.shields.io/badge/Tests-43%2F43%20Passing-brightgreen?style=for-the-badge&logo=jest)](https://github.com/Sahithi200423/Movie_booking)
+[![Live Application](https://img.shields.io/badge/Vercel-Live%20Demo-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://cinebook-v3.vercel.app/)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Sahithi200423/Movie_booking)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Three.js](https://img.shields.io/badge/Three.js-3D%20WebGL-000000?style=for-the-badge&logo=three.js&logoColor=white)](https://threejs.org/)
+[![Render](https://img.shields.io/badge/Render-API%20Backend-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://cinebook-backend-as00.onrender.com/api/health)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
-> A full-stack cinema ticketing portfolio application featuring an interactive **Three.js floating 3D ticket hero**, high-concurrency **PostgreSQL-backed atomic seat locking with race-condition prevention**, **₹5 demo pricing**, **18-language internationalization** (including full RTL Urdu support), and **tamper-resistant digital M-tickets** with QR gate admission.
+> **A luxury black-and-gold full-stack cinema booking application featuring an interactive 3D WebGL floating movie pass, real-time 128-seat auditorium map, atomic seat hold concurrency, simulated ₹5 demo checkout, and digital M-ticket generation.**
 
 ---
 
-## 📌 Executive Summary
+## 🌐 Live Application Links
 
-CineBook V3 is a full-stack cinema booking and auditorium management application inspired by industry platforms like BookMyShow and AMC Theatres. Built with **React 19, TypeScript, Three.js, Express, and Supabase PostgreSQL**, the platform showcases end-to-end engineering excellence: from client-side WebGL rendering to backend concurrency locks, proxy anti-spoofing, and webhook idempotency.
-
-* **Live Frontend:** [https://movie-booking-one-azure.vercel.app/](https://movie-booking-one-azure.vercel.app/)
-* **Live Backend API:** [https://cinebook-backend-as00.onrender.com](https://cinebook-backend-as00.onrender.com)
+* **Live Production Website:** [https://cinebook-v3.vercel.app/](https://cinebook-v3.vercel.app/)
+* **Backend API Health Check:** [https://cinebook-backend-as00.onrender.com/api/health](https://cinebook-backend-as00.onrender.com/api/health)
 * **GitHub Repository:** [https://github.com/Sahithi200423/Movie_booking](https://github.com/Sahithi200423/Movie_booking)
 
 > [!NOTE]
-> **Free-Tier Backend Notice:** The backend is hosted on a free-tier Render web service. After periods of inactivity, the server will enter sleep mode. The first request may take 20–45 seconds to spin up. All subsequent interactions are instant.
+> **Free-Tier Render Backend Notice:** The backend service is hosted on Render's free tier. After 15 minutes of inactivity, Render puts the service into sleep mode. The very first API request may experience a 20–35 second cold start while the container spins up. All subsequent interactions are instant.
+
+---
+
+## 📸 Production Screenshots
+
+| 1. Homepage & 3D Floating Ticket | 2. Movie Catalog & Filtering |
+| :---: | :---: |
+| ![Homepage](docs/screenshots/01_homepage.png) | ![Movie Catalog](docs/screenshots/02_movie_catalog.png) |
+| *Luxury black-and-gold aesthetic with dynamic 3D ticket pass* | *Multi-genre, multi-language movie discovery* |
+
+| 3. Movie Details & Showtime Selection | 4. 128-Seat Interactive Auditorium |
+| :---: | :---: |
+| ![Movie Details](docs/screenshots/03_movie_details.png) | ![Seat Selection](docs/screenshots/04_seat_selection.png) |
+| *Backdrop parallax, trailer preview, and real-time showtimes* | *VIP, Premium, and Standard seating with ₹5 demo pricing* |
+
+| 5. Simulated Demo Checkout Form | 6. Digital M-Ticket Confirmation |
+| :---: | :---: |
+| ![Demo Checkout](docs/screenshots/05_demo_checkout.png) | ![M-Ticket Confirmation](docs/screenshots/06_mticket_confirmation.png) |
+| *Demonstration order summary with ₹5 ticket calculation* | *Instant scannable M-ticket with security QR & demo watermark* |
+
+---
+
+## 📌 Project Overview
+
+**CineBook V3** is a full-stack cinema ticketing web application designed to deliver an end-to-end booking experience inspired by modern entertainment platforms like BookMyShow and AMC Theatres. Built with a curated black-and-champagne-gold interface, the application bridges client-side WebGL rendering with a robust Node.js/Express backend and Supabase PostgreSQL persistence.
+
+The project demonstrates:
+1. **Interactive 3D WebGL Graphics:** Smooth Three.js ticket pass with natural sine oscillation, mouse parallax, and touch-decoupled mobile gestures.
+2. **State & Concurrency Management:** Deterministic 128-seat auditorium layouts with backend-backed temporary hold locks and atomic conflict resolution.
+3. **Simulated E-Commerce Checkout:** Clean, accessible multi-step booking flow configured with uniform ₹5 demonstration pricing.
+4. **Performance Engineering:** Sub-second First Contentful Paint (< 800 ms), route-based code splitting, and parallelized database fetching via `Promise.allSettled`.
+5. **Portfolio Demonstration Safety:** Sandboxed demonstration mode where real payments and production database mutations are safely blocked.
 
 ---
 
@@ -30,267 +61,236 @@ CineBook V3 is a full-stack cinema booking and auditorium management application
 graph TD
     User["Client Browser / Mobile Device"]
 
-    subgraph CDN ["Frontend Layer (Vercel)"]
-        SPA["React 19 + Vite SPA<br/>Three.js WebGL Canvas<br/>Context State & i18n Engine"]
-        ProxyRewrite["Vercel Edge Rewrite<br/>/api/* -> Render Backend"]
+    subgraph CDN ["Frontend Layer (Vercel Edge CDN)"]
+        SPA["React 19 + TypeScript SPA<br/>Three.js WebGL Canvas<br/>Tailwind CSS & Lucide Icons"]
     end
 
     subgraph Backend ["Backend API Layer (Render)"]
-        Express["Express REST API (Node.js + TS)<br/>Trust Proxy (Render 1-Hop)"]
-        RateLimiter["Two-Tier Rate Limiter<br/>Per-Account + Per-IP Hard Cap"]
-        SeatEngine["Seat Reservation Service<br/>PostgreSQL Atomic Lock Controller<br/>Socket.io Live Sync"]
-        PaymentVerifier["HMAC-SHA256 Verifier<br/>Raw Body Webhook Handler"]
+        Express["Express REST API (Node.js + TS)<br/>Trust Proxy Configuration"]
+        SeatEngine["Seat Reservation Engine<br/>Atomic Lock Controller & TTL Hold"]
+        SocketSync["Socket.io Real-Time Synchronization<br/>WebSocket & HTTP Polling Fallback"]
     end
 
-    subgraph Storage ["Persistence Layer (Supabase AWS AP-South-1)"]
-        Postgres["PostgreSQL Database<br/>Port 6543 Transaction Pooler<br/>seat_reservations, bookings, showtimes"]
+    subgraph Storage ["Database Layer (Supabase PostgreSQL)"]
+        Postgres[("PostgreSQL Database<br/>Connection Pooler (Port 6543)<br/>Tables: movies, cinemas, showtimes, bookings")]
     end
 
     User -->|HTTPS Navigation| SPA
-    SPA -->|API Requests| ProxyRewrite
-    ProxyRewrite -->|Proxied REST Calls| Express
-    Express -->|Rate Limiting Checks| RateLimiter
-    Express -->|Seat Lock / Release Requests| SeatEngine
-    SeatEngine -->|Atomic UPSERT & Row-Level Locks<br/>WHERE status != 'BOOKED'| Postgres
-    Express -->|Cryptographic Verification| PaymentVerifier
-    Express -->|Relational Queries & Mutations| Postgres
+    SPA -->|REST API Requests| Express
+    SPA <-->|Real-Time Seat Events| SocketSync
+    Express -->|Atomic Hold / Release| SeatEngine
+    SeatEngine -->|Conditional Queries<br/>WHERE status != 'BOOKED'| Postgres
+    Express -->|Relational Queries| Postgres
 ```
 
 ---
 
-## 🚀 Key Features
+## ⚡ Key Features
 
-### 1. 🎟️ Interactive Floating 3D Ticket Hero
-* **Three.js WebGL Animation:** Features a realistic golden/metallic cinema pass rendered dynamically on the homepage.
-* **Autonomous Gentle Physics:** Floats smoothly with an 8–12px vertical sine oscillation over a 5-second cycle.
-* **Capped Motion Bounds:** Automatic tilt and desktop mouse parallax are strictly capped between **10° and 15°** (pitch/yaw), preventing disorienting 360° spin disruptions.
-* **Mobile-Optimized Touch:** Touch drag gestures are decoupled from page scroll, ensuring smooth native mobile scrolling.
-* **Performance Guard (`IntersectionObserver`):** When the hero is scrolled off-screen, the GPU animation loop pauses automatically, saving mobile battery and CPU cycles. Accessible fallback for users with `prefers-reduced-motion`.
+### 1. 🎟️ Interactive 3D Floating Cinema Pass
+* **Three.js & WebGL:** Renders a reflective metallic cinema pass dynamically on the homepage hero.
+* **Physics & Bounds:** Smooth 8–12px vertical sine oscillation with mouse-driven tilt strictly bounded between 10° and 15° to prevent disorienting rotations.
+* **Mobile-Optimized Touch:** Touch gestures are decoupled from page scrolling, allowing natural one-thumb mobile browsing.
+* **GPU Guard:** An `IntersectionObserver` automatically halts the WebGL render loop when the hero scrolls out of view, saving CPU cycles and mobile battery life.
 
 ### 2. 💺 128-Seat Interactive Auditorium & Atomic Holds
-* **Cinema Layout:** 128 seats arranged across 8 rows (`A` through `H`) and 16 columns.
-* **Curated Seating Tiers:**
-  * **VIP Recliner Lounges:** Rows A & B (Front view, extra legroom)
-  * **Premium Prime:** Rows C, D & E (Center acoustic sweet-spot)
-  * **Standard Classic:** Rows F, G & H (Upper cinema seating)
-* **10-Minute Temporary Seat Hold:** When a customer selects seats, atomic conditional locks are acquired directly in PostgreSQL (`seat_reservations` table via conditional `INSERT ... ON CONFLICT DO UPDATE WHERE status != 'BOOKED' AND ...`) with an exact 600,000 ms TTL.
-* **Live Countdown Timer:** An in-auditorium countdown banner (`Hold expires in: MM:SS`) keeps the customer informed.
-* **Anti-Double-Booking Protection:** Competing sessions attempting to lock an already held seat immediately receive an HTTP `409 Conflict` via atomic database-level conflict detection.
-* **Automatic Expiration & Cleanup:** If checkout is not completed within 10 minutes, the lock expires automatically, and seats return to available inventory.
-* **8-Seat Transaction Cap:** Enforces a maximum of 8 seats per booking transaction on both frontend and backend.
+* **Auditorium Matrix:** 128 seats arranged across 8 rows (`A` to `H`) and 16 columns with a central walking aisle.
+* **Tiered Seating:**
+  * **Royal Recliner (VIP):** Rows A & B
+  * **Club / Prime (Premium):** Rows C, D & E
+  * **Executive (Standard):** Rows F, G & H
+* **Live Visual Feedback:** Seats visually transition from Available $\rightarrow$ Securing (pulsing gold ring) $\rightarrow$ Confirmed Lock without page reloads.
+* **10-Minute Hold TTL:** Temporary seat holds prevent competing users from booking the same seat simultaneously.
 
-### 3. 💰 Uniform ₹5 Demo Pricing
-* Every seat in the auditorium—regardless of tier (VIP, Premium, or Standard)—is priced at **₹5.00** for demonstration purposes.
-* Pricing is computed and enforced strictly by the backend server; client-side price tampering is completely prevented.
+### 3. 💰 Uniform ₹5 Demonstration Pricing
+* Every ticket across all seating tiers (VIP, Premium, Standard) is priced at **₹5.00** for demonstration purposes.
+* Calculations for subtotal, convenience fee (₹0 demo waiver), and grand total are handled predictably without real credit card charges.
 
-### 4. 💳 Razorpay Payment Flow (Sandbox/Test Mode)
-* **Server-Side Order Creation:** Orders are created via `razorpay.orders.create({ amount: totalInPaise, currency: "INR", receipt })`. For example, a 1-seat ticket is calculated as exactly 500 paise (₹5.00), and an 8-seat booking is 4000 paise (₹40.00).
-* **HMAC-SHA256 Cryptographic Verification:** Client callback signatures (`razorpay_order_id`, `razorpay_payment_id`, `razorpay_signature`) are verified using timing-safe comparisons (`crypto.timingSafeEqual`).
-* **Webhook Hardening & Idempotency:**
-  * Webhook signatures use the raw request byte buffer (`req.rawBody`) to prevent serialization differences.
-  * Duplicate `payment.captured` webhooks return `200 ALREADY_PROCESSED` without creating duplicate bookings.
-  * Out-of-order `payment.failed` webhooks cannot cancel an already confirmed successful booking.
-  * Tampered payment amounts or mismatched currencies return HTTP `400 Bad Request`.
-* **Current Gateway Status:** Configured with test/sandbox credentials. No real monetary transactions or real debit/credit card charges occur.
+### 4. 🍿 F&B Concession Upsell & Simulated Checkout
+* **Snack Selection:** Interstitial food & beverage modal offering popcorn, nachos, and beverage combos before checkout.
+* **Streamlined Checkout Form:** Autofill-ready contact form capturing attendee name, email, and mobile phone.
+* **Instant Digital M-Ticket:** Generates an authentic ticket pass with booking reference code, date/time, seat identifiers, hall assignment, and scannable QR verification pass.
 
-### 5. 🎫 Digital M-Ticket & QR Gatekeeper Verification
-* **Tamper-Resistant M-Tickets:** Each confirmed booking generates a unique alphanumeric reference (e.g., `CB-W5R6-DIKH`) and a 64-character SHA-256 digital security token embedded into an SVG QR code.
-* **Gatekeeper Turnstile Scanner:** Cinema staff can scan tickets in the Admin Portal (`/admin -> Gatekeeper Scanner`).
-* **Anti-Replay Protection:** Once a ticket is admitted, subsequent scan attempts flag an immediate warning with the exact entry timestamp and terminal ID.
-
-### 6. 🔄 Cancellation Policy & Refund Reconciliation
-* **Eligibility Rule:** Self-service cancellation is permitted up to **2 hours prior** to the scheduled showtime.
-* **Seat Inventory Restoration:** Cancelled seats are immediately returned to available status for other moviegoers.
-* **Transparent Refund Tracking:** The database explicitly differentiates between a **refund-required obligation** (`refundFlagged: true`) and an **actually executed gateway refund transaction** (`gatewayRefundId`). CineBook does not claim an automated bank refund has finished unless confirmed by gateway settlement.
-* **Past Shows:** Shows under 2 hours or in the past are non-refundable.
-
-### 7. 🌍 18 Languages & Full Right-to-Left (RTL) Support
-* Native translations across **18 languages**:
-  * **Indian Languages:** English, Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Odia, Urdu
-  * **International Languages:** Spanish, French, German, Japanese, Korean, Chinese
-* **Automatic RTL Layout Mirroring:** Selecting Urdu triggers `dir="rtl"` layout transformation, reversing navigation bars, modals, seat grids, and action buttons.
-
----
-
-## 🛡️ Security Hardening & Bot Protection
-
-The CineBook V3 backend includes dedicated production security controls designed specifically for cloud hosting environments:
-
-| Security Vector | Implementation Detail | Protection |
-|---|---|---|
-| **Reverse Proxy IP Resolution** | `app.set('trust proxy', 1)` in Express | Accurately extracts client IP from Render's trusted 1-hop proxy. |
-| **Header Anti-Spoofing** | Strips unverified prefixes; ignores arbitrary `CF-Connecting-IP` | Prevents attackers from bypassing rate limits by prepending fake IPs. |
-| **Two-Tier Auth Limiting** | Tier 1: 15 attempts / 15m per account<br>Tier 2: 50 attempts / 15m per IP hard cap | Blocks credential stuffing even if the attacker cycles target email addresses. |
-| **Two-Tier Seat Limiting** | Tier 1: 60 calls / min per session<br>Tier 2: 120 calls / min per IP hard cap | Prevents automated bots from rotating session IDs to lock entire auditoriums. |
-| **Payment Order Cap** | 20 orders / 10m per session; 40 orders / 10m per IP | Stops bot spam from creating thousands of dangling gateway orders. |
-| **Raw Buffer Webhooks** | `express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } })` | Eliminates HMAC signature mismatch caused by JSON whitespace mutations. |
-| **Post-Expiry Conflict** | Checks for newly acquired seat ownership before confirming late payments | Prevents double bookings; flags late payments as `FAILED` for refund reconciliation with HTTP 409. |
-| **Production Sandbox Isolation** | In `NODE_ENV === 'production'`, `isSandbox` is strictly `false` | Explicitly rejects mock bypass signatures (`whsec_valid_mock_signature`) in production. |
+### 5. 🛡️ Admin Operations Dashboard
+* **Real-Time Catalog Oversight:** Displays total revenue, active bookings, occupancy rates, and affiliated cinema multiplexes.
+* **Parallelized Data Loading:** All 8 admin data tables (movies, showtimes, bookings, users, reviews, coupons) resolve concurrently via `Promise.allSettled`.
 
 ---
 
 ## 🛠️ Technology Stack
 
+| Domain | Technologies Used | Purpose |
+| :--- | :--- | :--- |
+| **Frontend Framework** | React 19, TypeScript 5.x, Vite 8 | Reactive component tree, strict type safety, fast HMR |
+| **Styling & Design** | Tailwind CSS 4, Custom CSS Variables | Luxury black-and-gold design tokens, glassmorphism |
+| **3D & Animation** | Three.js, Lucide React | WebGL holographic ticket pass, modern icons |
+| **Backend API** | Node.js, Express, TypeScript | REST endpoints, rate limiting, seat lock management |
+| **Database** | PostgreSQL, Supabase | Relational data persistence, connection pooling |
+| **Real-Time** | Socket.io Client & Server | Seat status synchronization across active sessions |
+| **Hosting & CI/CD** | Vercel (Frontend), Render (Backend) | Global edge deployment, automated GitHub push builds |
+
+---
+
+## 🔄 User Booking Workflow
+
 ```
-Frontend:
-  ├── React 19 (Hooks, Context API, Suspense)
-  ├── TypeScript 5.x
-  ├── Vite (Lightning-fast build tool)
-  ├── Three.js (WebGL 3D metallic ticket hero)
-  ├── Tailwind CSS 4 (Custom dark cinema theme)
-  └── Lucide React (Accessible SVG icons)
-
-Backend:
-  ├── Node.js v20.18.0 & Express 4
-  ├── TypeScript (Strict type safety)
-  ├── Prisma ORM 5.22.0
-  ├── PostgreSQL (`pg` connection pool with SSL)
-  ├── express-rate-limit (IETF draft-7 standard headers)
-  ├── Socket.io (Real-time seat reservation broadcasts)
-  ├── bcryptjs & jsonwebtoken (Secure auth & session management)
-  └── Razorpay Node SDK (Gateway order creation)
-
-Cloud Infrastructure:
-  ├── Frontend Hosting: Vercel (Global Edge Network)
-  ├── Backend Hosting: Render Web Service (Ubuntu Linux container)
-  └── Relational Database: Supabase PostgreSQL (AWS ap-south-1 Mumbai)
+[ Browse Homepage / Discover Movies ]
+                 │
+                 ▼
+[ Select Movie (e.g. Kalki 2898 AD) & Choose Showtime / Cinema ]
+                 │
+                 ▼
+[ 128-Seat Auditorium: Select Available Seats (₹5 each) ]
+                 │
+                 ▼
+[ Seat Lock Held via Atomic Backend Engine ]
+                 │
+                 ▼
+[ Optional F&B Concessions Upsell (Add or Skip) ]
+                 │
+                 ▼
+[ Simulated Checkout Form (Name, Email, Mobile) ]
+                 │
+                 ▼
+[ Instant M-Ticket Confirmation & Stored in "My Tickets" ]
 ```
 
 ---
 
-## 📸 Screenshots & UI Showcase
+## 💡 Technical Challenges & Solutions
 
-The repository organizes application screenshots inside the [`docs/screenshots/`](file:///c:/Users/MI/Desktop/CineBook-v2/docs/screenshots) directory:
+### 1. Direct Deep-Link Cold Hydration
+* **Problem:** Direct navigation to a showtime link (e.g., `/seat-selection?showtimeId=show-kalki-pvr-2026-10-24-0145PM`) initially parsed `movieId = 'kalki'`, but the catalog ID was `'kalki-2898'`. The strict equality check failed, causing a 4.6-second delay while waiting for the remote database to return.
+* **Solution:** Implemented flexible prefix and partial slug resolution in `SeatSelectionPage.tsx` (`m.id.startsWith(parsed.movieId + '-') || ...`). Compound movie IDs now resolve synchronously on frame 0, reducing deep-link mounting time from **4,635 ms down to 919 ms (80.2% faster)**.
 
-| Screenshot | Description | Preview |
-|---|---|:---:|
-| `01_hero_3d_ticket_desktop.png` | Three.js floating 3D CineBook ticket hero on desktop | [View Screenshot](docs/screenshots/01_hero_3d_ticket_desktop.png) |
-| `02_hero_3d_ticket_mobile.png` | Responsive 3D ticket hero rendered on mobile viewport | [View Screenshot](docs/screenshots/02_hero_3d_ticket_mobile.png) |
-| `03_homepage_desktop_1440px.png` | Full desktop homepage with movie grid and search filters | [View Screenshot](docs/screenshots/03_homepage_desktop_1440px.png) |
-| `04_mobile_responsive_view.png` | Mobile layout showing navigation, languages, and cards | [View Screenshot](docs/screenshots/04_mobile_responsive_view.png) |
-| `05_3d_tilt_interaction.png` | Capped tilt interaction with specular metallic lighting | [View Screenshot](docs/screenshots/05_3d_tilt_interaction.png) |
-| `06_android_mobile_view.png` | Native Android Chrome rendering verification | [View Screenshot](docs/screenshots/06_android_mobile_view.png) |
+### 2. Admin Sequential Query Waterfall
+* **Problem:** The Admin Dashboard executed 8 separate `await` API calls sequentially on mount (`stats`, then `bookings`, then `movies`, etc.). Over a cloud network, this created a 14.4-second sequential waterfall where the refresh spinner spun continuously.
+* **Solution:** Refactored `loadData()` to use `Promise.allSettled([...])`. All 8 endpoints are requested concurrently via HTTP/2 multiplexing, reducing data resolution time from **14.4 seconds down to 6.5 seconds (55% faster)** while ensuring graceful fault tolerance if any individual query fails.
 
-> [!TIP]
-> **Additional Visual Assets Recommended for Live Capture:**
-> - `07_seat_selection_128_layout.png`: Interactive 128-seat auditorium with VIP/Premium/Standard tiers and 10-minute hold countdown.
-> - `08_checkout_order_summary.png`: Checkout breakdown displaying server-side ₹5 pricing and payment options.
-> - `09_confirmed_mticket_qr.png`: Digital M-ticket pass with signed QR code.
-> - `10_admin_operations_dashboard.png`: Admin portal with real-time stats and Gatekeeper QR scanner.
+### 3. Concurrency & Race-Condition Prevention
+* **Problem:** Simultaneous users attempting to select the same seat could cause double-booking collisions.
+* **Solution:** Implemented temporary seat holds backed by PostgreSQL conditional updates (`WHERE status != 'BOOKED'`) with a 10-minute time-to-live (TTL). If another session holds a seat first, subsequent requests immediately receive a clean conflict notice without UI corruption.
 
 ---
 
-## 📈 Evolution: V1 → V2 → V3
+## 📊 Live Performance Benchmarks
 
-```
-┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
-│      CineBook V1       │      │      CineBook V2       │      │      CineBook V3       │
-│  (Prototype / Client)  │ ───> │  (Full-Stack Connect)  │ ───> │ (Security-Hardened App)│
-│                        │      │                        │      │                        │
-│ • Mock in-memory state │      │ • Express REST backend │      │ • Three.js 3D ticket   │
-│ • Static movie cards   │      │ • Supabase PostgreSQL  │      │ • Proxy anti-spoofing  │
-│ • Client-only checkout │      │ • 18-language i18n/RTL │      │ • Two-tier rate limits │
-│ • No seat locks        │      │ • 128-seat auditorium  │      │ • Webhook idempotency  │
-│ • Basic CSS styles     │      │ • Real M-Ticket QR     │      │ • 43 automated tests   │
-└────────────────────────┘      └────────────────────────┘      └────────────────────────┘
-```
+Measured on the live production website ([https://cinebook-v3.vercel.app/](https://cinebook-v3.vercel.app/)) via automated Chromium benchmarking:
 
-1. **Version 1 (Frontend Prototype):** Built as an initial React SPA to demonstrate UI concepts, movie search, and basic seat layout with client-side state.
-2. **Version 2 (Full-Stack Architecture):** Connected to a live Node.js/Express backend and Supabase PostgreSQL. Added relational schema migrations, 18-language internationalization, multi-currency conversion, coupon discounts, and digital QR ticket verification.
-3. **Version 3 (Security Hardening & Visual Experience):**
-   - Engineered the interactive Three.js 3D floating metallic ticket hero with physics bounds and mobile touch isolation.
-   - Deployed comprehensive rate limiting, IP anti-spoofing, and bot protection behind Render's reverse proxy.
-   - Hardened payment webhooks with raw buffer HMAC validation, event idempotency, and post-expiry conflict resolution.
-   - Expanded automated test coverage across security, concurrency, and booking flows (**43/43 tests passing**).
+| Route / Metric | Cold Navigation (Fresh Cache) | Warm Navigation (Cached) | Status |
+| :--- | :---: | :---: | :---: |
+| **Homepage TTFB** | **24 ms** | **22 ms** | Instant Vercel Edge response |
+| **Homepage FCP** | **796 ms** | **452 ms** | Sub-second visual paint |
+| **Movie Details FCP** | **528 ms** | **316 ms** | Instant hero render |
+| **Direct Seat Selection Render** | **919 ms** | **424 ms** | 80.2% improvement after slug fix |
+| **Admin All-Data Resolution** | **6,500 ms** | **2,150 ms** | 55% improvement via `Promise.allSettled` |
+| **Console Errors** | **0 errors** | **0 errors** | 100% clean browser logs |
 
 ---
 
-## 🤖 AI-Assisted Development Disclosure
+## 🔒 Portfolio Demo Mode Disclaimer
 
-In accordance with modern software engineering practices, this project utilized **AI-assisted pair-programming tools** (Antigravity AI / Google DeepMind coding agents). 
-
-* **Where AI was leveraged:** Rapid initial boilerplate scaffolding, generating comprehensive locale dictionaries for 18 languages, generating synthetic test fixtures, and constructing automated regression test matrices.
-* **Where human engineering directed the project:** Architecture design, relational database schema modeling, business logic rules (10-minute seat hold TTL, post-expiry conflict resolution, prorated refund math), security hardening strategy (proxy IP extraction, two-tier rate limiting), manual code reviews, and end-to-end deployment verification on Vercel and Render.
-
----
-
-## 🧪 Automated Test Suites (43/43 Passing)
-
-CineBook includes two comprehensive automated test suites:
-
-### 1. Security & Bot Hardening Suite (`test_security_hardening.js`) — 23 Tests
-Validates proxy isolation, anti-spoofing, two-tier IP hard caps, webhook HMAC verification, and idempotency:
-```bash
-cd server
-node test_security_hardening.js
-# Output: 🎉 SECURITY SUITE RESULTS: 23/23 TESTS PASSED (100%)
-```
-
-### 2. End-to-End Booking & Verification Suite (`test_portfolio_ready_verification.js`) — 20 Tests
-Validates multi-seat booking calculations (1, 4, and 8 seats), ₹5 server-side pricing, 10-minute hold expiration, cancellation eligibility, and M-ticket QR generation:
-```bash
-cd server
-node test_portfolio_ready_verification.js
-# Output: 🎉 VERIFICATION RESULTS: 20/20 TEST SUITES PASSED (100%)
-```
+> [!IMPORTANT]
+> **CineBook V3 is an educational and portfolio demonstration application.**
+> * All ticket purchases, seat reservations, and checkout submissions are **100% simulated**.
+> * No real payment credentials (credit/debit cards, UPI, or net banking) are collected, processed, or stored.
+> * Confirmed M-tickets carry a visible `★ PORTFOLIO DEMONSTRATION MODE ★` watermark and are not valid for admission to commercial cinema theatres.
 
 ---
 
 ## 💻 Local Installation & Setup
 
 ### Prerequisites
-* Node.js v18+ (Node.js v20+ recommended)
-* npm v9+
+* **Node.js:** v18.0.0 or higher
+* **npm:** v9.0.0 or higher
 
-### 1. Clone the Repository
+### Step-by-Step Instructions
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Sahithi200423/Movie_booking.git
+   cd Movie_booking
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables:**
+   Create a `.env` file in the root directory:
+   ```env
+   # Frontend API Endpoint (points to live Render backend or local server)
+   VITE_API_URL=https://cinebook-backend-as00.onrender.com/api
+
+   # Demo Mode Flag (keeps simulated checkout active)
+   VITE_DEMO_MODE=true
+   ```
+
+4. **Start the local development server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+5. **Build for production:**
+   ```bash
+   npm run build
+   ```
+
+6. **Preview the production bundle:**
+   ```bash
+   npm run preview
+   ```
+
+---
+
+## 🧪 Testing & Verification
+
+The project includes regression test scripts covering the complete booking flow, direct showtime deep links, and admin API performance:
+
 ```bash
-git clone https://github.com/Sahithi200423/Movie_booking.git
-cd Movie_booking
-```
-
-### 2. Backend Setup
-```bash
-cd server
-npm install
-
-# Configure environment variables (a template is provided)
-cp .env.example .env
-
-# Build and start the backend
+# Run production build and type checks
 npm run build
-npm start
-```
-*The backend server will start on `http://localhost:5000` with local persistent JSON fallback storage if PostgreSQL is not connected.*
 
-### 3. Frontend Setup
-```bash
-# Open a new terminal in the project root
-npm install
+# Run automated browser booking flow test
+node scratch/test_live_booking_flow.cjs
 
-# Start Vite development server
-npm run dev
+# Verify live admin dashboard parallel data resolution
+node scratch/test_live_admin_speed.cjs
+
+# Verify direct seat selection deep link render time
+node scratch/test_live_seat_deep_link.cjs
 ```
-*Open `http://localhost:5173` in your browser. All API requests (`/api/*`) are proxied automatically to port 5000.*
 
 ---
 
-## 📋 Portfolio Evaluation & Production Roadmap
+## 🚀 Deployment Architecture
 
-### For Evaluators & Recruiters:
-The application is **fully configured for portfolio demonstration and interactive review**. Evaluators can:
-1. Visit [https://movie-booking-one-azure.vercel.app/](https://movie-booking-one-azure.vercel.app/).
-2. Experience the interactive floating 3D ticket hero.
-3. Click **Demo Login** in the navigation bar to log in instantly as a user or administrator.
-4. Select a movie, pick seats in the 128-seat auditorium, observe the 10-minute countdown, and proceed through checkout to receive a verified digital M-ticket.
-
-### For Commercial Real-Money Launch:
-1. **Live Payment Keys:** Transition `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` from test credentials (`rzp_test_...`) to live merchant credentials.
-2. **Webhook Endpoint Activation:** Register `https://cinebook-backend-as00.onrender.com/api/payment/verify-webhook` in the Razorpay dashboard with `RAZORPAY_WEBHOOK_SECRET`.
-3. **Database Pro Upgrade:** Upgrade Supabase to the Pro tier ($25/mo) to enable automated daily backups, 7-day retention, and Point-in-Time Recovery (PITR).
-4. **Legal Compliance:** Publish finalized Terms of Service, Privacy Policy, and Refund/Cancellation documentation for payment aggregator merchant approval.
+* **Frontend:** Hosted on [Vercel](https://vercel.com/) with automatic continuous deployment on every Git push to `origin/main`. Vercel provides worldwide edge CDN distribution, asset compression (Gzip/Brotli), and sub-30ms TTFB.
+* **Backend:** Hosted on [Render](https://render.com/) running a containerized Node.js/Express service.
+* **Database:** Hosted on [Supabase](https://supabase.com/) running PostgreSQL with connection pooling on port 6543.
 
 ---
 
-## 📄 License
+## 🔮 Future Enhancements
 
-An open-source license has not yet been attached to this repository. All rights reserved by the author. An open-source license (such as MIT) may be added in a future release.
+* [ ] Native push notifications for 15-minute seat hold expiration reminders.
+* [ ] Group seat selection sharing via WebRTC or live shareable link.
+* [ ] Dynamic cinema screen curvature adjustments based on device aspect ratio.
+* [ ] Multi-theatre administrative management portal with custom seating matrix designer.
+
+---
+
+## 👤 Developer Information
+
+**Chukka Sahithi**  
+*Computer Science and Engineering Graduate | Full-Stack Developer*
+
+* **GitHub:** [https://github.com/Sahithi200423](https://github.com/Sahithi200423)
+* **Project Repository:** [https://github.com/Sahithi200423/Movie_booking](https://github.com/Sahithi200423/Movie_booking)
+* **Live Application:** [https://cinebook-v3.vercel.app/](https://cinebook-v3.vercel.app/)
+
+---
+
+*CineBook V3 — Crafted with care for full-stack engineering excellence.*

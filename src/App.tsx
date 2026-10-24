@@ -10,14 +10,24 @@ import { SearchModal } from './components/SearchModal';
 import { CustomCursor } from './components/CustomCursor';
 import { DemoBanner } from './components/DemoBanner';
 import { HomePage } from './pages/HomePage';
-import { MovieDetailsPage } from './pages/MovieDetailsPage';
-import { SeatSelectionPage } from './pages/SeatSelectionPage';
-import { CheckoutPage } from './pages/CheckoutPage';
-import { ConfirmationPage } from './pages/ConfirmationPage';
-import { MyTicketsPage } from './pages/MyTicketsPage';
-import { AdminPage } from './pages/AdminPage';
-import { TicketScannerPage } from './pages/TicketScannerPage';
-import { NotFoundPage } from './pages/NotFoundPage';
+
+// Lazy-loaded routes for code-splitting
+const MovieDetailsPage = React.lazy(() => import('./pages/MovieDetailsPage').then(m => ({ default: m.MovieDetailsPage })));
+const SeatSelectionPage = React.lazy(() => import('./pages/SeatSelectionPage').then(m => ({ default: m.SeatSelectionPage })));
+const CheckoutPage = React.lazy(() => import('./pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
+const ConfirmationPage = React.lazy(() => import('./pages/ConfirmationPage').then(m => ({ default: m.ConfirmationPage })));
+const MyTicketsPage = React.lazy(() => import('./pages/MyTicketsPage').then(m => ({ default: m.MyTicketsPage })));
+const AdminPage = React.lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const TicketScannerPage = React.lazy(() => import('./pages/TicketScannerPage').then(m => ({ default: m.TicketScannerPage })));
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+
+// Champagne Luxury Fallback Spinner
+const RouteLoadingFallback: React.FC = () => (
+  <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+    <div className="w-8 h-8 rounded-full border-2 border-[#C7A675] border-t-transparent animate-spin" />
+    <span className="text-xs uppercase tracking-widest text-[#C7A675] font-mono">Loading Experience...</span>
+  </div>
+);
 
 // Scroll to top upon route transition
 const ScrollToTop: React.FC = () => {
@@ -64,17 +74,19 @@ export function App() {
 
                 {/* Main Application Pages */}
                 <div className="flex-1">
-                  <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/movie/:id" element={<MovieDetailsPage />} />
-                    <Route path="/seat-selection" element={<SeatSelectionPage />} />
-                    <Route path="/checkout" element={<CheckoutPage />} />
-                    <Route path="/confirmation" element={<ConfirmationPage />} />
-                    <Route path="/my-tickets" element={<MyTicketsPage />} />
-                    <Route path="/admin" element={<AdminPage />} />
-                    <Route path="/scanner" element={<TicketScannerPage />} />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Routes>
+                  <React.Suspense fallback={<RouteLoadingFallback />}>
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/movie/:id" element={<MovieDetailsPage />} />
+                      <Route path="/seat-selection" element={<SeatSelectionPage />} />
+                      <Route path="/checkout" element={<CheckoutPage />} />
+                      <Route path="/confirmation" element={<ConfirmationPage />} />
+                      <Route path="/my-tickets" element={<MyTicketsPage />} />
+                      <Route path="/admin" element={<AdminPage />} />
+                      <Route path="/scanner" element={<TicketScannerPage />} />
+                      <Route path="*" element={<NotFoundPage />} />
+                    </Routes>
+                  </React.Suspense>
                 </div>
 
                 {/* Global Footer with interactive dialogs */}

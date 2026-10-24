@@ -43,6 +43,7 @@ export function use3DTilt(options: TiltOptions = {}): Use3DTiltReturn {
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const glareRef = useRef<HTMLDivElement | null>(null);
+  const rectRef = useRef<DOMRect | null>(null);
   const rafId = useRef<number | null>(null);
   const willChangeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,7 +75,7 @@ export function use3DTilt(options: TiltOptions = {}): Use3DTiltReturn {
 
     rafId.current = requestAnimationFrame(() => {
       if (!cardRef.current) return;
-      const rect = cardRef.current.getBoundingClientRect();
+      const rect = rectRef.current || cardRef.current.getBoundingClientRect();
       const x = clientX - rect.left;
       const y = clientY - rect.top;
 
@@ -109,6 +110,9 @@ export function use3DTilt(options: TiltOptions = {}): Use3DTiltReturn {
     const el = cardRef.current;
     if (!el) return;
 
+    // Cache rect once per hover session to prevent layout thrashing
+    rectRef.current = el.getBoundingClientRect();
+
     // Only apply will-change during active mouse session
     el.style.willChange = 'transform, box-shadow';
     // Snappy transition for tracking mouse
@@ -120,6 +124,7 @@ export function use3DTilt(options: TiltOptions = {}): Use3DTiltReturn {
   }, [disabled, isTouchDevice, prefersReducedMotion, glare]);
 
   const onMouseLeave = useCallback(() => {
+    rectRef.current = null;
     if (rafId.current) {
       cancelAnimationFrame(rafId.current);
     }

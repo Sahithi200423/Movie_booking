@@ -39,6 +39,82 @@ const PARTY_OPTIONS = [
   { count: 8, label: 'Bus', icon: '🚍' },
 ];
 
+interface SeatItemProps {
+  seat: Seat;
+  isSelected: boolean;
+  viewMode: '3d' | '2d';
+  tierLabel: string;
+  priceFormatted: string;
+  onSeatClick: (seat: Seat) => void;
+}
+
+const SeatItem = React.memo<SeatItemProps>(({
+  seat,
+  isSelected,
+  viewMode,
+  tierLabel,
+  priceFormatted,
+  onSeatClick
+}) => {
+  const isReserved = seat.status === 'reserved';
+  const isHeld = seat.status === 'held' && !isSelected;
+
+  let seatClass = '';
+  if (isSelected) {
+    seatClass =
+      'bg-[#C7A675] text-[#08090B] font-extrabold border-[#DFC49D] shadow-[0_0_18px_rgba(199,166,117,0.7)] scale-105 ring-2 ring-[#C7A675]/80';
+  } else if (isReserved) {
+    seatClass =
+      'bg-rose-950/60 text-rose-300 border-rose-700/60 cursor-not-allowed opacity-90 shadow-sm shadow-rose-950/40';
+  } else if (isHeld) {
+    seatClass =
+      'bg-amber-950/60 text-amber-300 border-amber-500/70 cursor-not-allowed opacity-90 shadow-sm shadow-amber-950/40';
+  } else {
+    if (seat.tier === 'VIP') {
+      seatClass =
+        'bg-[#15171B] text-[#C7A675] border-[#C7A675]/40 hover:border-[#C7A675] hover:bg-[#C7A675]/15 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
+    } else if (seat.tier === 'PREMIUM') {
+      seatClass =
+        'bg-[#15171B] text-[#F3F0E8] border-white/15 hover:border-[#C7A675] hover:bg-[#C7A675]/10 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
+    } else {
+      seatClass =
+        'bg-[#111317] text-[#A8ADB4] border-white/10 hover:border-[#C7A675] hover:bg-[#C7A675]/10 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      role="gridcell"
+      disabled={isReserved || isHeld}
+      onClick={() => onSeatClick(seat)}
+      data-cursor={isSelected ? 'DESELECT' : isReserved ? 'BOOKED' : isHeld ? 'HELD' : 'SELECT'}
+      className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 pointer-events-auto relative z-10 btn-tactile ${seatClass}`}
+      style={
+        viewMode === '3d'
+          ? {
+              transform: isSelected ? 'translateZ(14px)' : 'translateZ(3px)',
+              transformStyle: 'preserve-3d',
+            }
+          : undefined
+      }
+      aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${priceFormatted}, ${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
+      aria-selected={isSelected}
+      title={`${seat.id} (${tierLabel}) - ${priceFormatted} [${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
+    >
+      {isSelected ? (
+        '✓'
+      ) : isReserved ? (
+        <span className="text-[10px] text-rose-300 font-black">✕</span>
+      ) : isHeld ? (
+        <Lock className="w-2.5 h-2.5 text-amber-300" />
+      ) : (
+        seat.number
+      )}
+    </button>
+  );
+});
+
 export const SeatSelectionPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1041,35 +1117,6 @@ export const SeatSelectionPage: React.FC = () => {
                       <div className="flex items-center gap-1.5 sm:gap-2" style={viewMode === '3d' ? { transformStyle: 'preserve-3d' } : undefined}>
                         {row.seats.map(seat => {
                           const isSelected = selectedSeats.some(s => s.id === seat.id);
-                          const isReserved = seat.status === 'reserved';
-                          const isHeld = seat.status === 'held' && !isSelected;
-
-                          let seatClass = '';
-                          if (isSelected) {
-                            // Champagne luxury selected with glowing halo
-                            seatClass =
-                              'bg-[#C7A675] text-[#08090B] font-extrabold border-[#DFC49D] shadow-[0_0_18px_rgba(199,166,117,0.7)] scale-105 ring-2 ring-[#C7A675]/80';
-                          } else if (isReserved) {
-                            // Booked / Sold: Red/ruby, disabled
-                            seatClass =
-                              'bg-rose-950/60 text-rose-300 border-rose-700/60 cursor-not-allowed opacity-90 shadow-sm shadow-rose-950/40';
-                          } else if (isHeld) {
-                            // Temporarily Held: Amber / yellow with lock icon, disabled
-                            seatClass =
-                              'bg-amber-950/60 text-amber-300 border-amber-500/70 cursor-not-allowed opacity-90 shadow-sm shadow-amber-950/40';
-                          } else {
-                            // Available: Obsidian/Charcoal with subtle champagne metallic border highlights
-                            if (seat.tier === 'VIP') {
-                              seatClass =
-                                'bg-[#15171B] text-[#C7A675] border-[#C7A675]/40 hover:border-[#C7A675] hover:bg-[#C7A675]/15 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
-                            } else if (seat.tier === 'PREMIUM') {
-                              seatClass =
-                                'bg-[#15171B] text-[#F3F0E8] border-white/15 hover:border-[#C7A675] hover:bg-[#C7A675]/10 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
-                            } else {
-                              seatClass =
-                                'bg-[#111317] text-[#A8ADB4] border-white/10 hover:border-[#C7A675] hover:bg-[#C7A675]/10 hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#C7A675] shadow-sm';
-                            }
-                          }
 
                           return (
                             <React.Fragment key={seat.id}>
@@ -1080,35 +1127,14 @@ export const SeatSelectionPage: React.FC = () => {
                                 </div>
                               )}
 
-                              <button
-                                type="button"
-                                role="gridcell"
-                                disabled={isReserved || isHeld}
-                                onClick={() => handleSeatClick(seat)}
-                                data-cursor={isSelected ? 'DESELECT' : isReserved ? 'BOOKED' : isHeld ? 'HELD' : 'SELECT'}
-                                className={`w-7 sm:w-8 h-7 sm:h-8 rounded-lg text-[11px] border transition-all duration-150 flex items-center justify-center select-none cursor-pointer focus:outline-none hover:scale-105 active:scale-95 pointer-events-auto relative z-10 btn-tactile ${seatClass}`}
-                                style={
-                                  viewMode === '3d'
-                                    ? {
-                                        transform: isSelected ? 'translateZ(14px)' : 'translateZ(3px)',
-                                        transformStyle: 'preserve-3d',
-                                      }
-                                    : undefined
-                                }
-                                aria-label={`Row ${seat.row} Seat ${seat.number}, ${seat.tier} tier, ${formatPrice(seat.price)}, ${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}`}
-                                aria-selected={isSelected}
-                                title={`${seat.id} (${tierLabel}) - ${formatPrice(seat.price)} [${isReserved ? 'Booked/Sold' : isHeld ? 'Temporarily Held' : isSelected ? 'Selected' : 'Available'}]`}
-                              >
-                                {isSelected ? (
-                                  '✓'
-                                ) : isReserved ? (
-                                  <span className="text-[10px] text-rose-300 font-black">✕</span>
-                                ) : isHeld ? (
-                                  <Lock className="w-2.5 h-2.5 text-amber-300" />
-                                ) : (
-                                  seat.number
-                                )}
-                              </button>
+                              <SeatItem
+                                seat={seat}
+                                isSelected={isSelected}
+                                viewMode={viewMode}
+                                tierLabel={tierLabel}
+                                priceFormatted={formatPrice(seat.price)}
+                                onSeatClick={handleSeatClick}
+                              />
                             </React.Fragment>
                           );
                         })}

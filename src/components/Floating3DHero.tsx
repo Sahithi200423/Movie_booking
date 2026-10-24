@@ -55,6 +55,21 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
+  // Detect compact mobile viewport (< 480px) to use zero-overhead CSS 3D ticket for smooth 60fps scrolling
+  const [isCompactDevice, setIsCompactDevice] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 480;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkCompact = () => {
+      setIsCompactDevice(window.innerWidth < 480);
+    };
+    window.addEventListener('resize', checkCompact, { passive: true });
+    return () => window.removeEventListener('resize', checkCompact);
+  }, []);
+
   // Check reduced-motion preference
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -72,10 +87,11 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
   // Generate dynamic ticket canvas texture for the active movie
   const createTicketTexture = useCallback((movie: Movie): THREE.CanvasTexture => {
     const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 1152;
+    canvas.width = 1280;
+    canvas.height = 720;
     const ctx = canvas.getContext('2d');
     if (!ctx) return new THREE.CanvasTexture(canvas);
+    ctx.scale(1280 / 2048, 720 / 1152);
 
     // 1. Luxury Dark Charcoal / Obsidian Base Gradient
     const bgGrad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -334,9 +350,9 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
     return texture;
   }, []);
 
-  // WebGL 3D Scene Initialization & Physics Engine
+  // WebGL 3D Scene Initialization & Physics Engine (Tablets & Desktop >= 480px)
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || isCompactDevice) return;
 
     let renderer: THREE.WebGLRenderer | null = null;
     let scene: THREE.Scene | null = null;
@@ -360,9 +376,9 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
         powerPreference: 'high-performance'
       });
 
-      // Adaptive DPR: capped at 1.75 for mobile battery longevity
+      // Adaptive DPR: capped at 1.5 for mobile and 1.75 for desktop to avoid heavy fillrate bottleneck
       const isSmallScreen = (containerRef.current?.clientWidth || window.innerWidth) < 640;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isSmallScreen ? 1.75 : 2.0));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isSmallScreen ? 1.5 : 1.75));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.35;
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -555,24 +571,15 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       window.addEventListener('resize', handleResize);
 
       // 8. IntersectionObserver: Pause render loop when scrolled off-screen
-      if (typeof window !== 'undefined' && 'IntersectionObserver' in window && containerRef.current) {
-        observer = new IntersectionObserver(
-          ([entry]) => {
-            isVisible = entry.isIntersecting;
-          },
-          { threshold: 0.05 }
-        );
-        observer.observe(containerRef.current);
-      }
-
-      // 9. Continuous Animation & Autonomous Physics Loop
-      let clock = new THREE.Clock();
-
+      const clock = new THREE.Clock();
+      let isAnimating = false;
       const animate = () => {
+        if (!isVisible) {
+          isAnimating = false;
+          return;
+        }
+        isAnimating = true;
         animationFrameId = requestAnimationFrame(animate);
-
-        // Skip GPU render when off-screen to preserve mobile CPU & battery
-        if (!isVisible) return;
 
         const elapsedTime = clock.getElapsedTime();
 
@@ -639,6 +646,20 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
 
       animate();
 
+      if (typeof window !== 'undefined' && 'IntersectionObserver' in window && containerRef.current) {
+        observer = new IntersectionObserver(
+          ([entry]) => {
+            const wasVisible = isVisible;
+            isVisible = entry.isIntersecting;
+            if (!wasVisible && isVisible && !isAnimating) {
+              animate();
+            }
+          },
+          { threshold: 0.05 }
+        );
+        observer.observe(containerRef.current);
+      }
+
       return () => {
         cancelAnimationFrame(animationFrameId);
         window.removeEventListener('resize', handleResize);
@@ -656,7 +677,7 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
       console.warn('WebGL notice, activating CSS 3D fallback:', err);
       setWebglSupported(false);
     }
-  }, [activeMovie, createTicketTexture, reducedMotion]);
+  }, [activeMovie, createTicketTexture, reducedMotion, isCompactDevice]);
 
   // Pointer / Mouse Move Handler for Desktop Tilt
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -691,11 +712,11 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
         {/* Deep Charcoal & Obsidian Radial Ambient Mesh */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,#1A1D24_0%,#111317_50%,#08090B_100%)]" />
 
-        {/* Theatrical Warm Champagne Glow (Right Rim) */}
-        <div className="absolute -top-32 right-0 w-[550px] sm:w-[750px] h-[550px] sm:h-[750px] rounded-full bg-[#C7A675]/12 blur-[150px] pointer-events-none" />
+        {/* Theatrical Warm Champagne Glow (Right Rim) - GPU-friendly zero-cost radial gradient */}
+        <div className="absolute -top-32 right-0 w-[550px] sm:w-[750px] h-[550px] sm:h-[750px] rounded-full bg-[radial-gradient(circle,rgba(199,166,117,0.14)_0%,transparent_70%)] pointer-events-none" />
 
-        {/* Theatrical Warm Ivory Glow (Left Bottom Accent) */}
-        <div className="absolute -bottom-32 left-0 w-[450px] sm:w-[650px] h-[450px] sm:h-[650px] rounded-full bg-[#F3F0E8]/06 blur-[140px] pointer-events-none" />
+        {/* Theatrical Warm Ivory Glow (Left Bottom Accent) - GPU-friendly zero-cost radial gradient */}
+        <div className="absolute -bottom-32 left-0 w-[450px] sm:w-[650px] h-[450px] sm:h-[650px] rounded-full bg-[radial-gradient(circle,rgba(243,240,232,0.08)_0%,transparent_70%)] pointer-events-none" />
 
         {/* Floating Subtle Decorative Film Elements */}
         <div className="absolute top-12 left-8 opacity-15 hidden sm:block animate-pulse">
@@ -785,8 +806,8 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
           className="relative w-full max-w-4xl h-[280px] xs:h-[310px] sm:h-[400px] md:h-[480px] lg:h-[510px] flex items-center justify-center select-none cursor-pointer pointer-events-auto group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C7A675] rounded-3xl"
           style={{ touchAction: 'pan-y' }}
         >
-          {webglSupported ? (
-            /* Three.js Hardware-Accelerated 3D Canvas */
+          {(!isCompactDevice && webglSupported) ? (
+            /* Three.js Hardware-Accelerated 3D Canvas (Tablets & Desktop) */
             <canvas
               ref={canvasRef}
               className="w-full h-full block focus:outline-none pointer-events-none transition-transform duration-300 group-hover:scale-[1.02] group-active:scale-[0.98]"
@@ -796,26 +817,41 @@ export const Floating3DHero: React.FC<Floating3DHeroProps> = ({
               }}
             />
           ) : (
-            /* Graceful Animated CSS 3D Fallback for Non-WebGL Devices */
+            /* High-Performance Hardware-Accelerated CSS 3D Ticket for Mobile & Non-WebGL */
             <div
-              className="w-[92%] max-w-[560px] aspect-[1.8/1] rounded-3xl p-5 sm:p-7 border border-[#C7A675]/40 bg-gradient-to-br from-[#1E2128] via-[#15171B] to-[#08090B] shadow-2xl flex flex-col justify-between transition-transform duration-300 group-hover:scale-105 group-hover:border-[#C7A675]"
+              className="w-[94%] max-w-[540px] aspect-[1.85/1] rounded-3xl p-5 sm:p-7 border border-[#C7A675]/50 bg-gradient-to-br from-[#1E2128] via-[#15171B] to-[#08090B] shadow-2xl flex flex-col justify-between transition-all duration-300 group-hover:scale-[1.02] group-hover:border-[#C7A675] relative overflow-hidden"
               style={{
                 animation: reducedMotion ? 'none' : 'cinebookFloat 5s ease-in-out infinite',
-                boxShadow: '0 25px 60px -15px rgba(199, 166, 117, 0.35)',
-                transformStyle: 'preserve-3d'
+                boxShadow: '0 20px 50px -10px rgba(199, 166, 117, 0.35)',
+                transform: 'translateZ(0)'
               }}
             >
-              <div className="flex items-center justify-between border-b border-[#C7A675]/20 pb-2.5">
-                <span className="text-[11px] sm:text-xs font-bold tracking-widest text-[#C7A675] uppercase">✦ CINEBOOK VIP PASS</span>
-                <span className="text-[11px] sm:text-xs font-mono font-bold text-[#DFC49D]">₹5.00 TICKET</span>
+              {/* Subtle Luxury Geometric Micro-Grid */}
+              <div
+                className="absolute inset-0 opacity-[0.04] pointer-events-none"
+                style={{
+                  backgroundImage: 'linear-gradient(#C7A675 1px, transparent 1px), linear-gradient(90deg, #C7A675 1px, transparent 1px)',
+                  backgroundSize: '24px 24px'
+                }}
+              />
+              <div className="relative z-10 flex items-center justify-between border-b border-[#C7A675]/25 pb-2.5">
+                <span className="text-[11px] sm:text-xs font-bold tracking-widest text-[#C7A675] uppercase flex items-center gap-1.5">
+                  ✦ CINEBOOK VIP PREMIERE PASS
+                </span>
+                <span className="text-[11px] sm:text-xs font-mono font-bold text-[#DFC49D] px-2 py-0.5 rounded bg-[#C7A675]/20 border border-[#C7A675]/40">
+                  ₹5.00 TICKET
+                </span>
               </div>
-              <div className="space-y-1">
-                <h3 className="font-display text-xl sm:text-3xl font-bold text-[#F3F0E8]">{activeMovie.title}</h3>
-                <p className="text-xs text-[#A8ADB4]">{activeMovie.genre.join(', ')} • {activeMovie.duration}</p>
+              <div className="relative z-10 space-y-1.5 my-auto">
+                <h3 className="font-display text-2xl sm:text-3xl font-bold text-[#F3F0E8] tracking-wide">{activeMovie.title}</h3>
+                <p className="text-xs text-[#A8ADB4] font-medium">{activeMovie.genre.slice(0, 3).join(' • ')}  |  {activeMovie.duration}</p>
               </div>
-              <div className="flex items-center justify-between pt-2.5 border-t border-[#C7A675]/20 text-xs">
-                <span className="text-[#A8ADB4]">AUDI 1 • VIP RECLINER</span>
-                <span className="text-[#C7A675] font-bold">★ {activeMovie.rating.toFixed(1)} / 10</span>
+              <div className="relative z-10 flex items-center justify-between pt-2.5 border-t border-[#C7A675]/25 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#A8ADB4] text-[11px]">AUDI 1 • A1, A2 (VIP)</span>
+                  <span className="text-[#C7A675] font-bold">★ {activeMovie.rating.toFixed(1)} / 10</span>
+                </div>
+                <span className="font-mono text-[10px] text-[#A8ADB4] tracking-widest">#CINEBOOK-VIP</span>
               </div>
             </div>
           )}

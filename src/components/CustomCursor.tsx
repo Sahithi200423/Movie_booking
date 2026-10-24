@@ -24,9 +24,53 @@ export const CustomCursor: React.FC = () => {
   const ringPos = useRef({ x: -100, y: -100 });
   const isVisibleRef = useRef(false);
   const animFrameId = useRef<number | null>(null);
+  const isLoopRunningRef = useRef(false);
+  const isHoveringRef = useRef(false);
+  const cursorTextRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Immediately skip on touch-only mobile devices to eliminate any touch drag latency
+    const isTouchOnly = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (isTouchOnly) return;
+
+    // Start render loop only on demand
+    const startRenderLoop = () => {
+      if (isLoopRunningRef.current) return;
+      isLoopRunningRef.current = true;
+      animFrameId.current = requestAnimationFrame(render);
+    };
+
+    // Smooth inertia render loop for outer champagne aura ring
+    const render = () => {
+      if (isVisibleRef.current) {
+        const dx = mousePos.current.x - ringPos.current.x;
+        const dy = mousePos.current.y - ringPos.current.y;
+        const dist = Math.abs(dx) + Math.abs(dy);
+
+        if (dist > 0.15) {
+          const lerp = 0.22;
+          ringPos.current.x += dx * lerp;
+          ringPos.current.y += dy * lerp;
+
+          if (ringRef.current) {
+            ringRef.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0)`;
+          }
+          animFrameId.current = requestAnimationFrame(render);
+          return;
+        } else {
+          // Snap to rest position and stop loop
+          ringPos.current.x = mousePos.current.x;
+          ringPos.current.y = mousePos.current.y;
+          if (ringRef.current) {
+            ringRef.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0)`;
+          }
+        }
+      }
+
+      isLoopRunningRef.current = false;
+    };
 
     // Handler for pointer movements (dynamically discriminates mouse/pen vs touch)
     const onPointerMove = (e: PointerEvent) => {
@@ -47,7 +91,6 @@ export const CustomCursor: React.FC = () => {
       if (!isVisibleRef.current) {
         isVisibleRef.current = true;
         setIsVisible(true);
-        // Initialize ring pos to avoid flying across the screen on first enter
         ringPos.current.x = e.clientX;
         ringPos.current.y = e.clientY;
         document.documentElement.classList.add('custom-cursor-active');
@@ -58,20 +101,27 @@ export const CustomCursor: React.FC = () => {
         dotRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
       }
 
-      // Check element under pointer for interactive attributes
+      // Wake up the inertia render loop if sleeping
+      startRenderLoop();
+
+      // Check element under pointer for interactive attributes (only trigger state if changed)
       const target = e.target as HTMLElement | null;
       if (target) {
         const interactive = target.closest(
           'a, button, [role="button"], input, select, textarea, label, [data-cursor], .cursor-pointer'
         );
 
-        if (interactive) {
-          setIsHoveringInteractive(true);
-          const customText = interactive.getAttribute('data-cursor');
-          setCursorText(customText || null);
-        } else {
-          setIsHoveringInteractive(false);
-          setCursorText(null);
+        const isInteractiveNow = Boolean(interactive);
+        const nextText = interactive ? interactive.getAttribute('data-cursor') || null : null;
+
+        if (isInteractiveNow !== isHoveringRef.current) {
+          isHoveringRef.current = isInteractiveNow;
+          setIsHoveringInteractive(isInteractiveNow);
+        }
+
+        if (nextText !== cursorTextRef.current) {
+          cursorTextRef.current = nextText;
+          setCursorText(nextText);
         }
       }
     };
@@ -97,27 +147,13 @@ export const CustomCursor: React.FC = () => {
       isVisibleRef.current = true;
       setIsVisible(true);
       document.documentElement.classList.add('custom-cursor-active');
+      startRenderLoop();
     };
 
     const onWindowBlur = () => {
       isVisibleRef.current = false;
       setIsVisible(false);
       document.documentElement.classList.remove('custom-cursor-active');
-    };
-
-    // Smooth inertia render loop for outer champagne aura ring
-    const render = () => {
-      if (isVisibleRef.current) {
-        const lerp = 0.18;
-        ringPos.current.x += (mousePos.current.x - ringPos.current.x) * lerp;
-        ringPos.current.y += (mousePos.current.y - ringPos.current.y) * lerp;
-
-        if (ringRef.current) {
-          ringRef.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0)`;
-        }
-      }
-
-      animFrameId.current = requestAnimationFrame(render);
     };
 
     // Register passive window listeners
@@ -127,8 +163,6 @@ export const CustomCursor: React.FC = () => {
     document.addEventListener('mouseleave', onMouseLeave);
     document.addEventListener('mouseenter', onMouseEnter);
     window.addEventListener('blur', onWindowBlur);
-
-    animFrameId.current = requestAnimationFrame(render);
 
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
@@ -140,6 +174,7 @@ export const CustomCursor: React.FC = () => {
       if (animFrameId.current) {
         cancelAnimationFrame(animFrameId.current);
       }
+      isLoopRunningRef.current = false;
       document.documentElement.classList.remove('custom-cursor-active');
     };
   }, []); // Run once on mount

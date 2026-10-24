@@ -32,6 +32,22 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
     returnSpeed: 450
   });
 
+  // Intelligently prefetch downstream route chunks on user hover/focus
+  const preloadNextRoutes = () => {
+    import('../pages/MovieDetailsPage');
+    import('../pages/SeatSelectionPage');
+  };
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    preloadNextRoutes();
+    onMouseEnter(e);
+  };
+
+  const handleFocus = () => {
+    preloadNextRoutes();
+    onFocus();
+  };
+
   const handleBookNow = (e: React.MouseEvent) => {
     e.stopPropagation();
     setActiveMovie(movie);
@@ -64,9 +80,9 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
         onClick={handleViewDetails}
         onKeyDown={handleKeyDown}
         onMouseMove={onMouseMove}
-        onMouseEnter={onMouseEnter}
+        onMouseEnter={handleMouseEnter}
         onMouseLeave={onMouseLeave}
-        onFocus={onFocus}
+        onFocus={handleFocus}
         onBlur={onBlur}
         className="relative flex flex-col rounded-2xl overflow-hidden border border-slate-200 dark:border-[#C7A675]/15 bg-white dark:bg-[#15171B] shadow-sm dark:shadow-[0_16px_36px_-12px_rgba(0,0,0,0.8)] hover:border-[#C7A675]/60 hover:shadow-2xl hover:shadow-[#C7A675]/15 focus-visible:ring-2 focus-visible:ring-[#C7A675] focus-visible:outline-none transition-colors duration-300 cursor-pointer preserve-3d"
         style={{ transformStyle: 'preserve-3d' }}
@@ -76,6 +92,8 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false })
           <img
             src={movie.posterUrl}
             alt={movie.title}
+            width={300}
+            height={450}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"

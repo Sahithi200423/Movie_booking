@@ -283,6 +283,18 @@ html:not(.dark) .cinema-glass-nav {
   border-bottom: 1px solid rgba(199, 166, 117, 0.15);
 }
 
+/* Mobile GPU performance optimization: reduce heavy blur passes on phone viewports */
+@media (max-width: 768px) {
+  .cinema-glass,
+  .cinema-glass-card,
+  .cinema-glass-nav,
+  .glass-panel,
+  .glass-nav {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+}
+
 /* Backward compatibility aliases */
 .glass-panel {
   background: rgba(20, 22, 31, 0.85);

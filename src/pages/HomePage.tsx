@@ -82,7 +82,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 2. FILTER & SEARCH CONTROL BAR */}
-      <section id="explore-movies-grid" className="sticky top-16 sm:top-18 z-30 bg-slate-50/95 dark:bg-[#08090B]/90 backdrop-blur-xl border-b border-slate-200 dark:border-[#C7A675]/15 py-4 transition-colors">
+      <section id="explore-movies-grid" className="sticky top-16 sm:top-18 z-30 bg-slate-50/98 dark:bg-[#08090B]/95 md:backdrop-blur-md border-b border-slate-200 dark:border-[#C7A675]/15 py-4 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           
           {/* Main Category Tabs */}

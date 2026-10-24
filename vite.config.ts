@@ -25,6 +25,27 @@ export default defineConfig(({ mode }) => {
           ws: true,
         }
       }
+    },
+    build: {
+      chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/three')) {
+              return 'vendor-three';
+            }
+            if (id.includes('node_modules/html5-qrcode') || id.includes('node_modules/qrcode')) {
+              return 'vendor-qrcode';
+            }
+            if (id.includes('node_modules/@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('node_modules/lucide-react')) {
+              return 'vendor-icons';
+            }
+          }
+        }
+      }
     }
   }
 })

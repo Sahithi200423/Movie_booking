@@ -88,6 +88,10 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
   return (data || {}) as T;
 }
 
+// In-memory Stale-While-Revalidate cache for safe, static catalog data
+const catalogCache = new Map<string, { data: any; timestamp: number }>();
+const CATALOG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes TTL
+
 // ----------------- MOVIES API -----------------
 export async function getMovies(filters?: {
   language?: string;
@@ -96,6 +100,29 @@ export async function getMovies(filters?: {
   status?: string;
   search?: string;
 }): Promise<Movie[]> {
+  const cacheKey = `movies:${JSON.stringify(filters || {})}`;
+  const cached = catalogCache.get(cacheKey);
+
+  // Return cached movies immediately if fresh
+  if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+    // Background revalidate if older than 60s
+    if (Date.now() - cached.timestamp > 60000) {
+      const params = new URLSearchParams();
+      if (filters?.language && filters.language !== 'All Languages') params.append('language', filters.language);
+      if (filters?.genre && filters.genre !== 'All Genres') params.append('genre', filters.genre);
+      if (filters?.city) params.append('city', filters.city);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.search) params.append('search', filters.search);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      apiRequest<{ success: boolean; movies: Movie[] }>(`/movies${query}`)
+        .then(res => {
+          if (res?.movies) catalogCache.set(cacheKey, { data: res.movies, timestamp: Date.now() });
+        })
+        .catch(() => {});
+    }
+    return cached.data;
+  }
+
   try {
     const params = new URLSearchParams();
     if (filters?.language && filters.language !== 'All Languages') params.append('language', filters.language);
@@ -106,6 +133,9 @@ export async function getMovies(filters?: {
 
     const query = params.toString() ? `?${params.toString()}` : '';
     const res = await apiRequest<{ success: boolean; movies: Movie[] }>(`/movies${query}`);
+    if (res?.movies) {
+      catalogCache.set(cacheKey, { data: res.movies, timestamp: Date.now() });
+    }
     return res.movies;
   } catch (err) {
     console.warn('[API] Fallback to local movie dataset:', (err as Error).message);
@@ -137,8 +167,17 @@ export async function getMovies(filters?: {
 }
 
 export async function getMovieById(id: string): Promise<Movie | null> {
+  const cacheKey = `movie:${id}`;
+  const cached = catalogCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+    return cached.data;
+  }
+
   try {
     const res = await apiRequest<{ success: boolean; movie: Movie }>(`/movies/${id}`);
+    if (res?.movie) {
+      catalogCache.set(cacheKey, { data: res.movie, timestamp: Date.now() });
+    }
     return res.movie;
   } catch (err) {
     console.warn('[API] Fallback to local movie item:', (err as Error).message);
@@ -148,9 +187,18 @@ export async function getMovieById(id: string): Promise<Movie | null> {
 
 // ----------------- CINEMAS API -----------------
 export async function getCinemas(city?: string): Promise<Cinema[]> {
+  const cacheKey = `cinemas:${city || 'all'}`;
+  const cached = catalogCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+    return cached.data;
+  }
+
   try {
     const query = city ? `?city=${encodeURIComponent(city)}` : '';
     const res = await apiRequest<{ success: boolean; cinemas: Cinema[] }>(`/cinemas${query}`);
+    if (res?.cinemas) {
+      catalogCache.set(cacheKey, { data: res.cinemas, timestamp: Date.now() });
+    }
     return res.cinemas;
   } catch (err) {
     return CINEMAS.filter(c => !city || (c.city && c.city.toLowerCase() === city.toLowerCase()));

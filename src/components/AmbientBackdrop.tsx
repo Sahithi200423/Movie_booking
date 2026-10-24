@@ -73,11 +73,11 @@ export const AmbientBackdrop: React.FC<AmbientBackdropProps> = ({
         }}
       />
 
-      {/* 3. Secondary Off-Axis Atmospheric Aura */}
+      {/* 3. Secondary Off-Axis Atmospheric Aura (GPU-optimized radial gradient) */}
       <div
-        className={`absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[100px] ${opacityMap.aura} transition-all duration-700 transform-gpu`}
+        className={`absolute -top-32 -right-32 w-96 h-96 rounded-full ${opacityMap.aura} transition-all duration-700 transform-gpu`}
         style={{
-          backgroundColor: secondaryColor,
+          background: `radial-gradient(circle, ${secondaryColor} 0%, transparent 70%)`,
         }}
       />
 
